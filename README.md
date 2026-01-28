@@ -113,7 +113,7 @@ Or use the full orchestra script:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  USER → @COORDINATOR                                            │
+│  USER → @CONDUCTOR                                              │
 │                                                                 │
 │   requirement ──▶ delegates to @architect + @designer           │
 │                           │                                     │
