@@ -15,10 +15,10 @@ debussy/
 ├── CLAUDE.md                    # Universal guidelines (Karpathy principles + multi-agent rules)
 ├── WORKFLOW.md                  # Complete operational guide
 ├── .claude/subagents/
-│   ├── coordinator.md           # The Conductor — orchestrates all agents
+│   ├── conductor.md           # The Conductor — orchestrates all agents
 │   ├── developer.md             # Implements features, fixes bugs
-│   ├── architect.md             # Reviews structure, creates ADRs
-│   ├── designer.md              # UX/UI review, accessibility
+│   ├── architect.md             # Plans technical approach, reviews structure, creates ADRs
+│   ├── designer.md              # Plans UX, reviews accessibility
 │   ├── tester.md                # Writes tests, runs coverage
 │   ├── reviewer.md              # Code review, security audit
 │   ├── documenter.md            # Documentation, READMEs
@@ -56,31 +56,31 @@ cd /path/to/your-project
 # Initialize Beads
 bd init
 bd setup claude
-
-# Create your first task
-bd create "Implement user authentication" -t feature -p 1
 ```
 
 ### Run
 
-**Option A: Full orchestra**
+**Start with the conductor:**
 ```bash
-./scripts/start-agents.sh
-```
-This opens a tmux workspace with all agents ready.
-
-**Option B: Manual ensemble**
-```bash
-# Terminal 1: Start handoff watcher
-./scripts/handoff-watcher.sh watch
-
-# Terminal 2: Coordinator
 claude
-# → "Run as @coordinator. Check bd ready and assign tasks."
+# → "Run as @conductor. Here's my requirement: [your requirement]"
+```
 
-# Terminal 3+: Workers
+The conductor will:
+1. Delegate planning to @architect (and @designer if UI-related)
+2. Wait for beads to be created
+3. Assign tasks to workers
+
+**For parallel execution, add worker terminals:**
+```bash
+# Terminal 2+: Workers
 claude --resume
 # → "Run as @developer. Check bd ready for my assigned tasks."
+```
+
+Or use the full orchestra script:
+```bash
+./scripts/start-agents.sh
 ```
 
 ---
@@ -111,10 +111,20 @@ claude --resume
 
 ## The Pipeline
 
-Work flows automatically through stages:
-
 ```
 ┌─────────────────────────────────────────────────────────────────┐
+│  USER → @COORDINATOR                                            │
+│                                                                 │
+│   requirement ──▶ delegates to @architect + @designer           │
+│                           │                                     │
+│                           ▼                                     │
+│                    beads created                                │
+│                           │                                     │
+│                           ▼                                     │
+│              @conductor assigns from bd ready                 │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  EXECUTION                                                      │
 │                                                                 │
 │   feature ──▶ test ──▶ review ──▶ integration ──▶ done         │
 │      │          │         │            │                        │
@@ -145,10 +155,10 @@ Work flows automatically through stages:
 
 | Role | Writes Code | Purpose |
 |------|-------------|---------|
-| **@coordinator** | ❌ | Assigns work, monitors progress, handles escalations |
+| **@conductor** | ❌ | Entry point. Receives requirements, delegates planning, assigns tasks, monitors progress |
+| **@architect** | ❌ | Plans technical approach, breaks down requirements, reviews structure, creates ADRs |
+| **@designer** | ❌ | Plans UX flows and states, defines accessibility requirements, reviews UI |
 | **@developer** | ✅ | Implements features, fixes bugs |
-| **@architect** | ❌ | Reviews structure, files refactor Beads, creates ADRs |
-| **@designer** | ❌ | UX/UI review, accessibility audit, design consistency |
 | **@tester** | ✅ (tests) | Writes tests, runs coverage, reports results |
 | **@reviewer** | ❌ | Code review, security audit, files issue Beads |
 | **@documenter** | ✅ (docs) | READMEs, API docs, code comments |
