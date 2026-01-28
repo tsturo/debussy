@@ -33,24 +33,37 @@ mkdir -p .claude/subagents
 
 ## Daily Workflow
 
-### Option A: Fully Automated (Recommended)
+### Starting Work
+
+Always start with the conductor:
+
+```bash
+claude
+# "Run as @conductor. Here's my requirement: [your requirement]"
+```
+
+The conductor will:
+1. Delegate planning to @architect (and @designer if UI work)
+2. Wait for beads to be created
+3. Assign tasks from `bd ready`
+
+### Execution Options
+
+**Option A: Fully Automated (Recommended)**
 
 **Terminal 1 - Handoff Watcher**
 ```bash
-# Start the automated handoff system
 ./scripts/handoff-watcher.sh watch
 ```
-This watches for completed tasks and automatically creates the next step.
 
-**Terminal 2 - Coordinator**
+**Terminal 2 - Conductor**
 ```bash
 claude
-# "Run as @coordinator. Monitor bd ready and assign tasks to available agents."
+# "Run as @conductor. Here's my requirement: [your requirement]"
 ```
 
 **Terminals 3-6 - Workers**
 ```bash
-# Each worker picks up assigned tasks
 claude --resume
 # "Run as @developer. Check bd ready for tasks assigned to me."
 ```
@@ -69,27 +82,25 @@ Run handoff checks manually when agents complete work:
 
 ### Option C: Manual (Learning Mode)
 
-### Option C: Manual (Learning Mode)
-
 Good for understanding the system before automating.
 
 ### Morning: Plan the Day
+
+**Always start with conductor:**
 ```bash
-# See what's ready to work on
-bd ready
+claude
+# "Run as @conductor. Here's what I need: [requirement]"
+```
 
-# See overall status
-bd stats
-
-# Create today's work if needed
-bd create "Implement user authentication" -p 1
-bd create "Write tests for auth" -p 2 --blocks bd-xxx
-bd create "Document auth API" -p 3 --blocks bd-yyy
+**If continuing existing work:**
+```bash
+claude
+# "Run as @conductor. Check bd ready and assign tasks."
 ```
 
 ### Working: Main Session + Subagents
 
-**Terminal 1 - Main Session (Coordinator)**
+**Terminal 1 - Main Session (Conductor)**
 ```bash
 claude
 # "I'm working on the auth module. Let me check bd ready first."
@@ -147,7 +158,19 @@ bd ready  # See what's next for tomorrow
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                        FEATURE PIPELINE                              │
+│                        PLANNING PHASE                                │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────┐    ┌─────────────┐    ┌────────────────────┐    ┌───────┐ │
+│  │ user │───▶│ @conductor│───▶│@architect +@designer│───▶│ beads │ │
+│  └──────┘    └─────────────┘    └────────────────────┘    └───────┘ │
+│                     │                                          │     │
+│                     └──────────── assigns from bd ready ◀──────┘     │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                        EXECUTION PHASE                               │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────────┐       │
@@ -179,6 +202,7 @@ bd ready  # See what's next for tomorrow
 
 | When this completes... | Automation creates... | Assigns to |
 |------------------------|----------------------|------------|
+| `planning` (done) | Tasks in `bd ready` | @conductor assigns |
 | `feature` (done) | `test: [title]` | @tester |
 | `test` (done, passed) | `review: [title]` | @reviewer |
 | `test` (done, failed) | `bug: fix [title]` | @developer |
@@ -330,30 +354,40 @@ bd create "Merge auth to develop" -p 1 --blocks bd-auth-review --assign integrat
 
 ---
 
-## The Coordinator Role
+## The Conductor Role
 
-The @coordinator is the "Mayor" - it orchestrates all other agents without writing code.
+The @conductor is your single entry point. Talk to conductor first, always.
 
-### Running the Coordinator
+**Conductor DOES:**
+- Receive requirements from user
+- Delegate planning to @architect and @designer
+- Assign tasks from `bd ready` after planning
+- Monitor progress and handle blockers
+- Manage the execution pipeline
+
+**Conductor does NOT:**
+- Write code
+- Make technical decisions (delegates to @architect)
+- Define UX (delegates to @designer)
+
+### Running the Conductor
 
 **Dedicated terminal:**
 ```bash
 claude
 ```
 
-**Initial prompt:**
+**Initial prompt (new work):**
 ```
-Run as @coordinator agent. Your job is to:
-1. Check `bd ready` for unassigned tasks
-2. Assign tasks to appropriate agents (@developer, @tester, etc.)
-3. Monitor `bd list --status in-progress` for stuck work
-4. Handle escalations and blockers
-5. Keep the pipeline flowing
-
-Start by running `bd ready` and `bd stats` to see current state.
+Run as @conductor. Here's my requirement: [describe what you need]
 ```
 
-### Coordinator Commands
+**Initial prompt (continuing):**
+```
+Run as @conductor. Check bd ready and assign tasks.
+```
+
+### Conductor Commands
 
 ```bash
 # See what needs assignment
@@ -377,7 +411,7 @@ tail -f logs/handoffs.log
 
 ### When to Intervene
 
-The coordinator should step in when:
+The conductor should step in when:
 
 1. **Task stuck > 2 hours** - Reassign or break into smaller tasks
 2. **Pipeline backup** - Too many reviews pending? Prioritize @reviewer
@@ -416,7 +450,7 @@ tmux new-session -d -s $SESSION
 # Top pane - handoff watcher
 tmux send-keys "./scripts/handoff-watcher.sh watch" C-m
 
-# Split for coordinator
+# Split for conductor
 tmux split-window -v
 tmux send-keys "claude" C-m
 

@@ -8,11 +8,9 @@ This file contains behavioral guidelines for all agents. Role-specific instructi
 
 ---
 
-## Core Principles (Karpathy Guidelines)
+## Core Principles
 
 These principles reduce common LLM coding mistakes. All agents follow these unless their role explicitly overrides them.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
 ### 1. Think Before Coding
 
@@ -76,7 +74,7 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require clarification.
 
-**Multi-agent rule:** Your Bead description IS your success criteria. If it's vague, ask @coordinator for clarification before starting.
+**Multi-agent rule:** Your Bead description IS your success criteria. If it's vague, ask @conductor for clarification before starting.
 
 ---
 
@@ -115,26 +113,31 @@ Handoffs are automated — completing a task triggers the next pipeline step.
 
 Specialized agents for parallel work. Each has a dedicated role file in `.claude/subagents/`.
 
-### @coordinator (The Mayor)
-- Orchestrates all other agents
-- Assigns tasks from `bd ready`
-- Triggers handoffs, handles escalations
-- **Does not write code**
+### @conductor (Entry Point)
+- Single entry point for all work — user talks to conductor first
+- Receives requirements, delegates planning to @architect/@designer
+- Assigns tasks from `bd ready` after planning completes
+- Monitors progress, triggers handoffs, handles escalations
+- **Does not write code or make technical decisions**
+
+### @architect
+- Receives planning requests from @conductor
+- Analyzes requirements, plans technical approach
+- Breaks down requirements into tasks with dependencies
+- Reviews code structure and design, creates ADRs
+- **Does not write production code** — creates Beads
+
+### @designer
+- Receives planning requests from @conductor (for UI work)
+- Plans UX flows, states, and accessibility requirements
+- Collaborates with @architect during planning phase
+- Reviews implemented UI for usability and accessibility
+- **Does not write code** — creates Beads
 
 ### @developer
 - Implements features and fixes bugs
 - Writes production code with tests
-- Follows all four Karpathy principles strictly
-
-### @architect
-- Reviews code structure and design
-- Creates ADRs in `docs/adr/`
-- **Exception to Principle #3:** May recommend refactors — but files Beads, doesn't change code directly
-
-### @designer
-- Reviews UI/UX, accessibility, design consistency
-- Checks WCAG compliance, component structure
-- **Does not write code** — files Beads for issues found
+- Follows all four principles strictly
 
 ### @tester
 - Writes unit and integration tests
@@ -169,7 +172,9 @@ Specialized agents for parallel work. Each has a dedicated role file in `.claude
 
 | Situation | Action | Who |
 |-----------|--------|-----|
-| New feature needed | Create Bead, assign | @coordinator |
+| New requirement received | Receive, delegate planning | @conductor |
+| Planning needed | Analyze, create Beads | @architect + @designer |
+| Tasks ready for assignment | Assign from `bd ready` | @conductor |
 | Implementation work | Write code, tests | @developer |
 | Code seems overcomplicated | File refactor Bead | @architect |
 | UI/UX concerns | Review, file issues | @designer |
@@ -202,12 +207,12 @@ Don't rely on verbal/chat communication — if it's not in Beads, it didn't happ
 
 ## Pipeline Flow
 
-Work flows automatically through stages:
-
 ```
-feature → test → review → integration + docs
-                              ↓
-                            done
+USER → @conductor → delegates to @architect + @designer → beads created
+                                                                  ↓
+                                              @conductor assigns from bd ready
+                                                                  ↓
+EXECUTION:  feature → test → review → integration + docs → done
 ```
 
 **Handoffs are automated.** When you mark a task `done`, the system creates the next task and assigns it.
@@ -216,6 +221,7 @@ feature → test → review → integration + docs
 
 | Completed Task | Next Task Created | Assigned To |
 |----------------|-------------------|-------------|
+| `planning` (done) | Tasks ready in `bd ready` | @conductor assigns |
 | `feature` (done) | `test: [title]` | @tester |
 | `test` (passed) | `review: [title]` | @reviewer |
 | `test` (failed) | `bug: fix [title]` | @developer |

@@ -2,27 +2,9 @@
 
 **Multi-agent orchestration for Claude Code.**
 
-*Named after Claude Debussy, the impressionist composer — because great work emerges when many voices play in harmony.*
+*Named after Claude Debussy, the impressionist composer.*
 
-> *"Music is the space between the notes."* — Claude Debussy
-
-Beads for memory. Native subagents for roles. Bash for automation.  
-No frameworks. No $100/hour burn rate. Just a sensible starting point.
-
----
-
-## Why This Exists
-
-Multi-agent Claude Code is powerful but the options are overwhelming:
-
-| Tool | Problem |
-|------|---------|
-| **Gas Town** | Complex, chaotic, requires Stage 7+ experience, $100/hr burn |
-| **Beads alone** | Great memory, but no roles, no handoffs, no coordination |
-| **claude-flow** | Feature overload, steep learning curve |
-| **Native subagents** | No state persistence, no pipeline automation |
-
-**Debussy fills the gap** — a learnable, practical setup that teaches you multi-agent fundamentals before you graduate to heavier tools.
+Beads for memory. Native subagents for roles. Bash for automation.
 
 ---
 
@@ -33,10 +15,10 @@ debussy/
 ├── CLAUDE.md                    # Universal guidelines (Karpathy principles + multi-agent rules)
 ├── WORKFLOW.md                  # Complete operational guide
 ├── .claude/subagents/
-│   ├── coordinator.md           # The Conductor — orchestrates all agents
+│   ├── conductor.md           # The Conductor — orchestrates all agents
 │   ├── developer.md             # Implements features, fixes bugs
-│   ├── architect.md             # Reviews structure, creates ADRs
-│   ├── designer.md              # UX/UI review, accessibility
+│   ├── architect.md             # Plans technical approach, reviews structure, creates ADRs
+│   ├── designer.md              # Plans UX, reviews accessibility
 │   ├── tester.md                # Writes tests, runs coverage
 │   ├── reviewer.md              # Code review, security audit
 │   ├── documenter.md            # Documentation, READMEs
@@ -60,11 +42,11 @@ debussy/
 - [Claude Code](https://claude.ai/code) with Max plan (for parallel sessions)
 - tmux (optional, for multi-window setup)
 
-### Setup (2 minutes)
+### Setup
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USERNAME/debussy.git
+git clone https://github.com/anthropics/debussy.git
 cd debussy
 
 # Copy to your project
@@ -74,38 +56,36 @@ cd /path/to/your-project
 # Initialize Beads
 bd init
 bd setup claude
-
-# Create your first task
-bd create "Implement user authentication" -t feature -p 1
 ```
 
 ### Run
 
-**Option A: Full orchestra**
+**Start with the conductor:**
 ```bash
-./scripts/start-agents.sh
-```
-This opens a tmux workspace with all agents ready.
-
-**Option B: Manual ensemble**
-```bash
-# Terminal 1: Start handoff watcher
-./scripts/handoff-watcher.sh watch
-
-# Terminal 2: Conductor
 claude
-# → "Run as @coordinator. Check bd ready and assign tasks."
+# → "Run as @conductor. Here's my requirement: [your requirement]"
+```
 
-# Terminal 3+: Musicians
+The conductor will:
+1. Delegate planning to @architect (and @designer if UI-related)
+2. Wait for beads to be created
+3. Assign tasks to workers
+
+**For parallel execution, add worker terminals:**
+```bash
+# Terminal 2+: Workers
 claude --resume
 # → "Run as @developer. Check bd ready for my assigned tasks."
+```
+
+Or use the full orchestra script:
+```bash
+./scripts/start-agents.sh
 ```
 
 ---
 
 ## The Principles
-
-Based on [Andrej Karpathy's observations](https://github.com/forrestchang/andrej-karpathy-skills) about LLM coding pitfalls, adapted for multi-agent workflows:
 
 ### 1. Think Before Coding
 > Don't assume. Don't hide confusion. Surface tradeoffs.
@@ -131,10 +111,20 @@ Based on [Andrej Karpathy's observations](https://github.com/forrestchang/andrej
 
 ## The Pipeline
 
-Work flows automatically through stages:
-
 ```
 ┌─────────────────────────────────────────────────────────────────┐
+│  USER → @COORDINATOR                                            │
+│                                                                 │
+│   requirement ──▶ delegates to @architect + @designer           │
+│                           │                                     │
+│                           ▼                                     │
+│                    beads created                                │
+│                           │                                     │
+│                           ▼                                     │
+│              @conductor assigns from bd ready                 │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  EXECUTION                                                      │
 │                                                                 │
 │   feature ──▶ test ──▶ review ──▶ integration ──▶ done         │
 │      │          │         │            │                        │
@@ -165,10 +155,10 @@ Work flows automatically through stages:
 
 | Role | Writes Code | Purpose |
 |------|-------------|---------|
-| **@coordinator** | ❌ | Assigns work, monitors progress, handles escalations |
+| **@conductor** | ❌ | Entry point. Receives requirements, delegates planning, assigns tasks, monitors progress |
+| **@architect** | ❌ | Plans technical approach, breaks down requirements, reviews structure, creates ADRs |
+| **@designer** | ❌ | Plans UX flows and states, defines accessibility requirements, reviews UI |
 | **@developer** | ✅ | Implements features, fixes bugs |
-| **@architect** | ❌ | Reviews structure, files refactor Beads, creates ADRs |
-| **@designer** | ❌ | UX/UI review, accessibility audit, design consistency |
 | **@tester** | ✅ (tests) | Writes tests, runs coverage, reports results |
 | **@reviewer** | ❌ | Code review, security audit, files issue Beads |
 | **@documenter** | ✅ (docs) | READMEs, API docs, code comments |
@@ -177,79 +167,12 @@ Work flows automatically through stages:
 
 ---
 
-## When to Use This
-
-### ✅ Use Debussy if you:
-- Want to learn multi-agent orchestration fundamentals
-- Have a Claude Max plan and want to use parallel sessions productively
-- Prefer understanding your tools over black-box frameworks
-- Want something working in 10 minutes, not 10 hours
-
-### ❌ Use something else if you:
-- Need 20-30 agents running simultaneously → [Gas Town](https://github.com/steveyegge/gastown)
-- Want managed infrastructure and learning loops → [claude-flow](https://github.com/ruvnet/claude-flow)
-- Just need memory without roles → [Beads](https://github.com/steveyegge/beads) alone
-- Don't have Claude Max → Single-agent workflow is fine
-
----
-
-## Comparison
-
-| Feature | Debussy | Gas Town | claude-flow | Beads Only |
-|---------|---------|----------|-------------|------------|
-| Setup time | 2 min | 30+ min | 15 min | 1 min |
-| Learning curve | Low | High | Medium | Low |
-| Parallel agents | 5-10 | 20-30 | 10+ | Manual |
-| Automated handoffs | ✅ | ✅ | ✅ | ❌ |
-| Cost control | ✅ | ❌ | ✅ | ✅ |
-| State persistence | Beads | Beads | Built-in | Beads |
-| Pre-defined roles | 9 | 7 | 60+ | 0 |
-| Dependencies | Beads, bash | Beads, Go, tmux | Node.js | Go |
-
----
-
-## Roadmap
-
-- [ ] Example project with sample workflow
-- [ ] Slack/Discord notifications for handoffs
-- [ ] Cost tracking per agent
-- [ ] Conflict detection (warn when agents touch same files)
-- [ ] Web dashboard for pipeline status
-- [ ] Integration with GitHub Issues (two-way sync)
-
----
-
-## Contributing
-
-Contributions welcome! This project is intentionally simple — please keep it that way.
-
-**Good contributions:**
-- Bug fixes in handoff scripts
-- Documentation improvements
-- New agent roles (if genuinely useful)
-- Better error handling
-
-**Please discuss first:**
-- Major architectural changes
-- New dependencies
-- Framework integrations
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
----
-
 ## Credits
 
-- **[Beads](https://github.com/steveyegge/beads)** by Steve Yegge — The memory layer that makes this possible
-- **[Karpathy Guidelines](https://github.com/forrestchang/andrej-karpathy-skills)** by forrestchang — Principles adapted from Andrej Karpathy's observations
-- **[Gas Town](https://github.com/steveyegge/gastown)** — Inspiration for coordinator/worker architecture
+- **[Beads](https://github.com/steveyegge/beads)** by Steve Yegge — The memory layer
 
 ---
 
 ## License
 
 MIT License. See [LICENSE](LICENSE).
-
----
-
-*Because the best orchestras don't need chaos to make music.*
