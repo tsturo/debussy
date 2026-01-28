@@ -1,0 +1,42 @@
+# Logs
+logs/*.log
+*.log
+
+# State files (user-specific)
+.handoff-state
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Beads local cache (the JSONL is tracked, but SQLite cache isn't)
+.beads/*.db
+.beads/*.db-*
+
+# Temporary files
+*.tmp
+*.temp
+
+# Zip files (build artifacts)
+*.zip
+
+# Node (if used in examples)
+node_modules/
+package-lock.json
+
+# Python (if used in examples)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Keep these directories but ignore contents
+logs/*
+!logs/.gitkeep
