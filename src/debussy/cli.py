@@ -104,14 +104,23 @@ def cmd_status(args):
         icon = "📬" if count > 0 else "📭"
         print(f"  {icon} {agent:12} {count:3} pending")
 
-    print("\n📋 IN PROGRESS:")
-    result = subprocess.run(["bd", "list", "--status", "in-progress"],
-                          capture_output=True, text=True)
-    print(result.stdout if result.stdout.strip() else "  (none)")
+    print("\n📋 ALL BEADS:")
+    result = subprocess.run(["bd", "list"], capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"  (bd error: {result.stderr.strip()})")
+    elif result.stdout.strip():
+        for line in result.stdout.strip().split('\n')[:10]:
+            print(f"  {line}")
+    else:
+        print("  (none)")
 
-    print("⏳ READY:")
+    print("\n⏳ READY (unblocked):")
     result = subprocess.run(["bd", "ready"], capture_output=True, text=True)
-    print(result.stdout if result.stdout.strip() else "  (none)")
+    if result.stdout.strip():
+        for line in result.stdout.strip().split('\n')[:5]:
+            print(f"  {line}")
+    else:
+        print("  (none)")
     print()
 
 
