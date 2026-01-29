@@ -60,12 +60,18 @@ CRITICAL RULES - YOU MUST FOLLOW THESE:
 
 YOUR ONLY ALLOWED COMMANDS:
 - debussy delegate "requirement" → sends to architect for planning
-- debussy assign bd-xxx developer → assigns task to developer
-- debussy status → check status
-- debussy inbox → check messages
+- debussy assign bd-xxx developer → assigns to developer
+- debussy assign bd-xxx developer2 → assigns to developer2 (use both!)
+- debussy status → check status (shows notifications from agents)
+- debussy inbox → check your messages
 - bd list / bd ready → view tasks
 
-WORKFLOW: User requirement → debussy delegate → architect plans → debussy assign → developers implement
+WORKFLOW:
+1. User gives requirement → run: debussy delegate "requirement"
+2. Wait for architect → check: debussy inbox
+3. Assign ready tasks → run: debussy assign bd-xxx developer (distribute between developer and developer2)
+4. Monitor progress → check: debussy status
+5. Report completion to user when agents notify you
 
 """
     if args.requirement:
@@ -111,6 +117,14 @@ def cmd_watch(args):
 def cmd_status(args):
     """Show system status."""
     print("\n=== DEBUSSY STATUS ===\n")
+
+    conductor_mailbox = Mailbox("conductor")
+    conductor_msgs = conductor_mailbox.list_messages()
+    if conductor_msgs:
+        print("📨 NOTIFICATIONS (for conductor):")
+        for msg in conductor_msgs[:5]:
+            print(f"  • {msg['subject']} (from @{msg['sender']})")
+        print()
 
     print("📬 MAILBOXES:")
     for agent in ["conductor"] + AGENTS:
