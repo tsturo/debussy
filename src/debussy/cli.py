@@ -58,13 +58,15 @@ ONLY ALLOWED COMMANDS:
 - debussy inbox (check first!)
 - debussy status
 - debussy delegate "requirement"
-- debussy assign bd-xxx developer
+- debussy assign bd-xxx <agent>
 - bd ready / bd list
+
+AGENTS: architect, developer, developer2, tester, reviewer, integrator
 
 WORKFLOW:
 1. Check inbox for notifications
 2. Delegate to architect: debussy delegate "..."
-3. Assign ready tasks: debussy assign bd-xxx developer/developer2
+3. Assign ready tasks to appropriate agent
 4. Balance load between developer and developer2
 5. Report progress to user
 
