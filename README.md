@@ -41,8 +41,12 @@
 brew install beads  # Task tracking
 # Python 3.10+ required
 
-# 2. Start (from project root)
-PYTHONPATH=src python -m debussy start
+# 2. Install Debussy
+pip install git+https://github.com/tsturo/debussy.git
+
+# 3. Start in your project
+cd your-project
+debussy start
 ```
 
 This opens tmux with split panes:
@@ -52,6 +56,26 @@ This opens tmux with split panes:
 │ watcher  ├──────────┤
 │          │ status   │
 └──────────┴──────────┘
+```
+
+---
+
+## Setup for New Project
+
+```bash
+cd your-project
+
+# Initialize beads
+bd init
+
+# Copy agent configs
+git clone https://github.com/tsturo/debussy.git /tmp/debussy
+mkdir -p .claude/subagents
+cp /tmp/debussy/.claude/subagents/*.md .claude/subagents/
+cp /tmp/debussy/CLAUDE.md .
+
+# Start
+debussy start
 ```
 
 ---
