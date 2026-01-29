@@ -34,10 +34,11 @@ class Mailbox:
             "recipient": recipient,
             "subject": subject,
             "body": body,
-            "bead_id": bead_id,
             "priority": priority,
             "created_at": timestamp
         }
+        if bead_id:
+            msg["bead_id"] = bead_id
 
         with open(recipient_inbox / filename, 'w') as f:
             json.dump(msg, f, indent=2)
