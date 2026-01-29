@@ -40,6 +40,9 @@ def cmd_start(args):
     ], check=True)
 
     claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
+    if args.requirement:
+        prompt = f"Run as @conductor. {args.requirement}"
+        claude_cmd = f'{claude_cmd} -p "{prompt}"'
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.1",
         claude_cmd, "C-m"

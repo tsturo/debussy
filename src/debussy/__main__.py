@@ -18,6 +18,7 @@ def main():
 
     # start
     p = subparsers.add_parser("start", help="Start the system")
+    p.add_argument("requirement", nargs="?", help="Initial requirement for conductor")
     p.set_defaults(func=cli.cmd_start)
 
     # watch
