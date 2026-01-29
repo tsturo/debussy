@@ -2,12 +2,9 @@
 
 import json
 import subprocess
-import sys
 from datetime import datetime
 
 from .config import AGENTS, MAILBOX_ROOT, YOLO_MODE, SESSION_NAME
-
-PYTHON = sys.executable
 from .mailbox import Mailbox
 
 
@@ -39,7 +36,7 @@ def cmd_start(args):
 
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.0",
-        f"{PYTHON} -m debussy watch", "C-m"
+        "debussy watch", "C-m"
     ], check=True)
 
     claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
@@ -50,7 +47,7 @@ def cmd_start(args):
 
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.2",
-        f"watch -n 5 '{PYTHON} -m debussy status'", "C-m"
+        "watch -n 5 'debussy status'", "C-m"
     ], check=True)
 
     subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.0", "-T", "watcher"], check=True)
