@@ -4,18 +4,15 @@
 
 *Named after Claude Debussy, the impressionist composer.*
 
-<img width="1612" height="861" alt="image" src="https://github.com/user-attachments/assets/57efa398-fc45-4ecf-ba4d-0c85044f8959" />
-
 ---
 
 ## Prerequisites
 
 - **Python 3.10+**
-- **tmux** - terminal multiplexer for split-pane layout
-- **beads** - task tracking system
+- **tmux**
+- **beads** (`bd` CLI)
 
 ```bash
-# macOS
 brew install tmux beads
 brew install pipx && pipx ensurepath
 ```
@@ -25,15 +22,12 @@ brew install pipx && pipx ensurepath
 ## Quick Start
 
 ```bash
-# Install Debussy
 pipx install git+https://github.com/tsturo/debussy.git
-
-# Start in your project
 cd your-project
 debussy start
 ```
 
-This opens tmux with split panes:
+Opens tmux with split panes:
 ```
 ┌──────────┬──────────┐
 │          │ watcher  │
@@ -44,100 +38,70 @@ This opens tmux with split panes:
 
 ---
 
-## Core Concepts
+## How It Works
 
-### Agents
+### Pipeline
 
-Debussy runs multiple Claude Code instances, each with a specialized role. Agents are spawned on-demand by the watcher and exit when their task is complete.
-
-| Agent | Role | Writes Code |
-|-------|------|-------------|
-| **conductor** | Orchestrates all work. Receives requirements, asks clarifying questions, creates tasks, assigns to developers. Never writes code. | ❌ |
-| **developer/developer2** | Implements features on feature branches. Two developers enable parallel work and load balancing. | ✅ |
-| **tester** | Tests code and writes automated tests. Handles both initial testing and acceptance testing after merge. | ✅ |
-| **reviewer** | Reviews code for quality, security, performance. Approves or requests changes. | ❌ |
-| **integrator** | Merges feature branches to develop. Resolves merge conflicts. | ✅ |
-
-**Parallel execution:** Multiple agents can work simultaneously on different tasks. Tester can test task A while reviewer reviews task B.
-
-### Beads
-
-Persistent task tracking using the `bd` CLI. Unlike in-memory task lists, beads survive across agent sessions.
-
-Each bead has:
-- **ID** - Unique identifier (e.g., `bd-001`)
-- **Status** - Current pipeline stage
-- **Assignment** - Which agent owns it
-- **Dependencies** - What blocks it or what it blocks
-
-```bash
-bd create "Implement auth"    # Create task
-bd list --status pending      # List by status
-bd show bd-001                # View details
-bd update bd-001 --status testing --assign tester
-```
-
-### Mailbox
-
-File-based message queue for agent-to-agent communication. Each agent has an inbox directory where JSON messages are deposited.
+Tasks flow through statuses automatically:
 
 ```
-.mailbox/
-├── conductor/inbox/    # Receives notifications from all agents
-├── developer/inbox/    # Receives assignments and bug reports
-├── tester/inbox/       # Receives test requests
-├── reviewer/inbox/     # Receives review requests
-└── integrator/inbox/   # Receives merge requests
+pending → testing → reviewing → merging → acceptance → done
+   ↓         ↓          ↓           ↓          ↓
+developer  tester   reviewer   integrator   tester
 ```
 
-When an agent completes work, it notifies conductor. When issues are found, agents notify the responsible developer.
+The **watcher** polls bead statuses and spawns agents:
 
-### Watcher
-
-The watcher is a simple Python loop (not a Claude Code instance) that makes the system autonomous. It runs every 5 seconds and:
-
-1. **Checks mailboxes** - Scans inbox directories for new JSON messages
-2. **Checks task statuses** - Runs `bd list --status <status>` to find ready tasks
-3. **Spawns agents** - Starts Claude Code instances via `subprocess.Popen(["claude", ...])`
-4. **Cleans up** - Tracks running processes, removes finished ones
-
-```python
-while not self.should_exit:
-    self.check_agent_status()    # Clean up finished agents
-    self.check_mailboxes()       # Spawn agents for new messages
-    self.check_pipeline()        # Spawn agents for status changes
-    time.sleep(5)
-```
-
-**Status-to-agent mapping:**
-
-| Status | Agent Spawned |
-|--------|---------------|
+| Status | Agent |
+|--------|-------|
+| `pending` | developer |
 | `testing` | tester |
 | `reviewing` | reviewer |
 | `merging` | integrator |
 | `acceptance` | tester |
 
-The watcher is lightweight - no AI involved. AI only runs in the spawned agents. If it seems stuck, use `debussy trigger` to manually check the pipeline.
+**Parallelization:** Multiple developers/testers/reviewers run simultaneously. Integrator is singleton.
 
-### Pipeline
+**Feedback loops:** Failed tests or review → status back to `pending` → developer picks it up again.
 
-Tasks flow through automated stages. Each stage is handled by a specialist agent:
+### Agents
+
+| Agent | Role |
+|-------|------|
+| **conductor** | Creates tasks, monitors progress. Never writes code. |
+| **developer** | Implements features on feature branches. |
+| **tester** | Runs tests, writes automated tests. |
+| **reviewer** | Reviews code for quality and security. |
+| **integrator** | Merges to develop branch. |
+
+---
+
+## Usage
+
+Talk to conductor:
 
 ```
-pending → in-progress → testing → reviewing → merging → acceptance → done
+I need user authentication with JWT.
 ```
 
-**Flow:**
-1. **pending** - Task created, waiting for assignment
-2. **in-progress** - Developer implementing on feature branch
-3. **testing** - Tester runs manual + automated tests
-4. **reviewing** - Reviewer checks code quality
-5. **merging** - Integrator merges to develop branch
-6. **acceptance** - Tester does final verification after merge
-7. **done** - Complete
+Conductor creates tasks:
+```bash
+bd create "Implement JWT auth" --status pending
+bd create "Add login endpoint" --status pending
+```
 
-**Feedback loops:** If tester/reviewer/integrator find issues, they send the task back to developer and notify conductor.
+Watcher automatically spawns agents as tasks move through the pipeline.
+
+---
+
+## Commands
+
+```bash
+debussy start              # Start tmux session
+debussy status             # Show pipeline status
+debussy watch              # Run watcher only
+debussy upgrade            # Upgrade to latest
+```
 
 ---
 
@@ -145,8 +109,6 @@ pending → in-progress → testing → reviewing → merging → acceptance →
 
 ```bash
 cd your-project
-
-# Initialize beads
 bd init
 
 # Copy agent configs
@@ -155,88 +117,8 @@ mkdir -p .claude/subagents
 cp /tmp/debussy/.claude/subagents/*.md .claude/subagents/
 cp /tmp/debussy/CLAUDE.md .
 
-# Start
 debussy start
 ```
-
----
-
-## Usage
-
-Talk to conductor in the conductor pane:
-
-```
-I need user authentication with JWT.
-```
-
-Conductor will:
-1. Ask clarifying questions if needed
-2. Create tasks: `bd create "Implement login" -t task -a developer`
-3. Balance load between developer and developer2
-4. Developer implements → sets status `testing`
-5. Tester tests → sets status `reviewing`
-6. Reviewer approves → sets status `merging`
-7. Integrator merges → sets status `acceptance`
-8. Tester does acceptance testing → sets status `done`
-
-**Feedback loops:** If tester/reviewer find issues, task goes back to developer automatically.
-
----
-
-## Commands
-
-```bash
-debussy start                    # Start tmux session
-debussy start "requirement"      # Start with initial requirement
-debussy status                   # Show tasks by status
-debussy inbox                    # Check conductor's messages
-debussy assign bd-xxx developer  # Assign bead to agent
-debussy trigger                  # Manual pipeline check
-debussy upgrade                  # Upgrade to latest version
-debussy watch                    # Run watcher only
-debussy send agent "subject"     # Send message to agent
-```
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  USER → @CONDUCTOR                                              │
-│                                                                 │
-│   requirement ──▶ asks questions ──▶ creates tasks              │
-│                                           │                     │
-│                                           ▼                     │
-│                    assigns to developer/developer2 (balanced)   │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  PIPELINE (automated via watcher, runs in parallel)             │
-│                                                                 │
-│   in-progress ──▶ testing ──▶ reviewing ──▶ merging ──▶ acceptance ──▶ done
-│        │            │            │             │            │
-│     developer    tester      reviewer     integrator     tester
-│        ▲            │            │             │
-│        │            │            │             └── conflicts? ──┘
-│        │            │            └── changes requested? ────────┘
-│        └────────────└── tests failed? ──────────────────────────┘
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Git Workflow
-
-```
-main
-└── develop
-    ├── feature/bd-001-auth
-    ├── feature/bd-002-login
-    └── feature/bd-003-tokens
-```
-
-Commits reference beads: `[bd-001] Implement auth service`
 
 ---
 

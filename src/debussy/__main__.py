@@ -4,7 +4,6 @@
 import argparse
 import sys
 
-from .config import AGENTS
 from . import cli
 
 
@@ -16,56 +15,17 @@ def main():
 
     subparsers = parser.add_subparsers(dest="command")
 
-    # start
     p = subparsers.add_parser("start", help="Start the system")
-    p.add_argument("requirement", nargs="?", help="Initial requirement for conductor")
+    p.add_argument("requirement", nargs="?", help="Initial requirement")
     p.set_defaults(func=cli.cmd_start)
 
-    # watch
-    p = subparsers.add_parser("watch", help="Run mailbox watcher")
+    p = subparsers.add_parser("watch", help="Run watcher")
     p.set_defaults(func=cli.cmd_watch)
 
-    # status
-    p = subparsers.add_parser("status", help="Show system status")
+    p = subparsers.add_parser("status", help="Show status")
     p.set_defaults(func=cli.cmd_status)
 
-    # send
-    p = subparsers.add_parser("send", help="Send message")
-    p.add_argument("recipient", help="Recipient agent")
-    p.add_argument("subject", help="Message subject")
-    p.add_argument("--body", "-b", help="Message body")
-    p.add_argument("--bead", help="Related bead ID")
-    p.add_argument("--priority", "-p", type=int, help="Priority 1-5")
-    p.add_argument("--sender", "-s", help="Sender (default: conductor)")
-    p.set_defaults(func=cli.cmd_send)
-
-    # inbox
-    p = subparsers.add_parser("inbox", help="Check inbox")
-    p.add_argument("agent", nargs="?", help="Agent name (default: conductor)")
-    p.set_defaults(func=cli.cmd_inbox)
-
-    # pop
-    p = subparsers.add_parser("pop", help="Get next message")
-    p.add_argument("agent", help="Agent name")
-    p.set_defaults(func=cli.cmd_pop)
-
-    # assign
-    p = subparsers.add_parser("assign", help="Assign bead to agent")
-    p.add_argument("bead_id", help="Bead ID")
-    p.add_argument("agent", choices=AGENTS, help="Agent")
-    p.add_argument("--priority", "-p", type=int, help="Priority 1-5")
-    p.set_defaults(func=cli.cmd_assign)
-
-    # init
-    p = subparsers.add_parser("init", help="Initialize mailboxes")
-    p.set_defaults(func=cli.cmd_init)
-
-    # trigger
-    p = subparsers.add_parser("trigger", help="Manually trigger pipeline check")
-    p.set_defaults(func=cli.cmd_trigger)
-
-    # upgrade
-    p = subparsers.add_parser("upgrade", help="Upgrade to latest version")
+    p = subparsers.add_parser("upgrade", help="Upgrade to latest")
     p.set_defaults(func=cli.cmd_upgrade)
 
     args = parser.parse_args()
@@ -73,10 +33,9 @@ def main():
     if not args.command:
         parser.print_help()
         print("\nExamples:")
-        print("  python -m debussy start                    # Start the system")
-        print('  python -m debussy delegate "Add auth"      # Plan with architect')
-        print("  python -m debussy assign bd-001 developer  # Assign to developer")
-        print("  python -m debussy status                   # Show status")
+        print("  debussy start              # Start system")
+        print("  debussy status             # Show status")
+        print('  bd create "task" --status pending  # Create task')
         return 1
 
     return args.func(args) or 0

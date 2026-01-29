@@ -1,15 +1,14 @@
-"""Mailbox watcher - spawns agents on demand."""
+"""Watcher - spawns agents based on bead status."""
 
 import os
 import signal
 import subprocess
 from datetime import datetime
-from pathlib import Path
 
-from .config import AGENTS, POLL_INTERVAL, YOLO_MODE, MAILBOX_ROOT
-from .mailbox import Mailbox
+from .config import POLL_INTERVAL, YOLO_MODE, PARALLEL_ROLES, SINGLETON_ROLES
 
-PIPELINE_AGENTS = {
+STATUS_TO_ROLE = {
+    "pending": "developer",
     "testing": "tester",
     "reviewing": "reviewer",
     "merging": "integrator",
@@ -26,64 +25,113 @@ class Watcher:
         timestamp = datetime.now().strftime("%H:%M:%S")
         print(f"{timestamp} {icon} {msg}")
 
-    def is_task_running(self, task_id: str) -> bool:
-        for key, info in self.running.items():
-            if info.get("task") == task_id:
+    def is_bead_running(self, bead_id: str) -> bool:
+        for info in self.running.values():
+            if info.get("bead") == bead_id:
                 proc = info["proc"]
                 if proc.poll() is None:
                     return True
         return False
 
-    def start_agent(self, agent_name: str, message_file: Path):
-        import json as json_mod
-        task_name = message_file.stem
-        key = f"{agent_name}:{task_name}"
+    def is_singleton_running(self, role: str) -> bool:
+        for info in self.running.values():
+            if info.get("role") == role:
+                proc = info["proc"]
+                if proc.poll() is None:
+                    return True
+        return False
+
+    def get_prompt(self, role: str, bead_id: str, status: str) -> str:
+        if role == "developer":
+            return f"""You are a developer. Work on bead {bead_id}.
+
+1. bd show {bead_id}
+2. git checkout -b feature/{bead_id} (or checkout existing branch)
+3. Implement the task
+4. Commit and push changes
+5. bd update {bead_id} --status testing
+6. Exit
+
+Set status to "testing" when done. Pipeline continues automatically."""
+
+        elif role == "tester" and status == "testing":
+            return f"""You are a tester. Test bead {bead_id}.
+
+1. bd show {bead_id}
+2. git checkout feature/{bead_id}
+3. Run tests, verify functionality
+
+If PASS:
+  bd update {bead_id} --status reviewing
+  Exit
+
+If FAIL:
+  bd comment {bead_id} "Tests failed: [details]"
+  bd update {bead_id} --status pending
+  Exit"""
+
+        elif role == "tester" and status == "acceptance":
+            return f"""You are a tester. Acceptance test for bead {bead_id} (post-merge).
+
+1. bd show {bead_id}
+2. git checkout develop && git pull
+3. Run full test suite, verify feature works
+
+If PASS:
+  bd update {bead_id} --status done
+  Exit
+
+If FAIL:
+  bd comment {bead_id} "Acceptance failed: [details]"
+  bd update {bead_id} --status pending
+  Exit"""
+
+        elif role == "reviewer":
+            return f"""You are a code reviewer. Review bead {bead_id}.
+
+1. bd show {bead_id}
+2. git checkout feature/{bead_id}
+3. Review: git diff develop...HEAD
+
+If APPROVED:
+  bd update {bead_id} --status merging
+  Exit
+
+If CHANGES NEEDED:
+  bd comment {bead_id} "Review feedback: [details]"
+  bd update {bead_id} --status pending
+  Exit"""
+
+        elif role == "integrator":
+            return f"""You are an integrator. Merge bead {bead_id}.
+
+1. bd show {bead_id}
+2. git checkout develop && git pull
+3. git merge feature/{bead_id} --no-ff
+4. Resolve conflicts if any
+5. Run tests
+6. git push origin develop
+7. bd update {bead_id} --status acceptance
+8. Exit"""
+
+        return f"""You are a {role}. Work on bead {bead_id} (status={status}).
+
+1. bd show {bead_id}
+2. Do the work
+3. Update status when done
+4. Exit"""
+
+    def spawn_agent(self, role: str, bead_id: str, status: str):
+        key = f"{role}:{bead_id}"
 
         if key in self.running:
             proc = self.running[key]["proc"]
             if proc.poll() is None:
                 return
 
-        try:
-            message_content = message_file.read_text()
-            msg_data = json_mod.loads(message_content)
-            task_desc = msg_data.get("bead_id") or msg_data.get("subject", task_name)
-        except Exception:
-            message_content = f"Task: {task_name}"
-            task_desc = task_name
+        self.log(f"Spawning {role} for {bead_id}", "🚀")
 
-        self.log(f"Starting @{agent_name} ({task_desc})", "🚀")
-
-        role = agent_name.rstrip('2')
-
-        if role == "developer":
-            prompt = f"""You are @{agent_name} - a developer.
-
-YOUR TASK:
-{message_content}
-
-WORKFLOW:
-1. bd show <bead-id> to get details
-2. bd update <bead-id> --status in-progress
-3. Create feature branch: git checkout -b feature/<bead-id>
-4. Implement the task
-5. Commit and push your changes
-6. IMPORTANT: bd update <bead-id> --status testing
-7. debussy send conductor "Done <bead-id>" -b "Ready for testing"
-8. Exit
-
-CRITICAL: Set status to "testing" when done, NOT "done". Pipeline continues automatically."""
-        else:
-            prompt = f"""You are @{agent_name}.
-
-YOUR TASK:
-{message_content}
-
-1. bd show <bead-id> to get details
-2. bd update <bead-id> --status in-progress
-3. Do the work
-4. Update status and notify conductor
-5. Exit when finished"""
+        prompt = self.get_prompt(role, bead_id, status)
 
         cmd = ["claude"]
         if YOLO_MODE:
@@ -92,38 +140,18 @@ YOUR TASK:
 
         try:
             proc = subprocess.Popen(cmd, cwd=os.getcwd())
-            self.running[key] = {"proc": proc, "task": task_desc, "agent": agent_name}
-            message_file.unlink(missing_ok=True)
+            self.running[key] = {"proc": proc, "bead": bead_id, "role": role}
         except Exception as e:
-            self.log(f"Failed to start {agent_name}: {e}", "✗")
-
-    def check_mailboxes(self):
-        for agent_name in AGENTS:
-            try:
-                mailbox = Mailbox(agent_name)
-                if not mailbox.inbox.exists():
-                    continue
-
-                messages = list(mailbox.inbox.glob("*.json"))
-                for msg_file in sorted(messages):
-                    task_id = msg_file.stem
-                    if not self.is_task_running(task_id):
-                        self.log(f"@{agent_name} has message: {task_id}", "📬")
-                        self.start_agent(agent_name, msg_file)
-            except Exception as e:
-                self.log(f"Error checking mailbox for {agent_name}: {e}", "⚠️")
+            self.log(f"Failed to spawn {role}: {e}", "✗")
 
     def check_pipeline(self):
-        for status, agent_name in PIPELINE_AGENTS.items():
+        for status, role in STATUS_TO_ROLE.items():
             try:
                 result = subprocess.run(
                     ["bd", "list", "--status", status],
-                    capture_output=True, text=True,
-                    timeout=10
+                    capture_output=True, text=True, timeout=10
                 )
-                if result.returncode != 0:
-                    continue
-                if not result.stdout or not result.stdout.strip():
+                if result.returncode != 0 or not result.stdout.strip():
                     continue
 
                 for line in result.stdout.strip().split('\n'):
@@ -134,114 +162,30 @@ YOUR TASK:
                         continue
 
                     bead_id = parts[0]
-                    if bead_id and not self.is_task_running(bead_id):
-                        self.log(f"Task {bead_id} ready for @{agent_name} ({status})", "📋")
-                        self.start_pipeline_agent(agent_name, bead_id, status)
+                    if not bead_id:
+                        continue
+
+                    if self.is_bead_running(bead_id):
+                        continue
+
+                    if role in SINGLETON_ROLES and self.is_singleton_running(role):
+                        self.log(f"Waiting: {role} busy, {bead_id} queued", "⏳")
+                        continue
+
+                    self.spawn_agent(role, bead_id, status)
+
             except subprocess.TimeoutExpired:
-                self.log(f"Timeout checking {status} status", "⚠️")
+                self.log(f"Timeout checking {status}", "⚠️")
             except Exception as e:
-                self.log(f"Error checking pipeline {status}: {e}", "⚠️")
+                self.log(f"Error checking {status}: {e}", "⚠️")
 
-    def start_pipeline_agent(self, agent_name: str, bead_id: str, status: str):
-        key = f"{agent_name}:{bead_id}"
-
-        if key in self.running:
-            proc = self.running[key]["proc"]
-            if proc.poll() is None:
-                return
-
-        self.log(f"Starting @{agent_name} for {bead_id} (status={status})", "🚀")
-
-        if agent_name == "tester" and status == "testing":
-            prompt = f"""You are @tester. Task {bead_id} needs testing.
-
-1. bd show {bead_id}
-2. git checkout feature/{bead_id} (or find the branch)
-3. Run tests, check functionality
-
-If PASS:
-  bd update {bead_id} --status reviewing
-  debussy send conductor "PASS {bead_id}" -b "Tests passed. Status: reviewing"
-
-If FAIL:
-  bd update {bead_id} --status in-progress
-  debussy send developer "BUG {bead_id}" -b "Tests failed: [describe issue]"
-  debussy send conductor "FAIL {bead_id}" -b "Tests failed, sent to developer"
-
-Exit when done."""
-        elif agent_name == "tester" and status == "acceptance":
-            prompt = f"""You are @tester. Task {bead_id} needs acceptance testing (post-merge).
-
-1. bd show {bead_id}
-2. git checkout develop && git pull
-3. Run full test suite, verify feature works
-
-If PASS:
-  bd update {bead_id} --status done
-  debussy send conductor "ACCEPTED {bead_id}" -b "Acceptance passed. Done!"
-
-If FAIL:
-  bd update {bead_id} --status in-progress
-  debussy send developer "REGRESSION {bead_id}" -b "Acceptance failed: [describe issue]"
-  debussy send conductor "REJECTED {bead_id}" -b "Acceptance failed, sent to developer"
-
-Exit when done."""
-        elif agent_name == "reviewer":
-            prompt = f"""You are @reviewer. Task {bead_id} needs code review.
-
-1. bd show {bead_id}
-2. git checkout feature/{bead_id}
-3. Review code: git diff develop...HEAD
-
-If APPROVED:
-  bd update {bead_id} --status merging
-  debussy send conductor "APPROVED {bead_id}" -b "Code review passed. Status: merging"
-
-If CHANGES NEEDED:
-  bd update {bead_id} --status in-progress
-  debussy send developer "CHANGES {bead_id}" -b "Review feedback: [describe issues]"
-  debussy send conductor "CHANGES {bead_id}" -b "Changes requested, sent to developer"
-
-Exit when done."""
-        elif agent_name == "integrator":
-            prompt = f"""You are @integrator. Task {bead_id} needs to be merged.
-
-1. bd show {bead_id}
-2. git checkout develop && git pull
-3. git merge feature/{bead_id} --no-ff
-4. Resolve conflicts if any
-5. git push origin develop
-6. bd update {bead_id} --status acceptance
-7. debussy send conductor "Merged {bead_id}" -b "Status: acceptance"
-8. Exit"""
-        else:
-            role_file = Path(f".claude/subagents/{agent_name}.md")
-            prompt = f"""You are @{agent_name}. Task {bead_id} is ready (status={status}).
-
-1. bd show {bead_id}
-2. Do the work
-3. Update status when done
-4. debussy send conductor "Done {bead_id}"
-5. Exit"""
-
-        cmd = ["claude"]
-        if YOLO_MODE:
-            cmd.append("--dangerously-skip-permissions")
-        cmd.extend(["--print", prompt])
-
-        try:
-            proc = subprocess.Popen(cmd, cwd=os.getcwd())
-            self.running[key] = {"proc": proc, "task": bead_id, "agent": agent_name}
-        except Exception as e:
-            self.log(f"Failed to start {agent_name}: {e}", "✗")
-
-    def check_agent_status(self):
+    def cleanup_finished(self):
         for key, info in list(self.running.items()):
             proc = info["proc"]
             if proc.poll() is not None:
-                agent = info.get("agent", key)
-                task = info.get("task", "")
-                self.log(f"@{agent} finished {task} (code {proc.returncode})", "🛑")
+                role = info.get("role", "agent")
+                bead = info.get("bead", "")
+                self.log(f"{role} finished {bead} (exit {proc.returncode})", "🛑")
                 del self.running[key]
 
     def signal_handler(self, signum, frame):
@@ -255,31 +199,26 @@ Exit when done."""
 
         self.log(f"Watcher started (poll every {POLL_INTERVAL}s)", "👀")
 
-        MAILBOX_ROOT.mkdir(parents=True, exist_ok=True)
-        for agent in AGENTS + ["conductor"]:
-            Mailbox(agent).ensure_dirs()
-
         tick = 0
         while not self.should_exit:
             try:
-                self.check_agent_status()
-                self.check_mailboxes()
+                self.cleanup_finished()
                 self.check_pipeline()
 
                 tick += 1
                 if tick % 12 == 0:
                     if self.running:
-                        self.log("Running:", "🔄")
+                        self.log("Active agents:", "🔄")
                         for key, info in self.running.items():
-                            self.log(f"  @{info['agent']}: {info['task']}", "")
+                            self.log(f"  {info['role']}: {info['bead']}", "")
                     else:
-                        self.log("Idle - no agents running", "💤")
+                        self.log("Idle", "💤")
             except Exception as e:
-                self.log(f"Error in watcher loop: {e}", "⚠️")
+                self.log(f"Error: {e}", "⚠️")
             time.sleep(POLL_INTERVAL)
 
         self.log("Stopping agents...", "🛑")
-        for key, info in self.running.items():
+        for info in self.running.values():
             info["proc"].terminate()
 
         self.log("Watcher stopped")
