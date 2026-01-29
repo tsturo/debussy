@@ -50,43 +50,10 @@ def cmd_start(args):
         "watch -n 5 'debussy status'", "C-m"
     ], check=True)
 
-    conductor_rules = """Run as @conductor.
-
-FIRST: Always run "debussy inbox" when user asks anything - check for agent notifications!
-
-CRITICAL RULES:
-1. You are the ORCHESTRATOR, not a developer
-2. NEVER run: npx, npm, pip, cargo, or any build commands
-3. NEVER use Write or Edit tools
-4. NEVER write code yourself
-
-ALLOWED COMMANDS:
-- debussy inbox → ALWAYS CHECK FIRST for agent messages
-- debussy status → check status, progress, and workload
-- debussy delegate "requirement" → sends to architect
-- debussy assign bd-xxx <agent> → assigns task
-- debussy trigger → check if watcher is stuck, shows pending work
-- bd list / bd ready → view tasks
-
-LOAD BALANCING (you decide):
-- Check "debussy status" to see each developer's workload
-- Distribute tasks evenly between developer and developer2
-- If one has more tasks, assign to the other
-
-PIPELINE FLOW:
-1. User requirement → debussy delegate → architect creates beads
-2. Assign to developers (balance load between developer/developer2)
-3. Pipeline auto-continues: testing → reviewing → merging → acceptance → done
-4. Check inbox for notifications, report progress to user
-
-STATUS FLOW: pending → in-progress → testing → reviewing → merging → acceptance → done
-(acceptance = final regression/acceptance testing after merge)
-
-"""
     if args.requirement:
-        prompt = f"{conductor_rules}User requirement: {args.requirement}"
+        prompt = f"Run as @conductor. Read .claude/subagents/conductor.md for your role. User requirement: {args.requirement}"
     else:
-        prompt = f"{conductor_rules}I am ready to receive requirements."
+        prompt = "Run as @conductor. Read .claude/subagents/conductor.md for your role."
 
     import time
     time.sleep(6)
