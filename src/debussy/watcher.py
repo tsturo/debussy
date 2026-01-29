@@ -62,31 +62,50 @@ Start by reading your task."""
 
     def check_mailboxes(self):
         for agent_name in AGENTS:
-            mailbox = Mailbox(agent_name)
-            if not mailbox.inbox.exists():
-                continue
+            try:
+                mailbox = Mailbox(agent_name)
+                if not mailbox.inbox.exists():
+                    continue
 
-            messages = list(mailbox.inbox.glob("*.json"))
-            if messages and agent_name not in self.running_agents:
-                self.start_agent(agent_name, sorted(messages)[0])
+                messages = list(mailbox.inbox.glob("*.json"))
+                if messages and agent_name not in self.running_agents:
+                    self.start_agent(agent_name, sorted(messages)[0])
+            except Exception as e:
+                self.log(f"Error checking mailbox for {agent_name}: {e}", "⚠️")
 
     def check_pipeline(self):
         for status, agent_name in PIPELINE_AGENTS.items():
-            if agent_name in self.running_agents:
-                proc = self.running_agents[agent_name]
-                if proc.poll() is None:
+            try:
+                if agent_name in self.running_agents:
+                    proc = self.running_agents[agent_name]
+                    if proc.poll() is None:
+                        continue
+
+                result = subprocess.run(
+                    ["bd", "list", "--status", status],
+                    capture_output=True, text=True,
+                    timeout=10
+                )
+                if result.returncode != 0:
+                    continue
+                if not result.stdout or not result.stdout.strip():
                     continue
 
-            result = subprocess.run(
-                ["bd", "list", "--status", status],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0 and result.stdout.strip():
                 lines = result.stdout.strip().split('\n')
-                if lines:
-                    bead_id = lines[0].split()[0] if lines[0].split() else None
-                    if bead_id:
-                        self.start_pipeline_agent(agent_name, bead_id, status)
+                if not lines or not lines[0]:
+                    continue
+
+                parts = lines[0].split()
+                if not parts:
+                    continue
+
+                bead_id = parts[0]
+                if bead_id:
+                    self.start_pipeline_agent(agent_name, bead_id, status)
+            except subprocess.TimeoutExpired:
+                self.log(f"Timeout checking {status} status", "⚠️")
+            except Exception as e:
+                self.log(f"Error checking pipeline {status}: {e}", "⚠️")
 
     def start_pipeline_agent(self, agent_name: str, bead_id: str, status: str):
         if agent_name in self.running_agents:
