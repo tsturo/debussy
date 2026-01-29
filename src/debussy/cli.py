@@ -34,15 +34,20 @@ def cmd_start(args):
         "tmux", "split-window", "-v", "-t", f"{SESSION_NAME}:main.1"
     ], check=True)
 
+    claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.0",
+        claude_cmd, "C-m"
+    ], check=True)
+
+    subprocess.run([
+        "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.1",
         "debussy watch", "C-m"
     ], check=True)
 
-    claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
     subprocess.run([
-        "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.1",
-        claude_cmd, "C-m"
+        "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.2",
+        "watch -n 5 'debussy status'", "C-m"
     ], check=True)
 
     if args.requirement:
@@ -53,35 +58,27 @@ def cmd_start(args):
     import time
     time.sleep(3)
     subprocess.run([
-        "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.1",
+        "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.0",
         prompt, "C-m"
     ], check=True)
 
-    subprocess.run([
-        "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.2",
-        "watch -n 5 'debussy status'", "C-m"
-    ], check=True)
-
-    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.0", "-T", "watcher"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.1", "-T", "conductor"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.0", "-T", "conductor"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.1", "-T", "watcher"], check=True)
     subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.2", "-T", "status"], check=True)
 
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-status", "top"], check=True)
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} "], check=True)
 
-    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.1"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.0"], check=True)
 
     print("🎼 Debussy started")
     print("")
     print("Layout:")
     print("  ┌──────────┬──────────┐")
-    print("  │          │conductor │")
-    print("  │ watcher  ├──────────┤")
+    print("  │          │ watcher  │")
+    print("  │conductor ├──────────┤")
     print("  │          │ status   │")
     print("  └──────────┴──────────┘")
-    print("")
-    print("Talk to conductor:")
-    print('  "Run as @conductor. I need [your requirement]"')
     print("")
 
     subprocess.run(["tmux", "attach-session", "-t", SESSION_NAME])
