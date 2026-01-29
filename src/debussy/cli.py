@@ -314,6 +314,20 @@ def cmd_init(args):
         log(f"Created mailbox for @{agent}", "✓")
 
 
+def cmd_upgrade(args):
+    """Upgrade debussy to latest version."""
+    log("Upgrading debussy...", "⬆️")
+    result = subprocess.run([
+        "pipx", "install", "--force",
+        "git+https://github.com/tsturo/debussy.git"
+    ])
+    if result.returncode == 0:
+        log("Upgrade complete", "✓")
+    else:
+        log("Upgrade failed", "✗")
+    return result.returncode
+
+
 def cmd_trigger(args):
     """Manually trigger pipeline check - spawns agents for pending work."""
     log("Checking pipeline...", "🔍")

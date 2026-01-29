@@ -70,6 +70,10 @@ def main():
     p = subparsers.add_parser("trigger", help="Manually trigger pipeline check")
     p.set_defaults(func=cli.cmd_trigger)
 
+    # upgrade
+    p = subparsers.add_parser("upgrade", help="Upgrade to latest version")
+    p.set_defaults(func=cli.cmd_upgrade)
+
     args = parser.parse_args()
 
     if not args.command:
