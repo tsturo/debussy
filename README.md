@@ -92,11 +92,22 @@ When an agent completes work, it notifies conductor. When issues are found, agen
 
 ### Watcher
 
-The watcher is a background daemon that makes the system autonomous. It continuously monitors two things:
+The watcher is a simple Python loop (not a Claude Code instance) that makes the system autonomous. It runs every 5 seconds and:
 
-**1. Mailboxes** - When messages arrive in an agent's inbox, watcher spawns that agent to process them.
+1. **Checks mailboxes** - Scans inbox directories for new JSON messages
+2. **Checks task statuses** - Runs `bd list --status <status>` to find ready tasks
+3. **Spawns agents** - Starts Claude Code instances via `subprocess.Popen(["claude", ...])`
+4. **Cleans up** - Tracks running processes, removes finished ones
 
-**2. Task statuses** - When beads reach certain statuses, watcher auto-spawns the appropriate pipeline agent:
+```python
+while not self.should_exit:
+    self.check_agent_status()    # Clean up finished agents
+    self.check_mailboxes()       # Spawn agents for new messages
+    self.check_pipeline()        # Spawn agents for status changes
+    time.sleep(5)
+```
+
+**Status-to-agent mapping:**
 
 | Status | Agent Spawned |
 |--------|---------------|
@@ -105,7 +116,7 @@ The watcher is a background daemon that makes the system autonomous. It continuo
 | `merging` | integrator |
 | `acceptance` | tester |
 
-The watcher polls every 5 seconds and logs activity. If it seems stuck, use `debussy trigger` to manually check the pipeline.
+The watcher is lightweight - no AI involved. AI only runs in the spawned agents. If it seems stuck, use `debussy trigger` to manually check the pipeline.
 
 ### Pipeline
 
