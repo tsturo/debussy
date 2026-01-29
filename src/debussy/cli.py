@@ -50,10 +50,30 @@ def cmd_start(args):
         "watch -n 5 'debussy status'", "C-m"
     ], check=True)
 
+    conductor_prompt = """You are @conductor - the orchestrator. NEVER write code.
+
+ALWAYS CHECK INBOX FIRST: debussy inbox
+
+ONLY ALLOWED COMMANDS:
+- debussy inbox (check first!)
+- debussy status
+- debussy delegate "requirement"
+- debussy assign bd-xxx developer
+- bd ready / bd list
+
+WORKFLOW:
+1. Check inbox for notifications
+2. Delegate to architect: debussy delegate "..."
+3. Assign ready tasks: debussy assign bd-xxx developer/developer2
+4. Balance load between developer and developer2
+5. Report progress to user
+
+NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools."""
+
     if args.requirement:
-        prompt = f"Run as @conductor. Read .claude/subagents/conductor.md for your role. User requirement: {args.requirement}"
+        prompt = f"{conductor_prompt}\n\nUser requirement: {args.requirement}"
     else:
-        prompt = "Run as @conductor. Read .claude/subagents/conductor.md for your role."
+        prompt = conductor_prompt
 
     import time
     time.sleep(6)
