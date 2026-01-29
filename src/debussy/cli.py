@@ -68,10 +68,13 @@ ALLOWED COMMANDS:
 PIPELINE FLOW (you orchestrate this):
 1. User requirement → debussy delegate → architect creates beads
 2. Assign to developers: debussy assign bd-xxx developer (use developer2 for parallel work)
-3. When developer notifies "DEV DONE" → assign to tester: debussy assign bd-xxx tester
-4. When tester notifies "TESTS PASSED" → assign to reviewer: debussy assign bd-xxx reviewer
-5. When reviewer notifies "REVIEW APPROVED" → assign to integrator: debussy assign bd-xxx integrator
-6. When integrator notifies "MERGED" → report completion to user
+3. "DEV DONE" → status=testing → assign to tester
+4. "TESTS PASSED" → status=reviewing → assign to reviewer
+5. "REVIEW APPROVED" → status=merging → assign to integrator
+6. "MERGED" → status=done → report completion to user (blocked tasks now unblocked)
+
+STATUS FLOW: pending → in-progress → testing → reviewing → merging → done
+(If tests fail or review needs changes, status goes back to in-progress)
 
 Check debussy status regularly - it shows notifications from agents.
 
@@ -135,17 +138,15 @@ def cmd_status(args):
         icon = "📬" if count > 0 else "📭"
         print(f"  {icon} {agent:12} {count:3} pending")
 
-    print("\n📋 ALL BEADS:")
-    result = subprocess.run(["bd", "list"], capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"  (bd error: {result.stderr.strip()})")
-    elif result.stdout.strip():
-        for line in result.stdout.strip().split('\n')[:10]:
-            print(f"  {line}")
-    else:
-        print("  (none)")
+    print("\n📋 PIPELINE STATUS:")
+    for status, icon in [("in-progress", "🔨"), ("testing", "🧪"), ("reviewing", "👀"), ("merging", "🔀")]:
+        result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
+        if result.stdout.strip():
+            print(f"  {icon} {status.upper()}:")
+            for line in result.stdout.strip().split('\n')[:3]:
+                print(f"     {line}")
 
-    print("\n⏳ READY (unblocked):")
+    print("\n⏳ READY (unblocked, waiting assignment):")
     result = subprocess.run(["bd", "ready"], capture_output=True, text=True)
     if result.stdout.strip():
         for line in result.stdout.strip().split('\n')[:5]:

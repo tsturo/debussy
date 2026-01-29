@@ -87,13 +87,15 @@ git push origin develop
 git branch -d feature/<original-bead-id>
 git push origin --delete feature/<original-bead-id>
 
-# Mark bead as done
+# Mark bead as DONE (final status - unblocks dependent tasks)
 bd update <bead-id> --status done
 bd comment <bead-id> "Merged to develop. Branch cleaned up."
 
 # Notify conductor
-debussy send conductor "Merged" "<bead-id> to develop"
+debussy send conductor "MERGED: <bead-id>" -b "Status: done. Merged to develop."
 ```
+
+**NOTE:** Only integrator marks task as `done`. This unblocks any dependent tasks.
 
 ## Conflict Resolution
 

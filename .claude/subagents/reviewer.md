@@ -87,21 +87,23 @@ bd create "Review: SQL injection in UserRepo" -t bug -p 1 \
 
 **If approved:**
 ```bash
-bd update <bead-id> --status done --label approved
+bd update <bead-id> --status merging
 bd comment <bead-id> "LGTM. Minor suggestions filed as separate beads."
 
 # Notify conductor (conductor will assign integrator)
-debussy send conductor "REVIEW APPROVED: <bead-id>" -b "Ready to merge."
+debussy send conductor "REVIEW APPROVED: <bead-id>" -b "Status: merging. Ready to merge."
 ```
 
 **If changes needed:**
 ```bash
-bd update <bead-id> --status done --label changes-requested
+bd update <bead-id> --status in-progress --label changes-requested
 bd comment <bead-id> "Issues found. See bd-xxx."
 
 # Notify conductor (conductor will reassign to developer)
-debussy send conductor "REVIEW CHANGES REQUESTED: <bead-id>" -b "Issues: [summary]. Needs fixes."
+debussy send conductor "REVIEW CHANGES REQUESTED: <bead-id>" -b "Issues: [summary]. Back to in-progress."
 ```
+
+**NOTE:** Status flow: `reviewing → merging` (approved) or `reviewing → in-progress` (changes needed)
 
 ## Review Tone
 

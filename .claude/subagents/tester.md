@@ -74,21 +74,23 @@ npm test -- --coverage
 
 **If tests pass:**
 ```bash
-bd update <bead-id> --status done --label passed
+bd update <bead-id> --status reviewing
 bd comment <bead-id> "All tests pass. Coverage: XX%"
 
 # Notify conductor (conductor will assign reviewer)
-debussy send conductor "TESTS PASSED: <bead-id>" -b "Coverage: XX%. Ready for review."
+debussy send conductor "TESTS PASSED: <bead-id>" -b "Coverage: XX%. Status: reviewing."
 ```
 
 **If tests fail:**
 ```bash
-bd update <bead-id> --status done --label failed
+bd update <bead-id> --status in-progress --label failed
 bd comment <bead-id> "Tests failed: [details]"
 
 # Notify conductor (conductor will reassign to developer)
-debussy send conductor "TESTS FAILED: <bead-id>" -b "Failures: [details]. Needs fixes."
+debussy send conductor "TESTS FAILED: <bead-id>" -b "Failures: [details]. Back to in-progress."
 ```
+
+**NOTE:** Status flow: `testing → reviewing` (pass) or `testing → in-progress` (fail, back to dev)
 
 ## What to Test
 

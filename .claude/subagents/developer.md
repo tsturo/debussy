@@ -65,19 +65,21 @@ git push -u origin feature/<bead-id>-short-description
 ### Completing Work
 
 ```bash
-# 1. Ensure tests pass
+# 1. Ensure tests pass locally
 npm test  # or appropriate test command
 
 # 2. Push final changes
 git push
 
-# 3. Mark bead as done
-bd update <bead-id> --status done
+# 3. Move to testing status (NOT done - task continues through pipeline)
+bd update <bead-id> --status testing
 bd comment <bead-id> "Implemented on branch feature/<bead-id>. Ready for testing."
 
 # 4. Notify conductor (conductor will assign tester)
-debussy send conductor "DEV DONE: <bead-id>" -b "Branch: feature/<bead-id>. Ready for testing."
+debussy send conductor "DEV DONE: <bead-id>" -b "Branch: feature/<bead-id>. Status: testing."
 ```
+
+**NOTE:** Task is NOT done yet. Status flow: `in-progress → testing → reviewing → merging → done`
 
 ## Development Standards
 
