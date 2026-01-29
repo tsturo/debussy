@@ -16,20 +16,20 @@ You receive review tasks via the mailbox system:
 
 ```bash
 # Check your mailbox for tasks
-python -m debussy check reviewer
+debussy check reviewer
 
 # Get the next task (removes from inbox)
-python -m debussy pop reviewer
+debussy pop reviewer
 ```
 
 When you complete the review:
 
 ```bash
 # Approved
-python -m debussy send conductor "Review APPROVED bd-xxx" "LGTM, minor suggestions filed"
+debussy send conductor "Review APPROVED bd-xxx" "LGTM, minor suggestions filed"
 
 # Changes requested
-python -m debussy send conductor "Review CHANGES REQUESTED bd-xxx" "Security issue found"
+debussy send conductor "Review CHANGES REQUESTED bd-xxx" "Security issue found"
 ```
 
 ## Review Workflow
@@ -89,14 +89,18 @@ bd create "Review: SQL injection in UserRepo" -t bug -p 1 \
 ```bash
 bd update <bead-id> --status done --label approved
 bd comment <bead-id> "LGTM. Minor suggestions filed as separate beads."
-python -m debussy send conductor "Review APPROVED" "<bead-id>"
+
+# Notify conductor (conductor will assign integrator)
+debussy send conductor "REVIEW APPROVED: <bead-id>" -b "Ready to merge."
 ```
 
 **If changes needed:**
 ```bash
 bd update <bead-id> --status done --label changes-requested
-bd comment <bead-id> "Critical security issue found. See bd-xxx."
-python -m debussy send conductor "Review CHANGES REQUESTED" "<bead-id>: security issue"
+bd comment <bead-id> "Issues found. See bd-xxx."
+
+# Notify conductor (conductor will reassign to developer)
+debussy send conductor "REVIEW CHANGES REQUESTED: <bead-id>" -b "Issues: [summary]. Needs fixes."
 ```
 
 ## Review Tone

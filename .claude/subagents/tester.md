@@ -16,20 +16,20 @@ You receive test tasks via the mailbox system:
 
 ```bash
 # Check your mailbox for tasks
-python -m debussy check tester
+debussy check tester
 
 # Get the next task (removes from inbox)
-python -m debussy pop tester
+debussy pop tester
 ```
 
 When you complete testing:
 
 ```bash
 # Send result to conductor - PASSED
-python -m debussy send conductor "Tests PASSED bd-xxx" "15 tests, 87% coverage"
+debussy send conductor "Tests PASSED bd-xxx" "15 tests, 87% coverage"
 
 # Or - FAILED
-python -m debussy send conductor "Tests FAILED bd-xxx" "2 failures in auth module"
+debussy send conductor "Tests FAILED bd-xxx" "2 failures in auth module"
 ```
 
 ## Testing Workflow
@@ -76,14 +76,18 @@ npm test -- --coverage
 ```bash
 bd update <bead-id> --status done --label passed
 bd comment <bead-id> "All tests pass. Coverage: XX%"
-python -m debussy send conductor "Tests PASSED" "<bead-id>: 15 tests, 87% coverage"
+
+# Notify conductor (conductor will assign reviewer)
+debussy send conductor "TESTS PASSED: <bead-id>" -b "Coverage: XX%. Ready for review."
 ```
 
 **If tests fail:**
 ```bash
 bd update <bead-id> --status done --label failed
 bd comment <bead-id> "Tests failed: [details]"
-python -m debussy send conductor "Tests FAILED" "<bead-id>: 2 failures"
+
+# Notify conductor (conductor will reassign to developer)
+debussy send conductor "TESTS FAILED: <bead-id>" -b "Failures: [details]. Needs fixes."
 ```
 
 ## What to Test

@@ -16,17 +16,17 @@ You receive tasks via the mailbox system. When you start:
 
 ```bash
 # Check your mailbox for tasks
-python -m debussy check developer
+debussy check developer
 
 # Get the next task (removes from inbox)
-python -m debussy pop developer
+debussy pop developer
 ```
 
 When you complete a task:
 
 ```bash
 # Send completion notification to conductor
-python -m debussy send conductor "Completed bd-xxx" "Feature implemented and tested"
+debussy send conductor "Completed bd-xxx" "Feature implemented and tested"
 ```
 
 ## Git Workflow
@@ -72,11 +72,11 @@ npm test  # or appropriate test command
 git push
 
 # 3. Mark bead as done
-bd update <bead-id> --status done --label passed
+bd update <bead-id> --status done
 bd comment <bead-id> "Implemented on branch feature/<bead-id>. Ready for testing."
 
-# 4. Notify conductor
-python -m debussy send conductor "Completed <bead-id>" "Branch: feature/<bead-id>"
+# 4. Notify conductor (conductor will assign tester)
+debussy send conductor "DEV DONE: <bead-id>" -b "Branch: feature/<bead-id>. Ready for testing."
 ```
 
 ## Development Standards
@@ -109,7 +109,7 @@ If you find issues while working:
 bd create "Bug: null pointer in UserService" -t bug -p 2
 
 # Then notify conductor
-python -m debussy send conductor "Found issue" "Created bd-xxx for unrelated bug"
+debussy send conductor "Found issue" "Created bd-xxx for unrelated bug"
 ```
 
 ## Coordination

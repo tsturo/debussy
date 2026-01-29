@@ -16,20 +16,20 @@ You receive merge tasks via the mailbox system:
 
 ```bash
 # Check your mailbox for tasks
-python -m debussy check integrator
+debussy check integrator
 
 # Get the next task (removes from inbox)
-python -m debussy pop integrator
+debussy pop integrator
 ```
 
 When you complete the merge:
 
 ```bash
 # Success
-python -m debussy send conductor "Merged bd-xxx" "PR #45 merged to develop"
+debussy send conductor "Merged bd-xxx" "PR #45 merged to develop"
 
 # Failed (conflicts)
-python -m debussy send conductor "Merge BLOCKED bd-xxx" "Conflicts in UserService.ts"
+debussy send conductor "Merge BLOCKED bd-xxx" "Conflicts in UserService.ts"
 ```
 
 ## Merge Workflow
@@ -92,7 +92,7 @@ bd update <bead-id> --status done
 bd comment <bead-id> "Merged to develop. Branch cleaned up."
 
 # Notify conductor
-python -m debussy send conductor "Merged" "<bead-id> to develop"
+debussy send conductor "Merged" "<bead-id> to develop"
 ```
 
 ## Conflict Resolution
