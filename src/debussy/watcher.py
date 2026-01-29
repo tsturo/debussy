@@ -19,51 +19,67 @@ PIPELINE_AGENTS = {
 
 class Watcher:
     def __init__(self):
-        self.running_agents: dict[str, dict] = {}
+        self.running: dict[str, dict] = {}
         self.should_exit = False
 
     def log(self, msg: str, icon: str = "•"):
         timestamp = datetime.now().strftime("%H:%M:%S")
         print(f"{timestamp} {icon} {msg}")
 
+    def is_task_running(self, task_id: str) -> bool:
+        for key, info in self.running.items():
+            if info.get("task") == task_id:
+                proc = info["proc"]
+                if proc.poll() is None:
+                    return True
+        return False
+
     def start_agent(self, agent_name: str, message_file: Path):
-        if agent_name in self.running_agents:
-            proc = self.running_agents[agent_name]["proc"]
+        task_name = message_file.stem
+        key = f"{agent_name}:{task_name}"
+
+        if key in self.running:
+            proc = self.running[key]["proc"]
             if proc.poll() is None:
                 return
 
-        task_name = message_file.stem
+        try:
+            message_content = message_file.read_text()
+        except Exception:
+            message_content = f"Task: {task_name}"
+
         self.log(f"Starting @{agent_name} ({task_name})", "🚀")
 
         role = agent_name.rstrip('2')
-        role_file = Path(f".claude/subagents/{role}.md")
 
         if role == "developer":
             prompt = f"""You are @{agent_name} - a developer.
 
-Read your task: cat {message_file}
-Then: bd show <bead-id>
+YOUR TASK:
+{message_content}
 
 WORKFLOW:
-1. bd update <bead-id> --status in-progress
-2. Create feature branch: git checkout -b feature/<bead-id>
-3. Implement the task
-4. Commit and push your changes
-5. IMPORTANT: bd update <bead-id> --status testing
-6. debussy send conductor "Done <bead-id>" -b "Ready for testing"
-7. Exit
+1. bd show <bead-id> to get details
+2. bd update <bead-id> --status in-progress
+3. Create feature branch: git checkout -b feature/<bead-id>
+4. Implement the task
+5. Commit and push your changes
+6. IMPORTANT: bd update <bead-id> --status testing
+7. debussy send conductor "Done <bead-id>" -b "Ready for testing"
+8. Exit
 
 CRITICAL: Set status to "testing" when done, NOT "done". Pipeline continues automatically."""
         else:
-            prompt = f"""You are @{agent_name}. Read {role_file} for your role.
+            prompt = f"""You are @{agent_name}.
 
-Read your task: cat {message_file}
-Then: bd show <bead-id>
+YOUR TASK:
+{message_content}
 
-1. bd update <bead-id> --status in-progress
-2. Do the work as described in your role file
-3. Update status and notify conductor
-4. Exit when finished"""
+1. bd show <bead-id> to get details
+2. bd update <bead-id> --status in-progress
+3. Do the work
+4. Update status and notify conductor
+5. Exit when finished"""
 
         cmd = ["claude"]
         if YOLO_MODE:
@@ -72,7 +88,8 @@ Then: bd show <bead-id>
 
         try:
             proc = subprocess.Popen(cmd, cwd=os.getcwd())
-            self.running_agents[agent_name] = {"proc": proc, "task": task_name}
+            self.running[key] = {"proc": proc, "task": task_name, "agent": agent_name}
+            message_file.unlink(missing_ok=True)
         except Exception as e:
             self.log(f"Failed to start {agent_name}: {e}", "✗")
 
@@ -84,21 +101,17 @@ Then: bd show <bead-id>
                     continue
 
                 messages = list(mailbox.inbox.glob("*.json"))
-                if messages:
-                    if agent_name not in self.running_agents:
-                        self.log(f"@{agent_name} has {len(messages)} message(s)", "📬")
-                        self.start_agent(agent_name, sorted(messages)[0])
+                for msg_file in sorted(messages):
+                    task_id = msg_file.stem
+                    if not self.is_task_running(task_id):
+                        self.log(f"@{agent_name} has message: {task_id}", "📬")
+                        self.start_agent(agent_name, msg_file)
             except Exception as e:
                 self.log(f"Error checking mailbox for {agent_name}: {e}", "⚠️")
 
     def check_pipeline(self):
         for status, agent_name in PIPELINE_AGENTS.items():
             try:
-                if agent_name in self.running_agents:
-                    proc = self.running_agents[agent_name]["proc"]
-                    if proc.poll() is None:
-                        continue
-
                 result = subprocess.run(
                     ["bd", "list", "--status", status],
                     capture_output=True, text=True,
@@ -109,26 +122,27 @@ Then: bd show <bead-id>
                 if not result.stdout or not result.stdout.strip():
                     continue
 
-                lines = result.stdout.strip().split('\n')
-                if not lines or not lines[0]:
-                    continue
+                for line in result.stdout.strip().split('\n'):
+                    if not line.strip():
+                        continue
+                    parts = line.split()
+                    if not parts:
+                        continue
 
-                parts = lines[0].split()
-                if not parts:
-                    continue
-
-                bead_id = parts[0]
-                if bead_id and agent_name not in self.running_agents:
-                    self.log(f"Task {bead_id} ready for @{agent_name} ({status})", "📋")
-                    self.start_pipeline_agent(agent_name, bead_id, status)
+                    bead_id = parts[0]
+                    if bead_id and not self.is_task_running(bead_id):
+                        self.log(f"Task {bead_id} ready for @{agent_name} ({status})", "📋")
+                        self.start_pipeline_agent(agent_name, bead_id, status)
             except subprocess.TimeoutExpired:
                 self.log(f"Timeout checking {status} status", "⚠️")
             except Exception as e:
                 self.log(f"Error checking pipeline {status}: {e}", "⚠️")
 
     def start_pipeline_agent(self, agent_name: str, bead_id: str, status: str):
-        if agent_name in self.running_agents:
-            proc = self.running_agents[agent_name]["proc"]
+        key = f"{agent_name}:{bead_id}"
+
+        if key in self.running:
+            proc = self.running[key]["proc"]
             if proc.poll() is None:
                 return
 
@@ -213,16 +227,18 @@ Exit when done."""
 
         try:
             proc = subprocess.Popen(cmd, cwd=os.getcwd())
-            self.running_agents[agent_name] = {"proc": proc, "task": bead_id}
+            self.running[key] = {"proc": proc, "task": bead_id, "agent": agent_name}
         except Exception as e:
             self.log(f"Failed to start {agent_name}: {e}", "✗")
 
     def check_agent_status(self):
-        for agent_name, info in list(self.running_agents.items()):
+        for key, info in list(self.running.items()):
             proc = info["proc"]
             if proc.poll() is not None:
-                self.log(f"@{agent_name} finished (code {proc.returncode})", "🛑")
-                del self.running_agents[agent_name]
+                agent = info.get("agent", key)
+                task = info.get("task", "")
+                self.log(f"@{agent} finished {task} (code {proc.returncode})", "🛑")
+                del self.running[key]
 
     def signal_handler(self, signum, frame):
         self.should_exit = True
@@ -248,10 +264,10 @@ Exit when done."""
 
                 tick += 1
                 if tick % 12 == 0:
-                    if self.running_agents:
+                    if self.running:
                         self.log("Running:", "🔄")
-                        for name, info in self.running_agents.items():
-                            self.log(f"  @{name}: {info['task']}", "")
+                        for key, info in self.running.items():
+                            self.log(f"  @{info['agent']}: {info['task']}", "")
                     else:
                         self.log("Idle - no agents running", "💤")
             except Exception as e:
@@ -259,7 +275,7 @@ Exit when done."""
             time.sleep(POLL_INTERVAL)
 
         self.log("Stopping agents...", "🛑")
-        for name, info in self.running_agents.items():
+        for key, info in self.running.items():
             info["proc"].terminate()
 
         self.log("Watcher stopped")
