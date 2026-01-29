@@ -140,30 +140,51 @@ Then: bd show <bead-id>
 1. bd show {bead_id}
 2. git checkout feature/{bead_id} (or find the branch)
 3. Run tests, check functionality
-4. If PASS: bd update {bead_id} --status reviewing
-5. If FAIL: bd update {bead_id} --status in-progress, notify developer
-6. debussy send conductor "Tested {bead_id}" -b "Status: reviewing/failed"
-7. Exit"""
+
+If PASS:
+  bd update {bead_id} --status reviewing
+  debussy send conductor "PASS {bead_id}" -b "Tests passed. Status: reviewing"
+
+If FAIL:
+  bd update {bead_id} --status in-progress
+  debussy send developer "BUG {bead_id}" -b "Tests failed: [describe issue]"
+  debussy send conductor "FAIL {bead_id}" -b "Tests failed, sent to developer"
+
+Exit when done."""
         elif agent_name == "tester" and status == "acceptance":
             prompt = f"""You are @tester. Task {bead_id} needs acceptance testing (post-merge).
 
 1. bd show {bead_id}
 2. git checkout develop && git pull
 3. Run full test suite, verify feature works
-4. If PASS: bd update {bead_id} --status done
-5. If FAIL: bd update {bead_id} --status in-progress, notify developer
-6. debussy send conductor "Acceptance {bead_id}" -b "Status: done/failed"
-7. Exit"""
+
+If PASS:
+  bd update {bead_id} --status done
+  debussy send conductor "ACCEPTED {bead_id}" -b "Acceptance passed. Done!"
+
+If FAIL:
+  bd update {bead_id} --status in-progress
+  debussy send developer "REGRESSION {bead_id}" -b "Acceptance failed: [describe issue]"
+  debussy send conductor "REJECTED {bead_id}" -b "Acceptance failed, sent to developer"
+
+Exit when done."""
         elif agent_name == "reviewer":
             prompt = f"""You are @reviewer. Task {bead_id} needs code review.
 
 1. bd show {bead_id}
 2. git checkout feature/{bead_id}
 3. Review code: git diff develop...HEAD
-4. If APPROVED: bd update {bead_id} --status merging
-5. If CHANGES NEEDED: bd update {bead_id} --status in-progress, notify developer
-6. debussy send conductor "Reviewed {bead_id}" -b "Status: merging/changes-needed"
-7. Exit"""
+
+If APPROVED:
+  bd update {bead_id} --status merging
+  debussy send conductor "APPROVED {bead_id}" -b "Code review passed. Status: merging"
+
+If CHANGES NEEDED:
+  bd update {bead_id} --status in-progress
+  debussy send developer "CHANGES {bead_id}" -b "Review feedback: [describe issues]"
+  debussy send conductor "CHANGES {bead_id}" -b "Changes requested, sent to developer"
+
+Exit when done."""
         elif agent_name == "integrator":
             prompt = f"""You are @integrator. Task {bead_id} needs to be merged.
 
