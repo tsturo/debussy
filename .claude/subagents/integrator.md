@@ -111,21 +111,36 @@ git checkout --theirs <file>  # Keep incoming
 3. Add tests for merged behavior
 4. Document in commit message
 
-**When merge fails (conflicts, CI failures):**
-```bash
-bd update <bead-id> --status in-progress --label merge-conflict
-bd comment <bead-id> "Merge failed: [details]"
+**Your job is to resolve conflicts.** Try to fix them yourself first:
 
-# Send to developer (watcher will auto-spawn developer)
-debussy send developer "FIX: <bead-id>" --bead <bead-id> -b "Merge failed: [details]. Please fix conflicts."
+1. **Simple conflicts** (imports, formatting, adjacent changes):
+   ```bash
+   git checkout --ours <file>    # Keep current
+   git checkout --theirs <file>  # Keep incoming
+   # Or manually edit to combine both
+   ```
+
+2. **Moderate conflicts** (same function modified):
+   - Read both versions, understand intent
+   - Combine changes logically
+   - Run tests to verify
+
+3. **Only escalate to developer if:**
+   - Business logic conflict you can't understand
+   - Tests fail after your resolution
+   - Architectural decision needed
+
+**When you must escalate:**
+```bash
+bd update <bead-id> --status in-progress --label needs-dev
+bd comment <bead-id> "Complex conflict needs developer input: [details]"
+
+# Send to developer
+debussy send developer "CONFLICT: <bead-id>" --bead <bead-id> -b "Need help: [details]"
 
 # Notify conductor
-debussy send conductor "MERGE FAILED: <bead-id>" -b "Sent back to developer."
+debussy send conductor "MERGE BLOCKED: <bead-id>" -b "Complex conflict, sent to developer."
 ```
-
-**When to escalate:**
-- Architectural conflicts → notify @architect via debussy send architect
-- Unclear requirements → notify conductor
 
 ## PR Template
 
