@@ -4,6 +4,8 @@
 
 *Named after Claude Debussy, the impressionist composer.*
 
+<img width="1612" height="861" alt="image" src="https://github.com/user-attachments/assets/57efa398-fc45-4ecf-ba4d-0c85044f8959" />
+
 ---
 
 ## Prerequisites
