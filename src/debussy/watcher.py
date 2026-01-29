@@ -5,7 +5,7 @@ import signal
 import subprocess
 from datetime import datetime
 
-from .config import POLL_INTERVAL, YOLO_MODE, PARALLEL_ROLES, SINGLETON_ROLES
+from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES
 
 STATUS_TO_ROLE = {
     "open": "developer",
@@ -40,6 +40,16 @@ class Watcher:
                 if proc.poll() is None:
                     return True
         return False
+
+    def is_blocked(self, bead_id: str) -> bool:
+        try:
+            result = subprocess.run(
+                ["bd", "show", bead_id],
+                capture_output=True, text=True, timeout=5
+            )
+            return "Blocked by" in result.stdout
+        except Exception:
+            return False
 
     def get_prompt(self, role: str, bead_id: str, status: str) -> str:
         if role == "developer":
@@ -121,6 +131,15 @@ If CHANGES NEEDED:
 3. Update status when done
 4. Exit"""
 
+    def extract_bead_id(self, line: str) -> str | None:
+        parts = line.split()
+        if len(parts) < 2:
+            return None
+        bead_id = parts[1]
+        if not bead_id or bead_id.startswith('['):
+            return None
+        return bead_id
+
     def spawn_agent(self, role: str, bead_id: str, status: str):
         key = f"{role}:{bead_id}"
 
@@ -157,15 +176,15 @@ If CHANGES NEEDED:
                 for line in result.stdout.strip().split('\n'):
                     if not line.strip():
                         continue
-                    parts = line.split()
-                    if not parts:
-                        continue
 
-                    bead_id = parts[0]
+                    bead_id = self.extract_bead_id(line)
                     if not bead_id:
                         continue
 
                     if self.is_bead_running(bead_id):
+                        continue
+
+                    if status == "open" and self.is_blocked(bead_id):
                         continue
 
                     if role in SINGLETON_ROLES and self.is_singleton_running(role):
