@@ -42,7 +42,8 @@ brew install beads  # Task tracking
 # Python 3.10+ required
 
 # 2. Install Debussy
-pip install git+https://github.com/tsturo/debussy.git
+brew install pipx && pipx ensurepath
+pipx install git+https://github.com/tsturo/debussy.git
 
 # 3. Start in your project
 cd your-project
