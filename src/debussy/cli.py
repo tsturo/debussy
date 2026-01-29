@@ -96,7 +96,7 @@ STATUS FLOW: pending → in-progress → testing → reviewing → merging → a
     ], check=True)
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.0",
-        "Enter"
+        "C-m"
     ], check=True)
 
     subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.0", "-T", "conductor"], check=True)
