@@ -87,15 +87,15 @@ git push origin develop
 git branch -d feature/<original-bead-id>
 git push origin --delete feature/<original-bead-id>
 
-# Mark bead as DONE (final status - unblocks dependent tasks)
-bd update <bead-id> --status done
-bd comment <bead-id> "Merged to develop. Branch cleaned up."
+# Move to acceptance testing (tester will do final verification)
+bd update <bead-id> --status acceptance
+bd comment <bead-id> "Merged to develop. Ready for acceptance testing."
 
 # Notify conductor
-debussy send conductor "MERGED: <bead-id>" -b "Status: done. Merged to develop."
+debussy send conductor "MERGED: <bead-id>" -b "Status: acceptance. Needs final testing."
 ```
 
-**NOTE:** Only integrator marks task as `done`. This unblocks any dependent tasks.
+**NOTE:** After merge, task goes to acceptance testing. Tester verifies the whole feature works.
 
 ## Conflict Resolution
 

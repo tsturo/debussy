@@ -109,6 +109,40 @@ debussy send conductor "TESTS FAILED: <bead-id>" -b "Sent back to developer."
 
 **NOTE:** Status flow: `testing → reviewing` (pass) or `testing → in-progress` (fail, auto-notifies developer)
 
+## Acceptance Testing (after merge)
+
+When a task has `status=acceptance`, it has been merged and needs final verification:
+
+```bash
+bd show <bead-id>
+git checkout develop
+git pull
+```
+
+### Acceptance test checklist:
+- Run the full application
+- Test the feature end-to-end as a user
+- Verify it works with other features (no regressions)
+- Run full test suite
+- Check for any integration issues
+
+**If acceptance passes:**
+```bash
+bd update <bead-id> --status done
+bd comment <bead-id> "Acceptance testing passed. Feature complete."
+
+debussy send conductor "ACCEPTED: <bead-id>" -b "Feature verified and complete."
+```
+
+**If acceptance fails:**
+```bash
+bd update <bead-id> --status in-progress --label regression
+bd comment <bead-id> "Acceptance failed: [details]"
+
+debussy send developer "REGRESSION: <bead-id>" --bead <bead-id> -b "Acceptance failed: [details]"
+debussy send conductor "ACCEPTANCE FAILED: <bead-id>" -b "Regression found, sent to developer."
+```
+
 ## What to Test
 
 **Manual testing:**

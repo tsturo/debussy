@@ -13,6 +13,7 @@ PIPELINE_AGENTS = {
     "testing": "tester",
     "reviewing": "reviewer",
     "merging": "integrator",
+    "acceptance": "tester",
 }
 
 

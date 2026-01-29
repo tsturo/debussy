@@ -76,10 +76,11 @@ LOAD BALANCING (you decide):
 PIPELINE FLOW:
 1. User requirement → debussy delegate → architect creates beads
 2. Assign to developers (balance load between developer/developer2)
-3. Pipeline auto-continues: testing → reviewing → merging → done
+3. Pipeline auto-continues: testing → reviewing → merging → acceptance → done
 4. Check inbox for notifications, report progress to user
 
-STATUS FLOW: pending → in-progress → testing → reviewing → merging → done
+STATUS FLOW: pending → in-progress → testing → reviewing → merging → acceptance → done
+(acceptance = final regression/acceptance testing after merge)
 
 """
     if args.requirement:
@@ -126,7 +127,7 @@ def cmd_status(args):
     """Show system status."""
     print("\n=== DEBUSSY STATUS ===\n")
 
-    stages = ["pending", "in-progress", "testing", "reviewing", "merging", "done"]
+    stages = ["pending", "in-progress", "testing", "reviewing", "merging", "acceptance", "done"]
     counts = {}
     total = 0
     for stage in stages:
@@ -144,7 +145,7 @@ def cmd_status(args):
     print(f"📊 PROGRESS: [{bar}] {progress}% ({done_count}/{total} done)\n")
 
     print("📋 PIPELINE:")
-    icons = {"pending": "⏸", "in-progress": "🔨", "testing": "🧪", "reviewing": "👀", "merging": "🔀", "done": "✅"}
+    icons = {"pending": "⏸", "in-progress": "🔨", "testing": "🧪", "reviewing": "👀", "merging": "🔀", "acceptance": "✔️", "done": "✅"}
     line1 = "  "
     line2 = "  "
     for stage in stages:
