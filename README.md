@@ -4,175 +4,131 @@
 
 *Named after Claude Debussy, the impressionist composer.*
 
-Beads for memory. Native subagents for roles. Bash for automation.
-
 ---
 
-## What You Get
+## Architecture
 
 ```
-debussy/
-├── CLAUDE.md                    # Universal guidelines (Karpathy principles + multi-agent rules)
-├── WORKFLOW.md                  # Complete operational guide
-├── .claude/subagents/
-│   ├── conductor.md           # The Conductor — orchestrates all agents
-│   ├── developer.md             # Implements features, fixes bugs
-│   ├── architect.md             # Plans technical approach, reviews structure, creates ADRs
-│   ├── designer.md              # Plans UX, reviews accessibility
-│   ├── tester.md                # Writes tests, runs coverage
-│   ├── reviewer.md              # Code review, security audit
-│   ├── documenter.md            # Documentation, READMEs
-│   ├── integrator.md            # Merges code, resolves conflicts
-│   └── devops.md                # CI/CD, infrastructure, deployment
-├── scripts/
-│   ├── start-agents.sh          # One-command tmux workspace
-│   ├── handoff-watcher.sh       # Automated pipeline triggers
-│   └── handoff.sh               # Manual handoff helper
-└── config/
-    └── pipelines.yaml           # Pipeline definitions
+┌─────────────────────────────────────────────────────────────────┐
+│                           YOU                                    │
+│                            ↓                                     │
+│                      @conductor                                  │
+│                    (always running)                              │
+│                            ↓                                     │
+│                    python -m debussy                             │
+│                   ┌───────┴───────┐                             │
+│                   ↓               ↓                              │
+│              mailbox           beads                             │
+│            (file-based)       (tasks)                            │
+│                   ↓                                              │
+│               watcher                                            │
+│         (spawns agents on demand)                                │
+│                   ↓                                              │
+│    ┌──────┬──────┼──────┬──────┬──────┐                         │
+│    ↓      ↓      ↓      ↓      ↓      ↓                         │
+│ architect dev1  dev2  tester reviewer integrator                │
+│                                                                  │
+│        Agents start when needed, exit when done                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-
-- [Beads](https://github.com/steveyegge/beads) installed (`brew install beads`)
-- [Claude Code](https://claude.ai/code) with Max plan (for parallel sessions)
-- tmux (optional, for multi-window setup)
-
-### Setup
-
 ```bash
-# Clone
-git clone https://github.com/anthropics/debussy.git
-cd debussy
+# 1. Install prerequisites
+brew install beads  # Task tracking
+# Python 3.10+ required
 
-# Copy to your project
-cp -r .claude CLAUDE.md WORKFLOW.md scripts config /path/to/your-project/
-cd /path/to/your-project
-
-# Initialize Beads
-bd init
-bd setup claude
+# 2. Start (from project root)
+PYTHONPATH=src python -m debussy start
 ```
 
-### Run
-
-**Start with the conductor:**
-```bash
-claude
-# → "Run as @conductor. Here's my requirement: [your requirement]"
+This opens tmux with split panes:
 ```
-
-The conductor will:
-1. Delegate planning to @architect (and @designer if UI-related)
-2. Wait for beads to be created
-3. Assign tasks to workers
-
-**For parallel execution, add worker terminals:**
-```bash
-# Terminal 2+: Workers
-claude --resume
-# → "Run as @developer. Check bd ready for my assigned tasks."
-```
-
-Or use the full orchestra script:
-```bash
-./scripts/start-agents.sh
+┌──────────┬──────────┐
+│          │conductor │
+│ watcher  ├──────────┤
+│          │ status   │
+└──────────┴──────────┘
 ```
 
 ---
 
-## The Principles
+## Usage
 
-### 1. Think Before Coding
-> Don't assume. Don't hide confusion. Surface tradeoffs.
+Talk to conductor in the conductor pane:
 
-**Multi-agent rule:** Ambiguity? File a Bead with `--status blocked`. Don't guess.
+```
+Run as @conductor. I need user authentication with JWT.
+```
 
-### 2. Simplicity First
-> Minimum code that solves the problem. Nothing speculative.
-
-**Multi-agent rule:** @architect may recommend refactors — but via Beads, not direct changes.
-
-### 3. Surgical Changes
-> Touch only what you must. Clean up only your own mess.
-
-**Multi-agent rule:** Discovered work outside your scope? File a new Bead. Don't scope-creep.
-
-### 4. Goal-Driven Execution
-> Define success criteria. Loop until verified.
-
-**Multi-agent rule:** Your Bead description IS your success criteria. If vague, ask first.
+Conductor will:
+1. `python -m debussy delegate "..."` → Create planning task
+2. Architect plans → creates implementation beads
+3. `python -m debussy assign bd-xxx developer` → Assign to developer
+4. Developer implements on feature branch
+5. Pipeline: test → review → integration
+6. Each agent spawns when needed, exits when done
 
 ---
 
-## The Pipeline
+## Commands
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  USER → @COORDINATOR                                            │
-│                                                                 │
-│   requirement ──▶ delegates to @architect + @designer           │
-│                           │                                     │
-│                           ▼                                     │
-│                    beads created                                │
-│                           │                                     │
-│                           ▼                                     │
-│              @conductor assigns from bd ready                 │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  EXECUTION                                                      │
-│                                                                 │
-│   feature ──▶ test ──▶ review ──▶ integration ──▶ done         │
-│      │          │         │            │                        │
-│      │          │         │            └──▶ docs (parallel)     │
-│      │          │         │                                     │
-│      │          │         └──▶ changes requested? → developer   │
-│      │          │                                               │
-│      │          └──▶ failed? → developer (bug fix)              │
-│      │                                                          │
-│      └──▶ @developer implements                                 │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```bash
+python -m debussy start                    # Start system
+python -m debussy delegate "requirement"   # Plan with architect
+python -m debussy assign bd-xxx developer  # Assign bead
+python -m debussy status                   # System status
+python -m debussy inbox                    # Check responses
+python -m debussy send agent "subject"     # Send message
+python -m debussy watch                    # Run watcher only
 ```
 
-**Handoffs are automatic.** Complete a task → next task is created and assigned.
+---
 
-| Completed | Creates | Assigns To |
-|-----------|---------|------------|
-| `feature` done | `test: [title]` | @tester |
-| `test` passed | `review: [title]` | @reviewer |
-| `test` failed | `bug: fix [title]` | @developer |
-| `review` approved | `integration` + `docs` | @integrator, @documenter |
-| P1 `bug` done | `hotfix` (fast-track) | @integrator |
+## Project Structure
+
+```
+src/debussy/
+├── __init__.py      # Package exports
+├── __main__.py      # CLI entry point
+├── config.py        # Configuration
+├── mailbox.py       # File-based messaging
+├── watcher.py       # Agent spawner
+└── cli.py           # Command implementations
+```
 
 ---
 
 ## Agent Roles
 
-| Role | Writes Code | Purpose |
-|------|-------------|---------|
-| **@conductor** | ❌ | Entry point. Receives requirements, delegates planning, assigns tasks, monitors progress |
-| **@architect** | ❌ | Plans technical approach, breaks down requirements, reviews structure, creates ADRs |
-| **@designer** | ❌ | Plans UX flows and states, defines accessibility requirements, reviews UI |
-| **@developer** | ✅ | Implements features, fixes bugs |
-| **@tester** | ✅ (tests) | Writes tests, runs coverage, reports results |
-| **@reviewer** | ❌ | Code review, security audit, files issue Beads |
-| **@documenter** | ✅ (docs) | READMEs, API docs, code comments |
-| **@integrator** | ✅ | Merges branches, resolves conflicts, manages PRs |
-| **@devops** | ✅ | CI/CD pipelines, Docker, Kubernetes, infrastructure |
+| Role | Purpose | Writes Code |
+|------|---------|-------------|
+| **conductor** | Creates/assigns tasks | ❌ |
+| **architect** | Plans, creates beads | ❌ |
+| **developer** | Implements on branches | ✅ |
+| **tester** | Writes/runs tests | ✅ |
+| **reviewer** | Reviews, files issues | ❌ |
+| **integrator** | Merges branches | ✅ |
 
 ---
 
-## Credits
+## Git Workflow
 
-- **[Beads](https://github.com/steveyegge/beads)** by Steve Yegge — The memory layer
+```
+main
+└── develop
+    ├── feature/bd-001-auth
+    ├── feature/bd-002-login
+    └── feature/bd-003-tokens
+```
+
+Commits reference beads: `[bd-001] Implement auth service`
 
 ---
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+MIT
