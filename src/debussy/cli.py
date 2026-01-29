@@ -130,8 +130,8 @@ def cmd_status(args):
     done_tasks = [t for t in all_tasks if t.startswith("●")]
 
     result_blocked = subprocess.run(["bd", "blocked"], capture_output=True, text=True)
-    blocked_tasks = result_blocked.stdout.strip().split('\n') if result_blocked.stdout.strip() else []
-    blocked_tasks = [t for t in blocked_tasks if t.strip()]
+    blocked_lines = result_blocked.stdout.strip().split('\n') if result_blocked.stdout.strip() else []
+    blocked_tasks = [t for t in blocked_lines if t.strip() and not t.startswith(" ")]
 
     total = len(all_tasks)
     done_count = len(done_tasks)
@@ -150,8 +150,9 @@ def cmd_status(args):
 
     if blocked_tasks:
         print(f"🚫 BLOCKED ({len(blocked_tasks)}):")
-        for t in blocked_tasks:
-            print(f"  {t}")
+        for t in blocked_lines:
+            if t.strip():
+                print(f"  {t}")
         print()
 
     if open_tasks:
