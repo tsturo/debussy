@@ -235,8 +235,11 @@ def cmd_inbox(args):
 
     print(f"\n📬 {len(messages)} messages for @{agent}:\n")
     for msg in messages:
-        print(f"  [{msg['priority']}] {msg['subject']}")
-        print(f"      From: @{msg['sender']}")
+        priority = msg.get('priority', '-')
+        subject = msg.get('subject', '(no subject)')
+        sender = msg.get('sender', 'unknown')
+        print(f"  [{priority}] {subject}")
+        print(f"      From: @{sender}")
         if msg.get('bead_id'):
             print(f"      Bead: {msg['bead_id']}")
         print()
