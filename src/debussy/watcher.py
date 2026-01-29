@@ -19,7 +19,7 @@ PIPELINE_AGENTS = {
 
 class Watcher:
     def __init__(self):
-        self.running_agents: dict[str, subprocess.Popen] = {}
+        self.running_agents: dict[str, dict] = {}
         self.should_exit = False
 
     def log(self, msg: str, icon: str = "•"):
@@ -28,11 +28,12 @@ class Watcher:
 
     def start_agent(self, agent_name: str, message_file: Path):
         if agent_name in self.running_agents:
-            proc = self.running_agents[agent_name]
+            proc = self.running_agents[agent_name]["proc"]
             if proc.poll() is None:
                 return
 
-        self.log(f"Starting @{agent_name}", "🚀")
+        task_name = message_file.stem
+        self.log(f"Starting @{agent_name} ({task_name})", "🚀")
 
         role = agent_name.rstrip('2')
         role_file = Path(f".claude/subagents/{role}.md")
@@ -56,7 +57,7 @@ Start by reading your task."""
 
         try:
             proc = subprocess.Popen(cmd, cwd=os.getcwd())
-            self.running_agents[agent_name] = proc
+            self.running_agents[agent_name] = {"proc": proc, "task": task_name}
         except Exception as e:
             self.log(f"Failed to start {agent_name}: {e}", "✗")
 
@@ -112,7 +113,7 @@ Start by reading your task."""
 
     def start_pipeline_agent(self, agent_name: str, bead_id: str, status: str):
         if agent_name in self.running_agents:
-            proc = self.running_agents[agent_name]
+            proc = self.running_agents[agent_name]["proc"]
             if proc.poll() is None:
                 return
 
@@ -139,12 +140,13 @@ Start by reading the task."""
 
         try:
             proc = subprocess.Popen(cmd, cwd=os.getcwd())
-            self.running_agents[agent_name] = proc
+            self.running_agents[agent_name] = {"proc": proc, "task": bead_id}
         except Exception as e:
             self.log(f"Failed to start {agent_name}: {e}", "✗")
 
     def check_agent_status(self):
-        for agent_name, proc in list(self.running_agents.items()):
+        for agent_name, info in list(self.running_agents.items()):
+            proc = info["proc"]
             if proc.poll() is not None:
                 self.log(f"@{agent_name} finished (code {proc.returncode})", "🛑")
                 del self.running_agents[agent_name]
@@ -173,9 +175,10 @@ Start by reading the task."""
 
                 tick += 1
                 if tick % 12 == 0:
-                    running = list(self.running_agents.keys())
-                    if running:
-                        self.log(f"Running: {', '.join(running)}", "🔄")
+                    if self.running_agents:
+                        self.log("Running:", "🔄")
+                        for name, info in self.running_agents.items():
+                            self.log(f"  @{name}: {info['task']}", "")
                     else:
                         self.log("Idle - no agents running", "💤")
             except Exception as e:
