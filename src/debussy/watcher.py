@@ -68,8 +68,10 @@ Start by reading your task."""
                     continue
 
                 messages = list(mailbox.inbox.glob("*.json"))
-                if messages and agent_name not in self.running_agents:
-                    self.start_agent(agent_name, sorted(messages)[0])
+                if messages:
+                    if agent_name not in self.running_agents:
+                        self.log(f"@{agent_name} has {len(messages)} message(s)", "📬")
+                        self.start_agent(agent_name, sorted(messages)[0])
             except Exception as e:
                 self.log(f"Error checking mailbox for {agent_name}: {e}", "⚠️")
 
@@ -100,7 +102,8 @@ Start by reading your task."""
                     continue
 
                 bead_id = parts[0]
-                if bead_id:
+                if bead_id and agent_name not in self.running_agents:
+                    self.log(f"Task {bead_id} ready for @{agent_name} ({status})", "📋")
                     self.start_pipeline_agent(agent_name, bead_id, status)
             except subprocess.TimeoutExpired:
                 self.log(f"Timeout checking {status} status", "⚠️")
@@ -161,11 +164,20 @@ Start by reading the task."""
         for agent in AGENTS + ["conductor"]:
             Mailbox(agent).ensure_dirs()
 
+        tick = 0
         while not self.should_exit:
             try:
                 self.check_agent_status()
                 self.check_mailboxes()
                 self.check_pipeline()
+
+                tick += 1
+                if tick % 12 == 0:
+                    running = list(self.running_agents.keys())
+                    if running:
+                        self.log(f"Running: {', '.join(running)}", "🔄")
+                    else:
+                        self.log("Idle - no agents running", "💤")
             except Exception as e:
                 self.log(f"Error in watcher loop: {e}", "⚠️")
             time.sleep(POLL_INTERVAL)
