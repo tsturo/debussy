@@ -138,18 +138,26 @@ def cmd_status(args):
         icon = "📬" if count > 0 else "📭"
         print(f"  {icon} {agent:12} {count:3} pending")
 
-    print("\n📋 PIPELINE STATUS:")
+    print("\n👥 AGENT TASKS:")
+    for agent in ["architect", "developer", "developer2", "tester", "reviewer", "integrator"]:
+        result = subprocess.run(["bd", "list", "--assign", agent], capture_output=True, text=True)
+        if result.stdout.strip():
+            lines = result.stdout.strip().split('\n')
+            print(f"  @{agent}: {len(lines)} task(s)")
+            for line in lines[:2]:
+                print(f"     {line}")
+
+    print("\n📋 PIPELINE:")
     for status, icon in [("in-progress", "🔨"), ("testing", "🧪"), ("reviewing", "👀"), ("merging", "🔀")]:
         result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
         if result.stdout.strip():
-            print(f"  {icon} {status.upper()}:")
-            for line in result.stdout.strip().split('\n')[:3]:
-                print(f"     {line}")
+            count = len(result.stdout.strip().split('\n'))
+            print(f"  {icon} {status}: {count}")
 
-    print("\n⏳ READY (unblocked, waiting assignment):")
+    print("\n⏳ READY:")
     result = subprocess.run(["bd", "ready"], capture_output=True, text=True)
     if result.stdout.strip():
-        for line in result.stdout.strip().split('\n')[:5]:
+        for line in result.stdout.strip().split('\n')[:3]:
             print(f"  {line}")
     else:
         print("  (none)")
