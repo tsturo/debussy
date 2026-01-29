@@ -50,10 +50,28 @@ def cmd_start(args):
         "watch -n 5 'debussy status'", "C-m"
     ], check=True)
 
+    conductor_rules = """Run as @conductor.
+
+CRITICAL RULES - YOU MUST FOLLOW THESE:
+1. You are the ORCHESTRATOR, not a developer
+2. NEVER run: npx, npm, pip, cargo, or any build commands
+3. NEVER use Write or Edit tools
+4. NEVER write code yourself
+
+YOUR ONLY ALLOWED COMMANDS:
+- debussy delegate "requirement" → sends to architect for planning
+- debussy assign bd-xxx developer → assigns task to developer
+- debussy status → check status
+- debussy inbox → check messages
+- bd list / bd ready → view tasks
+
+WORKFLOW: User requirement → debussy delegate → architect plans → debussy assign → developers implement
+
+"""
     if args.requirement:
-        prompt = f"Run as @conductor. {args.requirement}"
+        prompt = f"{conductor_rules}User requirement: {args.requirement}"
     else:
-        prompt = "Run as @conductor. I am ready to receive requirements."
+        prompt = f"{conductor_rules}I am ready to receive requirements."
 
     import time
     time.sleep(3)
