@@ -35,6 +35,7 @@ class Watcher:
         return False
 
     def start_agent(self, agent_name: str, message_file: Path):
+        import json as json_mod
         task_name = message_file.stem
         key = f"{agent_name}:{task_name}"
 
@@ -45,10 +46,13 @@ class Watcher:
 
         try:
             message_content = message_file.read_text()
+            msg_data = json_mod.loads(message_content)
+            task_desc = msg_data.get("bead_id") or msg_data.get("subject", task_name)
         except Exception:
             message_content = f"Task: {task_name}"
+            task_desc = task_name
 
-        self.log(f"Starting @{agent_name} ({task_name})", "🚀")
+        self.log(f"Starting @{agent_name} ({task_desc})", "🚀")
 
         role = agent_name.rstrip('2')
 
@@ -88,7 +92,7 @@ YOUR TASK:
 
         try:
             proc = subprocess.Popen(cmd, cwd=os.getcwd())
-            self.running[key] = {"proc": proc, "task": task_name, "agent": agent_name}
+            self.running[key] = {"proc": proc, "task": task_desc, "agent": agent_name}
             message_file.unlink(missing_ok=True)
         except Exception as e:
             self.log(f"Failed to start {agent_name}: {e}", "✗")

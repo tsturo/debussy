@@ -25,8 +25,9 @@ class Mailbox:
         recipient_inbox.mkdir(parents=True, exist_ok=True)
 
         msg_id = f"msg-{int(time.time() * 1000)}"
-        timestamp = datetime.utcnow().isoformat()
-        filename = f"{priority}_{timestamp}_{msg_id}.json"
+        timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        safe_subject = "".join(c if c.isalnum() or c in "-_" else "_" for c in subject[:30])
+        filename = f"{priority}_{timestamp}_{safe_subject}.json"
 
         msg = {
             "id": msg_id,

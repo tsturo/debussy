@@ -132,68 +132,67 @@ def cmd_watch(args):
     Watcher().run()
 
 
+def _get_tasks_by_status(status):
+    result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
+    if not result.stdout.strip():
+        return []
+    return [t for t in result.stdout.strip().split('\n') if t.strip()]
+
+
+def _get_blocked_tasks():
+    result = subprocess.run(["bd", "blocked"], capture_output=True, text=True)
+    if not result.stdout.strip():
+        return []
+    return [t for t in result.stdout.strip().split('\n') if t.strip()]
+
+
+def _get_ready_tasks():
+    result = subprocess.run(["bd", "ready"], capture_output=True, text=True)
+    if not result.stdout.strip():
+        return []
+    return [t for t in result.stdout.strip().split('\n') if t.strip()]
+
+
+def _print_section(icon, title, tasks, empty_msg=None):
+    if not tasks:
+        if empty_msg:
+            print(f"{icon} {title}: {empty_msg}")
+        return
+    print(f"{icon} {title} ({len(tasks)})")
+    for t in tasks:
+        print(f"   {t}")
+    print()
+
+
 def cmd_status(args):
-    """Show system status."""
+    """Show system status grouped by work state."""
     print("\n=== DEBUSSY STATUS ===\n")
 
-    statuses = ["in-progress", "testing", "reviewing", "merging", "acceptance", "done"]
-    status_icons = {
-        "in-progress": "🔨",
-        "testing": "🧪",
-        "reviewing": "👀",
-        "merging": "🔀",
-        "acceptance": "✅",
-        "done": "✓",
-    }
+    active_statuses = ["in-progress", "testing", "reviewing", "merging", "acceptance"]
+    active_tasks = []
+    for status in active_statuses:
+        active_tasks.extend(_get_tasks_by_status(status))
 
-    for status in statuses:
-        result = subprocess.run(
-            ["bd", "list", "--status", status],
-            capture_output=True, text=True
-        )
-        tasks = result.stdout.strip().split('\n') if result.stdout.strip() else []
-        tasks = [t for t in tasks if t.strip()]
-        if tasks:
-            icon = status_icons.get(status, "•")
-            print(f"{icon} {status.upper()} ({len(tasks)}):")
-            for t in tasks:
-                print(f"  {t}")
-            print()
+    _print_section("▶", "ACTIVE", active_tasks, "no active work")
+    if not active_tasks:
+        print()
 
-    result_open = subprocess.run(["bd", "list", "--status", "open"], capture_output=True, text=True)
-    open_tasks = result_open.stdout.strip().split('\n') if result_open.stdout.strip() else []
-    open_tasks = [t for t in open_tasks if t.strip()]
-    if open_tasks:
-        print(f"○ OPEN ({len(open_tasks)}):")
-        for t in open_tasks:
-            print(f"  {t}")
+    ready_tasks = _get_ready_tasks()
+    _print_section("○", "READY", ready_tasks)
+
+    blocked_tasks = _get_blocked_tasks()
+    _print_section("⏸", "BLOCKED", blocked_tasks)
+
+    done_tasks = _get_tasks_by_status("done")
+    if done_tasks:
+        print(f"✓ DONE: {len(done_tasks)} completed")
         print()
 
     conductor_mailbox = Mailbox("conductor")
     conductor_msgs = conductor_mailbox.list_messages()
     if conductor_msgs:
-        print("📨 NOTIFICATIONS:")
-        for msg in conductor_msgs[:3]:
-            print(f"  • {msg['subject']} (@{msg['sender']})")
+        print(f"📬 Conductor inbox: {len(conductor_msgs)} message(s)")
         print()
-
-    print("👥 AGENTS:")
-    for agent in ["architect", "developer", "developer2", "tester", "reviewer", "integrator"]:
-        mailbox = Mailbox(agent)
-        mail_count = mailbox.count()
-        result = subprocess.run(["bd", "list", "--assign", agent], capture_output=True, text=True)
-        task_count = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
-        if mail_count > 0 or task_count > 0:
-            print(f"  @{agent}: {task_count} tasks, {mail_count} mail")
-
-    print("\n⏳ READY:")
-    result = subprocess.run(["bd", "ready"], capture_output=True, text=True)
-    if result.stdout.strip():
-        for line in result.stdout.strip().split('\n')[:3]:
-            print(f"  {line}")
-    else:
-        print("  (none)")
-    print()
 
 
 def cmd_send(args):
