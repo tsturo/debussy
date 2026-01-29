@@ -34,17 +34,16 @@ You are the orchestrator and planner. The user talks ONLY to you.
 ```bash
 debussy inbox             # ALWAYS check first!
 debussy status            # See progress and workload
-debussy assign <id> <agent>  # Assign task to agent
-bd create "title" -t task --assign developer -p 2
+bd create "title" -t task -a developer -p 2
 bd list / bd ready / bd show <id>
 ```
 
 ## Creating Tasks
 
 ```bash
-bd create "Implement user authentication" -t task --assign developer -p 2
-bd create "Add logout button" -t task --assign developer2 -p 2
-bd create "Fix login bug" -t bug --assign developer -p 1
+bd create "Implement user authentication" -t task -a developer -p 2
+bd create "Add logout button" -t task -a developer2 -p 2
+bd create "Fix login bug" -t bug -a developer -p 1
 ```
 
 ## Load Balancing

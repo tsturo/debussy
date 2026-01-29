@@ -52,12 +52,13 @@ Debussy runs multiple Claude Code instances, each with a specialized role. Agent
 
 | Agent | Role | Writes Code |
 |-------|------|-------------|
-| **conductor** | Orchestrates all work. Receives requirements from user, delegates planning to architect, assigns tasks to developers. Never writes code. | ❌ |
-| **architect** | Analyzes requirements, plans technical approach, breaks work into task beads with dependencies. Creates ADRs for architectural decisions. | ❌ |
+| **conductor** | Orchestrates all work. Receives requirements, asks clarifying questions, creates tasks, assigns to developers. Never writes code. | ❌ |
 | **developer/developer2** | Implements features on feature branches. Two developers enable parallel work and load balancing. | ✅ |
-| **tester** | Does manual testing AND writes automated tests. Runs test suites, reports coverage. Also handles acceptance testing after merge. | ✅ |
-| **reviewer** | Reviews code for quality, security, performance. Files issues for problems found, doesn't fix them directly. | ❌ |
-| **integrator** | Merges feature branches to develop. Resolves merge conflicts. Only escalates complex conflicts to developer. | ✅ |
+| **tester** | Tests code and writes automated tests. Handles both initial testing and acceptance testing after merge. | ✅ |
+| **reviewer** | Reviews code for quality, security, performance. Approves or requests changes. | ❌ |
+| **integrator** | Merges feature branches to develop. Resolves merge conflicts. | ✅ |
+
+**Parallel execution:** Multiple agents can work simultaneously on different tasks. Tester can test task A while reviewer reviews task B.
 
 ### Beads
 
@@ -83,7 +84,6 @@ File-based message queue for agent-to-agent communication. Each agent has an inb
 ```
 .mailbox/
 ├── conductor/inbox/    # Receives notifications from all agents
-├── architect/inbox/    # Receives planning requests
 ├── developer/inbox/    # Receives assignments and bug reports
 ├── tester/inbox/       # Receives test requests
 ├── reviewer/inbox/     # Receives review requests
@@ -170,15 +170,16 @@ I need user authentication with JWT.
 ```
 
 Conductor will:
-1. `debussy delegate "..."` → Create planning task for architect
-2. Architect plans → creates implementation beads
-3. `debussy assign bd-xxx developer` → Assign to developer (load-balanced)
-4. Developer implements on feature branch
-5. Sets status to `testing` → watcher spawns tester
-6. Tester passes → status `reviewing` → watcher spawns reviewer
-7. Reviewer approves → status `merging` → watcher spawns integrator
-8. Integrator merges → status `acceptance` → watcher spawns tester
-9. Tester does final verification → status `done`
+1. Ask clarifying questions if needed
+2. Create tasks: `bd create "Implement login" -t task -a developer`
+3. Balance load between developer and developer2
+4. Developer implements → sets status `testing`
+5. Tester tests → sets status `reviewing`
+6. Reviewer approves → sets status `merging`
+7. Integrator merges → sets status `acceptance`
+8. Tester does acceptance testing → sets status `done`
+
+**Feedback loops:** If tester/reviewer find issues, task goes back to developer automatically.
 
 ---
 
@@ -187,11 +188,11 @@ Conductor will:
 ```bash
 debussy start                    # Start tmux session
 debussy start "requirement"      # Start with initial requirement
-debussy delegate "requirement"   # Create planning task for architect
-debussy assign bd-xxx developer  # Assign bead to agent
-debussy status                   # Show pipeline progress
+debussy status                   # Show tasks by status
 debussy inbox                    # Check conductor's messages
+debussy assign bd-xxx developer  # Assign bead to agent
 debussy trigger                  # Manual pipeline check
+debussy upgrade                  # Upgrade to latest version
 debussy watch                    # Run watcher only
 debussy send agent "subject"     # Send message to agent
 ```
@@ -204,26 +205,21 @@ debussy send agent "subject"     # Send message to agent
 ┌─────────────────────────────────────────────────────────────────┐
 │  USER → @CONDUCTOR                                              │
 │                                                                 │
-│   requirement ──▶ delegates to @architect                       │
-│                           │                                     │
-│                           ▼                                     │
-│                    beads created                                │
-│                           │                                     │
-│                           ▼                                     │
-│         @conductor assigns from bd ready (load balanced)        │
+│   requirement ──▶ asks questions ──▶ creates tasks              │
+│                                           │                     │
+│                                           ▼                     │
+│                    assigns to developer/developer2 (balanced)   │
 │                                                                 │
 ├─────────────────────────────────────────────────────────────────┤
-│  PIPELINE (automated via watcher)                               │
+│  PIPELINE (automated via watcher, runs in parallel)             │
 │                                                                 │
 │   in-progress ──▶ testing ──▶ reviewing ──▶ merging ──▶ acceptance ──▶ done
 │        │            │            │             │            │
 │     developer    tester      reviewer     integrator     tester
-│        │            │            │             │
-│        │            │            │             └── conflicts? → developer
-│        │            │            └── changes requested? → developer
-│        │            └── tests failed? → developer
-│        │
-│        └── implements on feature branch
+│        ▲            │            │             │
+│        │            │            │             └── conflicts? ──┘
+│        │            │            └── changes requested? ────────┘
+│        └────────────└── tests failed? ──────────────────────────┘
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```

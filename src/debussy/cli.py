@@ -64,13 +64,12 @@ YOUR JOB:
 ALLOWED COMMANDS:
 - debussy inbox (ALWAYS check first!)
 - debussy status (shows workload per agent)
-- debussy assign <bead-id> <agent>
-- bd create "task title" -t task --assign developer
+- bd create "task title" -t task -a developer
 - bd list / bd ready / bd show <id>
 
 CREATING TASKS:
-bd create "Implement user login" -t task --assign developer -p 2
-bd create "Add logout button" -t task --assign developer2 -p 2
+bd create "Implement user login" -t task -a developer -p 2
+bd create "Add logout button" -t task -a developer2 -p 2
 
 PARALLELIZATION:
 - Check debussy status to see which developer is free
