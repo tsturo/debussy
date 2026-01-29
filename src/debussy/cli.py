@@ -89,10 +89,14 @@ STATUS FLOW: pending → in-progress → testing → reviewing → merging → a
         prompt = f"{conductor_rules}I am ready to receive requirements."
 
     import time
-    time.sleep(3)
+    time.sleep(6)
+    subprocess.run([
+        "tmux", "send-keys", "-l", "-t", f"{SESSION_NAME}:main.0",
+        prompt
+    ], check=True)
     subprocess.run([
         "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.0",
-        prompt, "C-m"
+        "Enter"
     ], check=True)
 
     subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.0", "-T", "conductor"], check=True)
@@ -145,16 +149,13 @@ def cmd_status(args):
     print(f"📊 PROGRESS: [{bar}] {progress}% ({done_count}/{total} done)\n")
 
     print("📋 PIPELINE:")
-    icons = {"pending": "⏸", "in-progress": "🔨", "testing": "🧪", "reviewing": "👀", "merging": "🔀", "acceptance": "✔️", "done": "✅"}
-    line1 = "  "
-    line2 = "  "
+    icons = {"pending": "⏸", "in-progress": "🔨", "testing": "🧪", "reviewing": "👀", "merging": "🔀", "acceptance": "✅", "done": "✓"}
     for stage in stages:
         c = counts[stage]
-        icon = icons[stage]
-        line1 += f" {icon}{c:<2} →"
-        line2 += f" {stage[:4]:<3}  "
-    print(line1.rstrip(" →"))
-    print(line2)
+        if c > 0:
+            print(f"  {icons[stage]} {stage}: {c}")
+    if all(counts[s] == 0 for s in stages):
+        print("  (no tasks)")
     print()
 
     conductor_mailbox = Mailbox("conductor")
