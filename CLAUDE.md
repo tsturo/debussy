@@ -115,10 +115,9 @@ Specialized agents for parallel work. Each has a dedicated role file in `.claude
 
 ### @conductor (Entry Point)
 - Single entry point for all work — user talks to conductor first
-- Receives requirements, delegates planning to @architect/@designer
-- Assigns tasks from `bd ready` after planning completes
+- Creates tasks and assigns them to appropriate agents
 - Monitors progress, triggers handoffs, handles escalations
-- **Does not write code or make technical decisions**
+- **Does not write code or make technical decisions — only orchestrates**
 
 ### @architect
 - Receives planning requests from @conductor
@@ -126,13 +125,6 @@ Specialized agents for parallel work. Each has a dedicated role file in `.claude
 - Breaks down requirements into tasks with dependencies
 - Reviews code structure and design, creates ADRs
 - **Does not write production code** — creates Beads
-
-### @designer
-- Receives planning requests from @conductor (for UI work)
-- Plans UX flows, states, and accessibility requirements
-- Collaborates with @architect during planning phase
-- Reviews implemented UI for usability and accessibility
-- **Does not write code** — creates Beads
 
 ### @developer
 - Implements features and fixes bugs
@@ -144,11 +136,6 @@ Specialized agents for parallel work. Each has a dedicated role file in `.claude
 - Runs test suites, reports coverage
 - **Emphasizes Principle #4:** Goal-driven, test-first execution
 
-### @documenter
-- Writes technical documentation
-- Updates READMEs and API docs
-- Only modifies documentation files
-
 ### @reviewer
 - Code review for quality, security, performance
 - **Uses Principle #3 as review criteria:** Flags unnecessary changes
@@ -159,11 +146,6 @@ Specialized agents for parallel work. Each has a dedicated role file in `.claude
 - Manages PRs and CI
 - Closes parent tasks when integration completes
 
-### @devops
-- Manages CI/CD pipelines, Docker, Kubernetes
-- Infrastructure as Code (Terraform, etc.)
-- Deployment, monitoring, operational concerns
-
 ---
 
 ## Coordination Rules
@@ -172,17 +154,14 @@ Specialized agents for parallel work. Each has a dedicated role file in `.claude
 
 | Situation | Action | Who |
 |-----------|--------|-----|
-| New requirement received | Receive, delegate planning | @conductor |
-| Planning needed | Analyze, create Beads | @architect + @designer |
+| New requirement received | Create planning task | @conductor |
+| Planning needed | Analyze, create Beads | @architect |
 | Tasks ready for assignment | Assign from `bd ready` | @conductor |
 | Implementation work | Write code, tests | @developer |
 | Code seems overcomplicated | File refactor Bead | @architect |
-| UI/UX concerns | Review, file issues | @designer |
 | Tests needed | Write tests | @tester |
 | Review requested | Review, file issues | @reviewer |
 | Ready to merge | Merge, resolve conflicts | @integrator |
-| CI/CD or infra work | Pipelines, Docker, deploy | @devops |
-| Docs outdated | Update docs | @documenter |
 | Blocked on something | Update Bead status, notify | Any agent |
 | Found unrelated bug | File new Bead | Any agent |
 
@@ -208,14 +187,14 @@ Don't rely on verbal/chat communication — if it's not in Beads, it didn't happ
 ## Pipeline Flow
 
 ```
-USER → @conductor → delegates to @architect + @designer → beads created
-                                                                  ↓
-                                              @conductor assigns from bd ready
-                                                                  ↓
-EXECUTION:  feature → test → review → integration + docs → done
+USER → @conductor → creates planning task → @architect creates beads
+                                                        ↓
+                                      @conductor assigns from bd ready
+                                                        ↓
+EXECUTION:  feature → test → review → integration → done
 ```
 
-**Handoffs are automated.** When you mark a task `done`, the system creates the next task and assigns it.
+**Handoffs are automated.** When you mark a task `done`, the handoff-watcher creates the next task.
 
 ### Pipeline Rules
 
@@ -225,7 +204,7 @@ EXECUTION:  feature → test → review → integration + docs → done
 | `feature` (done) | `test: [title]` | @tester |
 | `test` (passed) | `review: [title]` | @reviewer |
 | `test` (failed) | `bug: fix [title]` | @developer |
-| `review` (approved) | `integration` + `docs` | @integrator, @documenter |
+| `review` (approved) | `integration` | @integrator |
 | `review` (changes requested) | Parent → in-progress | @developer |
 | `bug` P1 (done) | `integration: hotfix` | @integrator |
 | `integration` (done) | Closes parent | — |
@@ -267,22 +246,45 @@ hotfix/bd-xxx-short-description
 
 ---
 
+## Communication
+
+Agents communicate via file-based mailbox:
+
+```bash
+# Check your inbox
+python -m debussy check <agent-name>
+
+# Get next message (removes from inbox)
+python -m debussy pop <agent-name>
+
+# Send message
+python -m debussy send <recipient> "subject" "body"
+```
+
+When completing work, always notify conductor:
+```bash
+python -m debussy send conductor "Completed bd-xxx" "Details..."
+```
+
+---
+
 ## Project Structure
 
 ```
-src/                    # Source code
-tests/                  # Test files
+src/                    # Python mailbox system
+  mailbox.py            # File-based message queue
+  watcher.py            # Spawns agents on demand
+  orchestra.py          # CLI for conductor
+.claude/
+  mailbox/              # Agent inboxes (runtime)
+  subagents/            # Agent role definitions
+scripts/
+  start.sh              # Main entry point
+  orchestra             # CLI wrapper
+  handoff-watcher.sh    # Pipeline automation
+.beads/                 # Beads database (git-tracked)
 docs/                   # Documentation
   adr/                  # Architecture Decision Records
-.beads/                 # Beads database (git-tracked)
-.claude/                # Claude Code settings
-  subagents/            # Subagent role definitions
-scripts/                # Automation scripts
-  handoff-watcher.sh    # Automated pipeline
-  handoff.sh            # Manual handoff helper
-  start-agents.sh       # tmux workspace launcher
-logs/                   # Handoff logs
-config/                 # Configuration files
 ```
 
 ---
