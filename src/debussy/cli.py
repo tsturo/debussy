@@ -123,36 +123,52 @@ def cmd_status(args):
     """Show system status."""
     print("\n=== DEBUSSY STATUS ===\n")
 
+    stages = ["pending", "in-progress", "testing", "reviewing", "merging", "done"]
+    counts = {}
+    total = 0
+    for stage in stages:
+        result = subprocess.run(["bd", "list", "--status", stage], capture_output=True, text=True)
+        count = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
+        counts[stage] = count
+        total += count
+
+    done_count = counts.get("done", 0)
+    progress = int((done_count / total * 100)) if total > 0 else 0
+    bar_filled = int(progress / 5)
+    bar_empty = 20 - bar_filled
+    bar = "█" * bar_filled + "░" * bar_empty
+
+    print(f"📊 PROGRESS: [{bar}] {progress}% ({done_count}/{total} done)\n")
+
+    print("📋 PIPELINE:")
+    icons = {"pending": "⏸", "in-progress": "🔨", "testing": "🧪", "reviewing": "👀", "merging": "🔀", "done": "✅"}
+    line1 = "  "
+    line2 = "  "
+    for stage in stages:
+        c = counts[stage]
+        icon = icons[stage]
+        line1 += f" {icon}{c:<2} →"
+        line2 += f" {stage[:4]:<3}  "
+    print(line1.rstrip(" →"))
+    print(line2)
+    print()
+
     conductor_mailbox = Mailbox("conductor")
     conductor_msgs = conductor_mailbox.list_messages()
     if conductor_msgs:
-        print("📨 NOTIFICATIONS (for conductor):")
-        for msg in conductor_msgs[:5]:
-            print(f"  • {msg['subject']} (from @{msg['sender']})")
+        print("📨 NOTIFICATIONS:")
+        for msg in conductor_msgs[:3]:
+            print(f"  • {msg['subject']} (@{msg['sender']})")
         print()
 
-    print("📬 MAILBOXES:")
-    for agent in ["conductor"] + AGENTS:
-        mailbox = Mailbox(agent)
-        count = mailbox.count()
-        icon = "📬" if count > 0 else "📭"
-        print(f"  {icon} {agent:12} {count:3} pending")
-
-    print("\n👥 AGENT TASKS:")
+    print("👥 AGENTS:")
     for agent in ["architect", "developer", "developer2", "tester", "reviewer", "integrator"]:
+        mailbox = Mailbox(agent)
+        mail_count = mailbox.count()
         result = subprocess.run(["bd", "list", "--assign", agent], capture_output=True, text=True)
-        if result.stdout.strip():
-            lines = result.stdout.strip().split('\n')
-            print(f"  @{agent}: {len(lines)} task(s)")
-            for line in lines[:2]:
-                print(f"     {line}")
-
-    print("\n📋 PIPELINE:")
-    for status, icon in [("in-progress", "🔨"), ("testing", "🧪"), ("reviewing", "👀"), ("merging", "🔀")]:
-        result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
-        if result.stdout.strip():
-            count = len(result.stdout.strip().split('\n'))
-            print(f"  {icon} {status}: {count}")
+        task_count = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
+        if mail_count > 0 or task_count > 0:
+            print(f"  @{agent}: {task_count} tasks, {mail_count} mail")
 
     print("\n⏳ READY:")
     result = subprocess.run(["bd", "ready"], capture_output=True, text=True)
