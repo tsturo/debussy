@@ -131,16 +131,15 @@ def cmd_status(args):
     """Show system status."""
     print("\n=== DEBUSSY STATUS ===\n")
 
-    stages = ["pending", "in-progress", "testing", "reviewing", "merging", "acceptance", "done"]
-    counts = {}
-    total = 0
-    for stage in stages:
-        result = subprocess.run(["bd", "list", "--status", stage], capture_output=True, text=True)
-        count = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
-        counts[stage] = count
-        total += count
+    result = subprocess.run(["bd", "list"], capture_output=True, text=True)
+    all_tasks = result.stdout.strip().split('\n') if result.stdout.strip() else []
+    all_tasks = [t for t in all_tasks if t.strip()]
 
-    done_count = counts.get("done", 0)
+    open_count = len([t for t in all_tasks if t.startswith("○")])
+    in_progress_count = len([t for t in all_tasks if t.startswith("◐")])
+    done_count = len([t for t in all_tasks if t.startswith("●")])
+    total = len(all_tasks)
+
     progress = int((done_count / total * 100)) if total > 0 else 0
     bar_filled = int(progress / 5)
     bar_empty = 20 - bar_filled
@@ -148,13 +147,14 @@ def cmd_status(args):
 
     print(f"📊 PROGRESS: [{bar}] {progress}% ({done_count}/{total} done)\n")
 
-    print("📋 PIPELINE:")
-    icons = {"pending": "⏸", "in-progress": "🔨", "testing": "🧪", "reviewing": "👀", "merging": "🔀", "acceptance": "✅", "done": "✓"}
-    for stage in stages:
-        c = counts[stage]
-        if c > 0:
-            print(f"  {icons[stage]} {stage}: {c}")
-    if all(counts[s] == 0 for s in stages):
+    print("📋 TASKS:")
+    if open_count > 0:
+        print(f"  ○ open: {open_count}")
+    if in_progress_count > 0:
+        print(f"  ◐ in-progress: {in_progress_count}")
+    if done_count > 0:
+        print(f"  ● done: {done_count}")
+    if total == 0:
         print("  (no tasks)")
     print()
 
