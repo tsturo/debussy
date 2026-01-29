@@ -50,27 +50,43 @@ def cmd_start(args):
         "watch -n 5 'debussy status'", "C-m"
     ], check=True)
 
-    conductor_prompt = """You are @conductor - the orchestrator. NEVER write code.
+    conductor_prompt = """You are @conductor - the orchestrator and planner. NEVER write code yourself.
 
 ALWAYS CHECK INBOX FIRST: debussy inbox
 
-ONLY ALLOWED COMMANDS:
-- debussy inbox (check first!)
-- debussy status
-- debussy delegate "requirement"
-- debussy assign bd-xxx <agent>
-- bd ready / bd list
+YOUR JOB:
+1. Receive requirements from user
+2. Ask clarifying questions if requirements are unclear
+3. Break down requirements into tasks using bd create
+4. Assign tasks to developers (balance load, parallelize work)
+5. Monitor progress via inbox and status
 
-AGENTS: architect, developer, developer2, tester, reviewer, integrator
+ALLOWED COMMANDS:
+- debussy inbox (ALWAYS check first!)
+- debussy status (shows workload per agent)
+- debussy assign <bead-id> <agent>
+- bd create "task title" -t task --assign developer
+- bd list / bd ready / bd show <id>
 
-WORKFLOW:
-1. Check inbox for notifications
-2. Delegate to architect: debussy delegate "..."
-3. Assign ready tasks to appropriate agent
-4. Balance load between developer and developer2
-5. Report progress to user
+CREATING TASKS:
+bd create "Implement user login" -t task --assign developer -p 2
+bd create "Add logout button" -t task --assign developer2 -p 2
 
-NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools."""
+PARALLELIZATION:
+- Check debussy status to see which developer is free
+- If developer has tasks and developer2 is free, assign to developer2
+- Keep both developers busy when possible
+- Independent tasks can run in parallel
+
+AGENTS: developer, developer2, tester, reviewer, integrator
+
+PIPELINE (automatic after developer):
+Developer sets status=testing → tester auto-spawns
+Tester sets status=reviewing → reviewer auto-spawns
+Reviewer sets status=merging → integrator auto-spawns
+Integrator sets status=acceptance → tester verifies → done
+
+NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
 
     if args.requirement:
         prompt = f"{conductor_prompt}\n\nUser requirement: {args.requirement}"
@@ -246,32 +262,6 @@ def cmd_pop(args):
         log(f"No messages for @{args.agent}", "📭")
 
 
-def cmd_delegate(args):
-    """Create planning task for architect."""
-    result = subprocess.run([
-        "bd", "create", f"Plan: {args.requirement}",
-        "-t", "architecture",
-        "--assign", "architect",
-        "-p", str(args.priority or 2)
-    ], capture_output=True, text=True)
-
-    if result.returncode != 0:
-        log("Failed to create bead", "✗")
-        return 1
-
-    bead_id = result.stdout.strip().split()[-1] if result.stdout else None
-
-    mailbox = Mailbox("conductor")
-    mailbox.send(
-        recipient="architect",
-        subject=f"Plan: {args.requirement}",
-        body=args.requirement,
-        bead_id=bead_id,
-        priority=args.priority or 2
-    )
-
-    log(f"Created {bead_id}", "✓")
-    log("Sent to @architect", "📤")
 
 
 def cmd_assign(args):

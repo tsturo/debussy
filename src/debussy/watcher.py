@@ -38,17 +38,32 @@ class Watcher:
         role = agent_name.rstrip('2')
         role_file = Path(f".claude/subagents/{role}.md")
 
-        prompt = f"""You are @{agent_name}. Read {role_file} for your role.
+        if role == "developer":
+            prompt = f"""You are @{agent_name} - a developer.
 
-You have a task in your mailbox. Process it:
-1. Read message: cat {message_file}
-2. Get bead: bd show <bead-id>
-3. Mark in progress: bd update <bead-id> --status in-progress
-4. Do the work as described in your role file
-5. Update status and notify conductor (see role file)
-6. Exit when finished
+Read your task: cat {message_file}
+Then: bd show <bead-id>
 
-Start by reading your task."""
+WORKFLOW:
+1. bd update <bead-id> --status in-progress
+2. Create feature branch: git checkout -b feature/<bead-id>
+3. Implement the task
+4. Commit and push your changes
+5. IMPORTANT: bd update <bead-id> --status testing
+6. debussy send conductor "Done <bead-id>" -b "Ready for testing"
+7. Exit
+
+CRITICAL: Set status to "testing" when done, NOT "done". Pipeline continues automatically."""
+        else:
+            prompt = f"""You are @{agent_name}. Read {role_file} for your role.
+
+Read your task: cat {message_file}
+Then: bd show <bead-id>
+
+1. bd update <bead-id> --status in-progress
+2. Do the work as described in your role file
+3. Update status and notify conductor
+4. Exit when finished"""
 
         cmd = ["claude"]
         if YOLO_MODE:
@@ -119,19 +134,56 @@ Start by reading your task."""
 
         self.log(f"Starting @{agent_name} for {bead_id} (status={status})", "🚀")
 
-        role_file = Path(f".claude/subagents/{agent_name}.md")
+        if agent_name == "tester" and status == "testing":
+            prompt = f"""You are @tester. Task {bead_id} needs testing.
 
-        prompt = f"""You are @{agent_name}. Read {role_file} for your role.
+1. bd show {bead_id}
+2. git checkout feature/{bead_id} (or find the branch)
+3. Run tests, check functionality
+4. If PASS: bd update {bead_id} --status reviewing
+5. If FAIL: bd update {bead_id} --status in-progress, notify developer
+6. debussy send conductor "Tested {bead_id}" -b "Status: reviewing/failed"
+7. Exit"""
+        elif agent_name == "tester" and status == "acceptance":
+            prompt = f"""You are @tester. Task {bead_id} needs acceptance testing (post-merge).
 
-Task {bead_id} is ready for you (status={status}).
+1. bd show {bead_id}
+2. git checkout develop && git pull
+3. Run full test suite, verify feature works
+4. If PASS: bd update {bead_id} --status done
+5. If FAIL: bd update {bead_id} --status in-progress, notify developer
+6. debussy send conductor "Acceptance {bead_id}" -b "Status: done/failed"
+7. Exit"""
+        elif agent_name == "reviewer":
+            prompt = f"""You are @reviewer. Task {bead_id} needs code review.
 
-1. Get task details: bd show {bead_id}
-2. Do the work as described in your role file
+1. bd show {bead_id}
+2. git checkout feature/{bead_id}
+3. Review code: git diff develop...HEAD
+4. If APPROVED: bd update {bead_id} --status merging
+5. If CHANGES NEEDED: bd update {bead_id} --status in-progress, notify developer
+6. debussy send conductor "Reviewed {bead_id}" -b "Status: merging/changes-needed"
+7. Exit"""
+        elif agent_name == "integrator":
+            prompt = f"""You are @integrator. Task {bead_id} needs to be merged.
+
+1. bd show {bead_id}
+2. git checkout develop && git pull
+3. git merge feature/{bead_id} --no-ff
+4. Resolve conflicts if any
+5. git push origin develop
+6. bd update {bead_id} --status acceptance
+7. debussy send conductor "Merged {bead_id}" -b "Status: acceptance"
+8. Exit"""
+        else:
+            role_file = Path(f".claude/subagents/{agent_name}.md")
+            prompt = f"""You are @{agent_name}. Task {bead_id} is ready (status={status}).
+
+1. bd show {bead_id}
+2. Do the work
 3. Update status when done
-4. Notify conductor
-5. Exit when finished
-
-Start by reading the task."""
+4. debussy send conductor "Done {bead_id}"
+5. Exit"""
 
         cmd = ["claude"]
         if YOLO_MODE:

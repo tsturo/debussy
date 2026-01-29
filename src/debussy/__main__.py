@@ -49,12 +49,6 @@ def main():
     p.add_argument("agent", help="Agent name")
     p.set_defaults(func=cli.cmd_pop)
 
-    # delegate
-    p = subparsers.add_parser("delegate", help="Create planning task")
-    p.add_argument("requirement", help="The requirement")
-    p.add_argument("--priority", "-p", type=int, help="Priority 1-5")
-    p.set_defaults(func=cli.cmd_delegate)
-
     # assign
     p = subparsers.add_parser("assign", help="Assign bead to agent")
     p.add_argument("bead_id", help="Bead ID")
