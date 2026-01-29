@@ -47,7 +47,7 @@ bd update <bead-id> --status testing
 If you find unrelated issues:
 
 ```bash
-bd create "Bug: description" --status pending
+bd create "Bug: description" --status open
 ```
 
 Don't fix unrelated issues in your current branch.

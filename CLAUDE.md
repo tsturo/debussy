@@ -40,14 +40,14 @@ Role-specific instructions are in `.claude/subagents/`.
 Tasks flow automatically through statuses:
 
 ```
-pending → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
+open → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
 ```
 
 **Watcher spawns agents based on status:**
 
 | Status | Agent Spawned |
 |--------|---------------|
-| pending | developer |
+| open | developer |
 | testing | tester |
 | reviewing | reviewer |
 | merging | integrator |
@@ -63,7 +63,7 @@ pending → developer → testing → tester → reviewing → reviewer → merg
 
 ### @conductor
 - Entry point — user talks to conductor
-- Creates tasks with `bd create "title" --status pending`
+- Creates tasks with `bd create "title" --status open`
 - Monitors progress with `debussy status`
 - **Does not write code**
 
@@ -73,11 +73,11 @@ pending → developer → testing → tester → reviewing → reviewer → merg
 
 ### @tester
 - Tests code
-- Sets `--status reviewing` if pass, `--status pending` if fail
+- Sets `--status reviewing` if pass, `--status open` if fail
 
 ### @reviewer
 - Reviews code for quality and security
-- Sets `--status merging` if approved, `--status pending` if changes needed
+- Sets `--status merging` if approved, `--status open` if changes needed
 
 ### @integrator
 - Merges feature branches to develop
@@ -89,7 +89,7 @@ pending → developer → testing → tester → reviewing → reviewer → merg
 
 ### Creating Tasks
 ```bash
-bd create "Implement feature X" --status pending
+bd create "Implement feature X" --status open
 ```
 
 ### Status Transitions
@@ -102,13 +102,13 @@ bd update <bead-id> --status testing
 Tester:
 ```bash
 bd update <bead-id> --status reviewing   # pass
-bd update <bead-id> --status pending     # fail (add comment first)
+bd update <bead-id> --status open     # fail (add comment first)
 ```
 
 Reviewer:
 ```bash
 bd update <bead-id> --status merging     # approved
-bd update <bead-id> --status pending     # changes needed
+bd update <bead-id> --status open     # changes needed
 ```
 
 Integrator:
@@ -119,7 +119,7 @@ bd update <bead-id> --status acceptance
 Tester (acceptance):
 ```bash
 bd update <bead-id> --status done        # pass
-bd update <bead-id> --status pending     # fail
+bd update <bead-id> --status open     # fail
 ```
 
 ---
@@ -158,7 +158,7 @@ src/debussy/
 debussy start              # Start system (tmux)
 debussy watch              # Run watcher
 debussy status             # Show status
-bd create "title" --status pending
+bd create "title" --status open
 bd update <id> --status <status>
 bd show <id>
 bd list

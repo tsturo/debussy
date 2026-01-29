@@ -45,7 +45,7 @@ Opens tmux with split panes:
 Tasks flow through statuses automatically:
 
 ```
-pending → testing → reviewing → merging → acceptance → done
+open → testing → reviewing → merging → acceptance → done
    ↓         ↓          ↓           ↓          ↓
 developer  tester   reviewer   integrator   tester
 ```
@@ -54,7 +54,7 @@ The **watcher** polls bead statuses and spawns agents:
 
 | Status | Agent |
 |--------|-------|
-| `pending` | developer |
+| `open` | developer |
 | `testing` | tester |
 | `reviewing` | reviewer |
 | `merging` | integrator |
@@ -62,7 +62,7 @@ The **watcher** polls bead statuses and spawns agents:
 
 **Parallelization:** Multiple developers/testers/reviewers run simultaneously. Integrator is singleton.
 
-**Feedback loops:** Failed tests or review → status back to `pending` → developer picks it up again.
+**Feedback loops:** Failed tests or review → status back to `open` → developer picks it up again.
 
 ### Agents
 
@@ -86,8 +86,8 @@ I need user authentication with JWT.
 
 Conductor creates tasks:
 ```bash
-bd create "Implement JWT auth" --status pending
-bd create "Add login endpoint" --status pending
+bd create "Implement JWT auth" --status open
+bd create "Add login endpoint" --status open
 ```
 
 Watcher automatically spawns agents as tasks move through the pipeline.

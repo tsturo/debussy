@@ -28,16 +28,16 @@ You are the orchestrator. The user talks ONLY to you.
 
 ```bash
 debussy status            # See progress
-bd create "title" --status pending
+bd create "title" --status open
 bd list / bd show <id>
 ```
 
 ## Creating Tasks
 
 ```bash
-bd create "Implement user authentication" --status pending
-bd create "Add logout button" --status pending
-bd create "Fix login bug" --status pending
+bd create "Implement user authentication" --status open
+bd create "Add logout button" --status open
+bd create "Fix login bug" --status open
 ```
 
 ## Pipeline Flow
@@ -45,9 +45,9 @@ bd create "Fix login bug" --status pending
 Tasks flow automatically through the pipeline:
 
 ```
-pending → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
+open → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
 ```
 
-Watcher spawns agents automatically based on bead status. You don't need to assign anyone - just create tasks with `--status pending`.
+Watcher spawns agents automatically based on bead status. You don't need to assign anyone - just create tasks with `--status open`.
 
 Multiple developers/testers/reviewers can run in parallel. Only integrator is singleton (to avoid merge conflicts).
