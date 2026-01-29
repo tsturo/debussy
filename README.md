@@ -53,8 +53,8 @@ debussy start
 This opens tmux with split panes:
 ```
 ┌──────────┬──────────┐
-│          │conductor │
-│ watcher  ├──────────┤
+│          │ watcher  │
+│conductor ├──────────┤
 │          │ status   │
 └──────────┴──────────┘
 ```
