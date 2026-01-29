@@ -13,6 +13,7 @@ dependencies = []
 
 [project.scripts]
 debussy = "debussy.__main__:main"
+dbs = "debussy.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
