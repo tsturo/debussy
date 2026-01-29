@@ -119,7 +119,7 @@ python -m debussy watch                    # Run watcher only
 ┌─────────────────────────────────────────────────────────────────┐
 │  USER → @CONDUCTOR                                              │
 │                                                                 │
-│   requirement ──▶ delegates to @architect + @designer           │
+│   requirement ──▶ delegates to @architect                       │
 │                           │                                     │
 │                           ▼                                     │
 │                    beads created                                │

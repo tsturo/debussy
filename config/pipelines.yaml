@@ -47,12 +47,6 @@ pipelines:
           priority: 1
           parent: trigger.parent
           refs: [trigger]
-        - type: docs
-          title_prefix: "Docs:"
-          assignee: documenter
-          priority: 3
-          parent: trigger.parent
-          note: "Document the feature after merge."
     
     - trigger: { status: done, label: changes-requested }
       update:
@@ -129,10 +123,7 @@ task_types:
   bug: developer
   test: tester
   review: reviewer
-  design: designer
-  docs: documenter
   integration: integrator
-  infra: devops
   refactor: developer
   architecture: architect
 
@@ -140,7 +131,6 @@ task_types:
 labels:
   test_result: [passed, failed]
   review_result: [approved, changes-requested, needs-discussion]
-  design_result: [approved, changes-requested]
   merge_result: [merged, conflict, failed-ci]
 
 # Notification channels (for future integration)
