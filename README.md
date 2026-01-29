@@ -115,13 +115,31 @@ python -m debussy watch                    # Run watcher only
 ## Project Structure
 
 ```
-src/debussy/
-├── __init__.py      # Package exports
-├── __main__.py      # CLI entry point
-├── config.py        # Configuration
-├── mailbox.py       # File-based messaging
-├── watcher.py       # Agent spawner
-└── cli.py           # Command implementations
+┌─────────────────────────────────────────────────────────────────┐
+│  USER → @CONDUCTOR                                              │
+│                                                                 │
+│   requirement ──▶ delegates to @architect + @designer           │
+│                           │                                     │
+│                           ▼                                     │
+│                    beads created                                │
+│                           │                                     │
+│                           ▼                                     │
+│              @conductor assigns from bd ready                 │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  EXECUTION                                                      │
+│                                                                 │
+│   feature ──▶ test ──▶ review ──▶ integration ──▶ done         │
+│      │          │         │            │                        │
+│      │          │         │            └──▶ docs (parallel)     │
+│      │          │         │                                     │
+│      │          │         └──▶ changes requested? → developer   │
+│      │          │                                               │
+│      │          └──▶ failed? → developer (bug fix)              │
+│      │                                                          │
+│      └──▶ @developer implements                                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
