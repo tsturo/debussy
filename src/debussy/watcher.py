@@ -80,7 +80,7 @@ Start by reading your task."""
         for status, agent_name in PIPELINE_AGENTS.items():
             try:
                 if agent_name in self.running_agents:
-                    proc = self.running_agents[agent_name]
+                    proc = self.running_agents[agent_name]["proc"]
                     if proc.poll() is None:
                         continue
 
@@ -186,7 +186,7 @@ Start by reading the task."""
             time.sleep(POLL_INTERVAL)
 
         self.log("Stopping agents...", "🛑")
-        for name, proc in self.running_agents.items():
-            proc.terminate()
+        for name, info in self.running_agents.items():
+            info["proc"].terminate()
 
         self.log("Watcher stopped")
