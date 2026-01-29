@@ -111,9 +111,20 @@ git checkout --theirs <file>  # Keep incoming
 3. Add tests for merged behavior
 4. Document in commit message
 
+**When merge fails (conflicts, CI failures):**
+```bash
+bd update <bead-id> --status in-progress --label merge-conflict
+bd comment <bead-id> "Merge failed: [details]"
+
+# Send to developer (watcher will auto-spawn developer)
+debussy send developer "FIX: <bead-id>" --bead <bead-id> -b "Merge failed: [details]. Please fix conflicts."
+
+# Notify conductor
+debussy send conductor "MERGE FAILED: <bead-id>" -b "Sent back to developer."
+```
+
 **When to escalate:**
-- Architectural conflicts → file bead for @architect
-- Test failures → file bead for @tester
+- Architectural conflicts → notify @architect via debussy send architect
 - Unclear requirements → notify conductor
 
 ## PR Template

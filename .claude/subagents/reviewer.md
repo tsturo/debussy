@@ -97,13 +97,16 @@ debussy send conductor "REVIEW APPROVED: <bead-id>" -b "Status: merging. Ready t
 **If changes needed:**
 ```bash
 bd update <bead-id> --status in-progress --label changes-requested
-bd comment <bead-id> "Issues found. See bd-xxx."
+bd comment <bead-id> "Issues found: [details]"
 
-# Notify conductor (conductor will reassign to developer)
-debussy send conductor "REVIEW CHANGES REQUESTED: <bead-id>" -b "Issues: [summary]. Back to in-progress."
+# Send to developer (watcher will auto-spawn developer)
+debussy send developer "FIX: <bead-id>" --bead <bead-id> -b "Review found issues: [details]. Please fix."
+
+# Notify conductor
+debussy send conductor "REVIEW CHANGES REQUESTED: <bead-id>" -b "Sent back to developer."
 ```
 
-**NOTE:** Status flow: `reviewing → merging` (approved) or `reviewing → in-progress` (changes needed)
+**NOTE:** Status flow: `reviewing → merging` (approved) or `reviewing → in-progress` (changes needed, auto-notifies developer)
 
 ## Review Tone
 

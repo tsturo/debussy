@@ -86,11 +86,14 @@ debussy send conductor "TESTS PASSED: <bead-id>" -b "Coverage: XX%. Status: revi
 bd update <bead-id> --status in-progress --label failed
 bd comment <bead-id> "Tests failed: [details]"
 
-# Notify conductor (conductor will reassign to developer)
-debussy send conductor "TESTS FAILED: <bead-id>" -b "Failures: [details]. Back to in-progress."
+# Send to developer (watcher will auto-spawn developer)
+debussy send developer "FIX: <bead-id>" --bead <bead-id> -b "Tests failed: [details]. Please fix."
+
+# Notify conductor
+debussy send conductor "TESTS FAILED: <bead-id>" -b "Sent back to developer."
 ```
 
-**NOTE:** Status flow: `testing → reviewing` (pass) or `testing → in-progress` (fail, back to dev)
+**NOTE:** Status flow: `testing → reviewing` (pass) or `testing → in-progress` (fail, auto-notifies developer)
 
 ## What to Test
 
