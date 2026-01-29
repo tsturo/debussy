@@ -135,11 +135,16 @@ def cmd_status(args):
     all_tasks = result.stdout.strip().split('\n') if result.stdout.strip() else []
     all_tasks = [t for t in all_tasks if t.strip()]
 
-    open_count = len([t for t in all_tasks if t.startswith("○")])
-    in_progress_count = len([t for t in all_tasks if t.startswith("◐")])
-    done_count = len([t for t in all_tasks if t.startswith("●")])
-    total = len(all_tasks)
+    open_tasks = [t for t in all_tasks if t.startswith("○")]
+    in_progress_tasks = [t for t in all_tasks if t.startswith("◐")]
+    done_tasks = [t for t in all_tasks if t.startswith("●")]
 
+    result_blocked = subprocess.run(["bd", "blocked"], capture_output=True, text=True)
+    blocked_tasks = result_blocked.stdout.strip().split('\n') if result_blocked.stdout.strip() else []
+    blocked_tasks = [t for t in blocked_tasks if t.strip()]
+
+    total = len(all_tasks)
+    done_count = len(done_tasks)
     progress = int((done_count / total * 100)) if total > 0 else 0
     bar_filled = int(progress / 5)
     bar_empty = 20 - bar_filled
@@ -147,16 +152,35 @@ def cmd_status(args):
 
     print(f"📊 PROGRESS: [{bar}] {progress}% ({done_count}/{total} done)\n")
 
-    print("📋 TASKS:")
-    if open_count > 0:
-        print(f"  ○ open: {open_count}")
-    if in_progress_count > 0:
-        print(f"  ◐ in-progress: {in_progress_count}")
-    if done_count > 0:
-        print(f"  ● done: {done_count}")
+    if in_progress_tasks:
+        print(f"🔨 IN PROGRESS ({len(in_progress_tasks)}):")
+        for t in in_progress_tasks:
+            print(f"  {t}")
+        print()
+
+    if blocked_tasks:
+        print(f"🚫 BLOCKED ({len(blocked_tasks)}):")
+        for t in blocked_tasks:
+            print(f"  {t}")
+        print()
+
+    if open_tasks:
+        print(f"○ OPEN ({len(open_tasks)}):")
+        for t in open_tasks:
+            print(f"  {t}")
+        print()
+
+    if done_tasks:
+        print(f"✓ DONE ({len(done_tasks)}):")
+        for t in done_tasks[:5]:
+            print(f"  {t}")
+        if len(done_tasks) > 5:
+            print(f"  ... and {len(done_tasks) - 5} more")
+        print()
+
     if total == 0:
         print("  (no tasks)")
-    print()
+        print()
 
     conductor_mailbox = Mailbox("conductor")
     conductor_msgs = conductor_mailbox.list_messages()
