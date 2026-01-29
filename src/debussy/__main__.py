@@ -66,6 +66,10 @@ def main():
     p = subparsers.add_parser("init", help="Initialize mailboxes")
     p.set_defaults(func=cli.cmd_init)
 
+    # trigger
+    p = subparsers.add_parser("trigger", help="Manually trigger pipeline check")
+    p.set_defaults(func=cli.cmd_trigger)
+
     args = parser.parse_args()
 
     if not args.command:

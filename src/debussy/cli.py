@@ -65,6 +65,7 @@ ALLOWED COMMANDS:
 - debussy status → check status, progress, and workload
 - debussy delegate "requirement" → sends to architect
 - debussy assign bd-xxx <agent> → assigns task
+- debussy trigger → check if watcher is stuck, shows pending work
 - bd list / bd ready → view tasks
 
 LOAD BALANCING (you decide):
@@ -285,3 +286,36 @@ def cmd_init(args):
     for agent in ["conductor"] + AGENTS:
         Mailbox(agent).ensure_dirs()
         log(f"Created mailbox for @{agent}", "✓")
+
+
+def cmd_trigger(args):
+    """Manually trigger pipeline check - spawns agents for pending work."""
+    log("Checking pipeline...", "🔍")
+
+    pipeline = {
+        "testing": "tester",
+        "reviewing": "reviewer",
+        "merging": "integrator",
+    }
+
+    triggered = []
+    for status, agent in pipeline.items():
+        result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
+        if result.stdout.strip():
+            count = len(result.stdout.strip().split('\n'))
+            log(f"Found {count} task(s) in {status} → @{agent}", "📋")
+            triggered.append(agent)
+
+    for agent in AGENTS:
+        mailbox = Mailbox(agent)
+        count = mailbox.count()
+        if count > 0:
+            log(f"Found {count} message(s) for @{agent}", "📬")
+            triggered.append(agent)
+
+    if triggered:
+        log("Watcher should spawn these agents. If not, restart watcher:", "💡")
+        log("  tmux send-keys -t debussy:main.1 C-c", "")
+        log("  tmux send-keys -t debussy:main.1 'debussy watch' Enter", "")
+    else:
+        log("No pending work found", "✓")

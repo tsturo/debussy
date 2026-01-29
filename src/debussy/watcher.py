@@ -142,9 +142,12 @@ Start by reading the task."""
             Mailbox(agent).ensure_dirs()
 
         while not self.should_exit:
-            self.check_agent_status()
-            self.check_mailboxes()
-            self.check_pipeline()
+            try:
+                self.check_agent_status()
+                self.check_mailboxes()
+                self.check_pipeline()
+            except Exception as e:
+                self.log(f"Error in watcher loop: {e}", "⚠️")
             time.sleep(POLL_INTERVAL)
 
         self.log("Stopping agents...", "🛑")
