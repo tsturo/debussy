@@ -22,16 +22,17 @@ def cmd_start(args):
     ], check=True)
 
     t = f"{SESSION_NAME}:main"
-    subprocess.run(["tmux", "split-window", "-h", "-p", "50", "-t", t], check=True)
-    subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.1"], check=True)
-    subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.1"], check=True)
+    subprocess.run(["tmux", "split-window", "-h", "-p", "66", "-t", t], check=True)
+    subprocess.run(["tmux", "split-window", "-h", "-p", "50", "-t", f"{t}.1"], check=True)
+    subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.0"], check=True)
     subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.3"], check=True)
 
     claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
     subprocess.run(["tmux", "send-keys", "-t", f"{t}.0", claude_cmd, "C-m"], check=True)
-    subprocess.run(["tmux", "send-keys", "-t", f"{t}.1", "debussy watch", "C-m"], check=True)
+    subprocess.run(["tmux", "send-keys", "-t", f"{t}.1", "", ""], check=True)
     subprocess.run(["tmux", "send-keys", "-t", f"{t}.2", "watch -n 5 'debussy status'", "C-m"], check=True)
-    subprocess.run(["tmux", "send-keys", "-t", f"{t}.3", "watch -n 10 'git log --oneline -20'", "C-m"], check=True)
+    subprocess.run(["tmux", "send-keys", "-t", f"{t}.3", "debussy watch", "C-m"], check=True)
+    subprocess.run(["tmux", "send-keys", "-t", f"{t}.4", "watch -n 10 'git log --oneline -20'", "C-m"], check=True)
 
     conductor_prompt = """You are @conductor - the orchestrator. NEVER write code yourself.
 
@@ -76,10 +77,10 @@ NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
 
     t = f"{SESSION_NAME}:main"
     subprocess.run(["tmux", "select-pane", "-t", f"{t}.0", "-T", "conductor"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{t}.1", "-T", "watcher"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{t}.1", "-T", "cmd"], check=True)
     subprocess.run(["tmux", "select-pane", "-t", f"{t}.2", "-T", "status"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{t}.3", "-T", "git"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{t}.4", "-T", "cmd"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{t}.3", "-T", "watcher"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{t}.4", "-T", "git"], check=True)
 
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-status", "top"], check=True)
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} "], check=True)
@@ -89,15 +90,11 @@ NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
     print("🎼 Debussy started")
     print("")
     print("Layout:")
-    print("  ┌────────────┬──────────┐")
-    print("  │            │ watcher  │")
-    print("  │            ├──────────┤")
-    print("  │ conductor  │ status   │")
-    print("  │            ├──────────┤")
-    print("  │            │ git      │")
-    print("  │            ├──────────┤")
-    print("  │            │ cmd      │")
-    print("  └────────────┴──────────┘")
+    print("  ┌──────────┬──────────┬──────────┐")
+    print("  │conductor │          │ watcher  │")
+    print("  ├──────────┤  status  ├──────────┤")
+    print("  │   cmd    │          │   git    │")
+    print("  └──────────┴──────────┴──────────┘")
     print("")
 
     subprocess.run(["tmux", "attach-session", "-t", SESSION_NAME])
