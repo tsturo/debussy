@@ -39,6 +39,21 @@ class Watcher:
         self.queued: set[str] = set()
         self.used_names: set[str] = set()
         self.should_exit = False
+        self.state_file = Path(".debussy/watcher_state.json")
+
+    def save_state(self):
+        import json
+        self.state_file.parent.mkdir(parents=True, exist_ok=True)
+        state = {}
+        for key, info in self.running.items():
+            if info["proc"].poll() is None:
+                state[info["bead"]] = {
+                    "agent": info.get("name", info["role"]),
+                    "role": info["role"],
+                    "log": info.get("log", ""),
+                }
+        with open(self.state_file, "w") as f:
+            json.dump(state, f)
 
     def get_agent_name(self, role: str) -> str:
         import random
@@ -260,6 +275,7 @@ IF MERGE CONFLICTS cannot be resolved:
                 env={**os.environ, "PYTHONUNBUFFERED": "1"}
             )
             self.running[key] = {"proc": proc, "bead": bead_id, "role": role, "name": agent_name, "log": str(log_file), "log_handle": log_handle}
+            self.save_state()
         except Exception as e:
             self.log(f"Failed to spawn {role}: {e}", "✗")
 
@@ -306,6 +322,7 @@ IF MERGE CONFLICTS cannot be resolved:
                 self.log(f"Error checking {status}: {e}", "⚠️")
 
     def cleanup_finished(self):
+        cleaned = False
         for key, info in list(self.running.items()):
             proc = info["proc"]
             if proc.poll() is not None:
@@ -316,6 +333,9 @@ IF MERGE CONFLICTS cannot be resolved:
                 self.log(f"{name} finished {bead} (exit {proc.returncode})", "🛑")
                 self.used_names.discard(name)
                 del self.running[key]
+                cleaned = True
+        if cleaned:
+            self.save_state()
 
     def signal_handler(self, signum, frame):
         self.should_exit = True

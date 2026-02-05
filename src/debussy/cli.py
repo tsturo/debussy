@@ -131,9 +131,24 @@ def _print_raw(cmd):
         print()
 
 
+def _get_running_agents():
+    import json
+    from pathlib import Path
+    state_file = Path(".debussy/watcher_state.json")
+    if not state_file.exists():
+        return {}
+    try:
+        with open(state_file) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
 def cmd_status(args):
     """Show system status."""
     print("\n=== DEBUSSY STATUS ===\n")
+
+    running = _get_running_agents()
 
     planning = _get_tasks_by_status("planning")
     if planning:
@@ -154,7 +169,12 @@ def cmd_status(args):
     for status, role in pipeline_statuses:
         tasks = _get_tasks_by_status(status)
         for t in tasks:
-            active.append(f"[{status} {role}] {t}")
+            bead_id = t.split()[0] if t else ""
+            if bead_id in running:
+                agent = running[bead_id]["agent"]
+                active.append(f"[{status}] {t} ← {agent} 🔄")
+            else:
+                active.append(f"[{status} {role}] {t}")
 
     if active:
         print(f"▶ ACTIVE ({len(active)})")
