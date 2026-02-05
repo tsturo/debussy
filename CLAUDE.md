@@ -40,13 +40,14 @@ Role-specific instructions are in `.claude/subagents/`.
 Tasks flow automatically through statuses:
 
 ```
-open → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
+planning → (conductor releases) → open → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
 ```
 
 **Watcher spawns agents based on status:**
 
 | Status | Agent Spawned |
 |--------|---------------|
+| planning | none (conductor is planning) |
 | open | developer |
 | testing | tester |
 | reviewing | reviewer |
@@ -54,7 +55,7 @@ open → developer → testing → tester → reviewing → reviewer → merging
 | acceptance | tester |
 
 **Parallelization:**
-- Multiple developers, testers, reviewers can run simultaneously
+- Max 3 developers, testers, reviewers can run simultaneously
 - Integrator is singleton (to avoid merge conflicts)
 
 ---
@@ -63,7 +64,8 @@ open → developer → testing → tester → reviewing → reviewer → merging
 
 ### @conductor
 - Entry point — user talks to conductor
-- Creates tasks with `bd create "title" --status open`
+- Creates tasks with `bd create "title" --status planning`
+- When done planning, releases tasks: `bd update <id> --status open`
 - Monitors progress with `debussy status`
 - **Does not write code**
 
@@ -89,7 +91,12 @@ open → developer → testing → tester → reviewing → reviewer → merging
 
 ### Creating Tasks
 ```bash
-bd create "Implement feature X" --status open
+bd create "Implement feature X" --status planning
+```
+
+### Releasing Tasks (conductor only)
+```bash
+bd update <bead-id> --status open
 ```
 
 ### Status Transitions
@@ -158,7 +165,8 @@ src/debussy/
 debussy start              # Start system (tmux)
 debussy watch              # Run watcher
 debussy status             # Show status
-bd create "title" --status open
+bd create "title" --status planning
+bd update <id> --status open   # Release task for development
 bd update <id> --status <status>
 bd show <id>
 bd list

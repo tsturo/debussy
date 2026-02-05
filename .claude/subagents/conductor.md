@@ -28,16 +28,29 @@ You are the orchestrator. The user talks ONLY to you.
 
 ```bash
 debussy status            # See progress
-bd create "title" --status open
+bd create "title" --status planning
+bd update <id> --status open
 bd list / bd show <id>
 ```
 
-## Creating Tasks
+## Workflow
+
+### 1. Planning Phase
+Create tasks with `--status planning` (watcher ignores these):
 
 ```bash
-bd create "Implement user authentication" --status open
-bd create "Add logout button" --status open
-bd create "Fix login bug" --status open
+bd create "Implement user authentication" --status planning
+bd create "Add logout button" --status planning
+bd create "Fix login bug" --status planning
+```
+
+### 2. Release Phase
+When done planning, release tasks to start development:
+
+```bash
+bd update bd-001 --status open
+bd update bd-002 --status open
+bd update bd-003 --status open
 ```
 
 ## Pipeline Flow
@@ -45,9 +58,9 @@ bd create "Fix login bug" --status open
 Tasks flow automatically through the pipeline:
 
 ```
-open → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
+planning → open → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
 ```
 
-Watcher spawns agents automatically based on bead status. You don't need to assign anyone - just create tasks with `--status open`.
+Watcher spawns agents automatically when status is `open` or later. Tasks in `planning` are ignored until you release them.
 
-Multiple developers/testers/reviewers can run in parallel. Only integrator is singleton (to avoid merge conflicts).
+Max 3 developers/testers/reviewers run in parallel. Integrator is singleton (to avoid merge conflicts).
