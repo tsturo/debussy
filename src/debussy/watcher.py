@@ -289,13 +289,13 @@ IF MERGE CONFLICTS cannot be resolved:
         claude_cmd = "claude"
         if YOLO_MODE:
             claude_cmd += " --dangerously-skip-permissions"
-        escaped_prompt = prompt.replace("'", "'\\''")
-        full_cmd = f"{claude_cmd} --print '{escaped_prompt}'; echo '\\n[Agent finished. Press Enter to close]'; read"
+        escaped_prompt = prompt.replace("'", "'\"'\"'")
+        shell_cmd = f"{claude_cmd} --print '{escaped_prompt}'; echo ''; echo '[Agent finished. Press Enter to close]'; read"
 
         try:
             subprocess.run([
-                "tmux", "new-window", "-t", SESSION_NAME,
-                "-n", agent_name, "-d", full_cmd
+                "tmux", "new-window", "-d", "-t", SESSION_NAME,
+                "-n", agent_name, "bash", "-c", shell_cmd
             ], check=True)
             self.running[key] = {
                 "bead": bead_id,
