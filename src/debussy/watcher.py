@@ -66,7 +66,7 @@ class Watcher:
 5. bd update {bead_id} --status testing
 6. Exit
 
-Set status to "testing" when done. Pipeline continues automatically."""
+IMPORTANT: Do NOT use "bd close". Use "bd update {bead_id} --status testing" to pass to tester."""
 
         elif role == "tester" and status == "testing":
             return f"""You are a tester. Test bead {bead_id}.
