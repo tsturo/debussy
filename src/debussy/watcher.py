@@ -159,7 +159,9 @@ If CHANGES NEEDED:
         cmd.extend(["--print", prompt])
 
         try:
-            proc = subprocess.Popen(cmd, cwd=os.getcwd())
+            env = os.environ.copy()
+            env.pop("ANTHROPIC_API_KEY", None)
+            proc = subprocess.Popen(cmd, cwd=os.getcwd(), env=env)
             self.running[key] = {"proc": proc, "bead": bead_id, "role": role}
         except Exception as e:
             self.log(f"Failed to spawn {role}: {e}", "✗")
