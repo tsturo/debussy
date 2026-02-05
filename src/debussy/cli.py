@@ -49,17 +49,22 @@ def cmd_start(args):
 YOUR JOB:
 1. Receive requirements from user
 2. Ask clarifying questions if unclear
-3. Create tasks with: bd create "title" --status open
-4. Monitor progress with: debussy status
+3. Create tasks with: bd create "title" --status planning
+4. When done planning, release tasks: bd update <id> --status open
+5. Monitor progress with: debussy status
 
-CREATING TASKS:
-bd create "Implement user login" --status open
-bd create "Add logout button" --status open
+CREATING TASKS (planning phase):
+bd create "Implement user login" --status planning
+bd create "Add logout button" --status planning
 
-PIPELINE (automatic):
-open → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
+RELEASING TASKS (when planning complete):
+bd update bd-001 --status open
+bd update bd-002 --status open
 
-Watcher spawns agents automatically based on status. Multiple developers/testers/reviewers can run in parallel.
+PIPELINE (automatic after release):
+planning → open → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
+
+Watcher spawns agents when status is 'open'. Max 3 developers/testers/reviewers run in parallel.
 
 NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
 
@@ -169,13 +174,19 @@ def cmd_status(args):
 
 def cmd_upgrade(args):
     """Upgrade debussy to latest version."""
+    from . import __version__
+    log(f"Current version: {__version__}", "📦")
     log("Upgrading debussy...", "⬆️")
     result = subprocess.run([
         "pipx", "install", "--force",
         "git+https://github.com/tsturo/debussy.git"
     ])
     if result.returncode == 0:
-        log("Upgrade complete", "✓")
+        new_ver = subprocess.run(
+            ["debussy", "--version"],
+            capture_output=True, text=True
+        )
+        log(f"Upgraded to: {new_ver.stdout.strip()}", "✓")
     else:
         log("Upgrade failed", "✗")
     return result.returncode

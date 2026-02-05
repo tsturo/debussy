@@ -4,7 +4,7 @@
 import argparse
 import sys
 
-from . import cli
+from . import cli, __version__
 
 
 def main():
@@ -12,6 +12,7 @@ def main():
         description="Debussy - Multi-agent orchestration for Claude Code",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
+    parser.add_argument("--version", action="version", version=__version__)
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -35,7 +36,7 @@ def main():
         print("\nExamples:")
         print("  debussy start              # Start system")
         print("  debussy status             # Show status")
-        print('  bd create "task" --status open  # Create task')
+        print('  bd create "task" --status planning  # Create task')
         return 1
 
     return args.func(args) or 0
