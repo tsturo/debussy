@@ -219,6 +219,9 @@ def cmd_status(args):
         for t in done_tasks:
             print(f"   {t}")
         print()
+    else:
+        print("✓ DONE: none")
+        print()
 
 
 
