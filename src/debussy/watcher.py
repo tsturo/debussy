@@ -136,10 +136,13 @@ If CHANGES NEEDED:
 4. Exit"""
 
     def extract_bead_id(self, line: str) -> str | None:
-        for part in line.split():
-            if part.startswith("bd-"):
-                return part
-        return None
+        parts = line.split()
+        if len(parts) < 2:
+            return None
+        candidate = parts[1]
+        if candidate.startswith("["):
+            return parts[0] if not parts[0].startswith(("○", "●", "◐", "✓", "✗")) else None
+        return candidate
 
     def spawn_agent(self, role: str, bead_id: str, status: str):
         key = f"{role}:{bead_id}"
