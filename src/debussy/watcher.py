@@ -5,7 +5,7 @@ import signal
 import subprocess
 from datetime import datetime
 
-from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES
+from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, MAX_PARALLEL_PER_ROLE
 
 STATUS_TO_ROLE = {
     "open": "developer",
@@ -33,13 +33,14 @@ class Watcher:
                     return True
         return False
 
-    def is_singleton_running(self, role: str) -> bool:
+    def count_running_by_role(self, role: str) -> int:
+        count = 0
         for info in self.running.values():
             if info.get("role") == role:
                 proc = info["proc"]
                 if proc.poll() is None:
-                    return True
-        return False
+                    count += 1
+        return count
 
     def is_blocked(self, bead_id: str) -> bool:
         try:
@@ -184,11 +185,12 @@ If CHANGES NEEDED:
                     if self.is_bead_running(bead_id):
                         continue
 
-                    if status == "open" and self.is_blocked(bead_id):
+                    if self.is_blocked(bead_id):
                         continue
 
-                    if role in SINGLETON_ROLES and self.is_singleton_running(role):
-                        self.log(f"Waiting: {role} busy, {bead_id} queued", "⏳")
+                    max_allowed = 1 if role in SINGLETON_ROLES else MAX_PARALLEL_PER_ROLE
+                    if self.count_running_by_role(role) >= max_allowed:
+                        self.log(f"Waiting: {role} at capacity ({max_allowed}), {bead_id} queued", "⏳")
                         continue
 
                     self.spawn_agent(role, bead_id, status)
