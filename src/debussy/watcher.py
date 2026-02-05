@@ -354,13 +354,17 @@ IF MERGE CONFLICTS cannot be resolved:
                 self.cleanup_finished()
                 self.check_pipeline()
 
+                self.save_state()
+
                 tick += 1
                 if tick % 12 == 0:
-                    if self.running:
-                        self.log("Active:", "🔄")
-                        for info in self.running.values():
-                            name = info.get("name", info["role"])
-                            self.log(f"  {name} → {info['bead']}", "")
+                    active = [(info.get("name", info["role"]), info["bead"])
+                              for info in self.running.values()
+                              if info["proc"].poll() is None]
+                    if active:
+                        self.log(f"Active ({len(active)}):", "🔄")
+                        for name, bead in active:
+                            self.log(f"  {name} → {bead}", "")
                     else:
                         self.log("Idle", "💤")
             except Exception as e:
