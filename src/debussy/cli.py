@@ -174,6 +174,14 @@ def cmd_status(args):
             print(f"   {t}")
         print()
 
+    result = subprocess.run(["git", "branch", "--list", "feature/*"], capture_output=True, text=True)
+    if result.stdout.strip():
+        branches = [b.strip().lstrip("* ") for b in result.stdout.strip().split("\n")]
+        print(f"🌿 BRANCHES ({len(branches)})")
+        for b in branches:
+            print(f"   {b}")
+        print()
+
 
 def cmd_upgrade(args):
     """Upgrade debussy to latest version."""
