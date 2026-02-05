@@ -53,6 +53,9 @@ def main():
     p.add_argument("-f", "--follow", action="store_true", help="Follow log output")
     p.set_defaults(func=cli.cmd_logs)
 
+    p = subparsers.add_parser("debug", help="Debug watcher pipeline")
+    p.set_defaults(func=cli.cmd_debug)
+
     args = parser.parse_args()
 
     if not args.command:

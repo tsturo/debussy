@@ -382,6 +382,44 @@ def cmd_clear(args):
     _configure_beads_statuses()
 
 
+def cmd_debug(args):
+    """Debug watcher pipeline detection."""
+    from pathlib import Path
+
+    print("=== DEBUSSY DEBUG ===\n")
+
+    print("Checking custom statuses...")
+    result = subprocess.run(["bd", "config", "get", "status.custom"], capture_output=True, text=True)
+    if result.stdout.strip():
+        print(f"  Custom statuses: {result.stdout.strip()}")
+    else:
+        print("  ⚠️  No custom statuses configured! Run: dbs init")
+    print()
+
+    print("Checking pipeline statuses...")
+    for status in ["open", "reviewing", "testing", "merging", "acceptance"]:
+        result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
+        count = len([l for l in result.stdout.strip().split('\n') if l.strip()]) if result.stdout.strip() else 0
+        print(f"  {status}: {count} tasks")
+        if result.stdout.strip():
+            for line in result.stdout.strip().split('\n')[:3]:
+                print(f"    → {line}")
+    print()
+
+    print("Checking .debussy directory...")
+    debussy_dir = Path(".debussy")
+    if debussy_dir.exists():
+        for item in debussy_dir.iterdir():
+            if item.is_dir():
+                count = len(list(item.iterdir()))
+                print(f"  {item.name}/: {count} files")
+            else:
+                print(f"  {item.name}: {item.stat().st_size} bytes")
+    else:
+        print("  ⚠️  .debussy directory doesn't exist")
+    print()
+
+
 def cmd_logs(args):
     """View agent logs."""
     from pathlib import Path
