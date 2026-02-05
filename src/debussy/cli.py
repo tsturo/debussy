@@ -169,13 +169,6 @@ def cmd_status(args):
 
     running = _get_running_agents()
 
-    planning = _get_tasks_by_status("planning")
-    if planning:
-        print(f"📋 PLANNING ({len(planning)})")
-        for t in planning:
-            print(f"   {t}")
-        print()
-
     pipeline_statuses = [
         ("open", "→ developer"),
         ("testing", "→ tester"),
@@ -298,7 +291,7 @@ def cmd_config(args):
             print(f"  {k} = {v}")
 
 
-PIPELINE_STATUSES = "planning,testing,reviewing,merging,acceptance,done"
+PIPELINE_STATUSES = "testing,reviewing,merging,acceptance,done"
 
 
 def _configure_beads_statuses():

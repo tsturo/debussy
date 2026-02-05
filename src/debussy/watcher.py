@@ -146,12 +146,12 @@ class Watcher:
 IMPORTANT: Do NOT use "bd close". Use "bd update {bead_id} --status reviewing" to pass to reviewer.
 
 IF BLOCKED or requirements unclear:
-  bd comment {bead_id} "Question: [your question]"
-  bd update {bead_id} --status planning
+  bd comment {bead_id} "Blocked: [reason or question]"
+  bd update {bead_id} --status open
   Exit
 
 IF YOU FIND AN UNRELATED BUG:
-  bd create "Bug: [description]" --status planning
+  bd create "Bug: [description]" --status open
   Continue with your task"""
 
         elif role == "tester" and status == "testing":
@@ -173,11 +173,6 @@ If TESTS FAIL:
   bd update {bead_id} --status open
   Exit
 
-IF BLOCKED or unclear what to test:
-  bd comment {bead_id} "Question: [your question]"
-  bd update {bead_id} --status planning
-  Exit
-
 IMPORTANT: Always write tests before approving. No untested code passes."""
 
         elif role == "tester" and status == "acceptance":
@@ -194,11 +189,6 @@ If PASS:
 If FAIL:
   bd comment {bead_id} "Acceptance failed: [details]"
   bd update {bead_id} --status open
-  Exit
-
-IF BLOCKED:
-  bd comment {bead_id} "Question: [your question]"
-  bd update {bead_id} --status planning
   Exit"""
 
         elif role == "reviewer":
@@ -215,11 +205,6 @@ If APPROVED:
 If CHANGES NEEDED:
   bd comment {bead_id} "Review feedback: [details]"
   bd update {bead_id} --status open
-  Exit
-
-IF BLOCKED or requirements unclear:
-  bd comment {bead_id} "Question: [your question]"
-  bd update {bead_id} --status planning
   Exit"""
 
         elif role == "integrator":

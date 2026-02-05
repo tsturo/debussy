@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "debussy"
-version = "0.3.42"
+version = "0.3.43"
 description = "Multi-agent orchestration for Claude Code"
 readme = "README.md"
 requires-python = ">=3.10"

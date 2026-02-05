@@ -34,11 +34,11 @@ The **watcher** polls bead statuses every 5 seconds and spawns Claude agents:
 | `acceptance` | tester | `done` |
 
 ```
-planning → open → reviewing → testing → merging → acceptance → done
-             ↓         ↓          ↓          ↓           ↓
-          developer  reviewer   tester   integrator    tester
-             ↑         │          │
-             └─────────┴──────────┘  (on failure → open, on blocker → planning)
+open → reviewing → testing → merging → acceptance → done
+  ↓         ↓          ↓          ↓           ↓
+developer  reviewer   tester   integrator    tester
+  ↑         │          │          │
+  └─────────┴──────────┴──────────┘  (on failure/blocker → open with comment)
 ```
 
 **Parallel:** Up to 3 developers/testers/reviewers work simultaneously (configurable).
@@ -62,10 +62,10 @@ Agents are named after composers (e.g., `developer-beethoven`, `tester-chopin`).
 
 ### Agent Communication
 
-If blocked or requirements unclear, agents:
-1. Add comment: `bd comment <id> "Question: ..."`
-2. Return to planning: `bd update <id> --status planning`
-3. Conductor sees it in status view and can clarify
+If blocked or issues found, agents:
+1. Add comment: `bd comment <id> "Blocked: [reason]"`
+2. Return to open: `bd update <id> --status open`
+3. Developer picks it up again and sees the comment
 
 ---
 
@@ -112,15 +112,9 @@ When `use_tmux_windows` is enabled, agents spawn as separate tmux windows instea
 
 ## Creating Tasks
 
-Conductor creates beads in planning status, then releases:
+Conductor creates beads with open status:
 ```bash
-bd create "Implement feature X" --status planning
-bd update bd-001 --status open  # Release to developer
-```
-
-Or directly:
-```bash
-bd create "Fix bug Y" --status open
+bd create "Implement feature X" --status open
 ```
 
 Watcher detects `open` status → spawns developer → pipeline begins.
