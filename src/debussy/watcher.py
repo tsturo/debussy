@@ -22,6 +22,14 @@ COMPOSERS = [
     "bach", "mozart", "beethoven", "chopin", "liszt", "brahms", "wagner",
     "tchaikovsky", "dvorak", "grieg", "rachmaninoff", "ravel", "prokofiev",
     "stravinsky", "gershwin", "copland", "bernstein", "glass", "reich",
+    "handel", "haydn", "schubert", "schumann", "mendelssohn", "verdi", "puccini",
+    "rossini", "vivaldi", "mahler", "bruckner", "sibelius", "elgar", "holst",
+    "debussy", "faure", "satie", "bizet", "offenbach", "berlioz", "saint-saens",
+    "mussorgsky", "rimsky", "borodin", "scriabin", "shostakovich", "khachaturian",
+    "bartok", "kodaly", "janacek", "smetana", "nielsen", "vaughan", "britten",
+    "walton", "tippett", "barber", "ives", "cage", "feldman", "adams", "corigliano",
+    "pärt", "gorecki", "ligeti", "xenakis", "boulez", "stockhausen", "berio",
+    "nono", "messiaen", "dutilleux", "penderecki", "lutoslawski", "takemitsu",
 ]
 
 
@@ -33,11 +41,13 @@ class Watcher:
         self.should_exit = False
 
     def get_agent_name(self, role: str) -> str:
-        for name in COMPOSERS:
+        import random
+        available = [n for n in COMPOSERS if f"{role}-{n}" not in self.used_names]
+        if available:
+            name = random.choice(available)
             full_name = f"{role}-{name}"
-            if full_name not in self.used_names:
-                self.used_names.add(full_name)
-                return full_name
+            self.used_names.add(full_name)
+            return full_name
         return f"{role}-{len(self.used_names)}"
 
     def log(self, msg: str, icon: str = "•"):
