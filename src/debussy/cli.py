@@ -21,20 +21,17 @@ def cmd_start(args):
         "tmux", "new-session", "-d", "-s", SESSION_NAME, "-n", "main"
     ], check=True)
 
-    subprocess.run(["tmux", "split-window", "-h", "-t", f"{SESSION_NAME}:main"], check=True)
-    subprocess.run(["tmux", "split-window", "-h", "-t", f"{SESSION_NAME}:main.1"], check=True)
-    subprocess.run(["tmux", "split-window", "-v", "-t", f"{SESSION_NAME}:main.0"], check=True)
-    subprocess.run(["tmux", "split-window", "-v", "-t", f"{SESSION_NAME}:main.3"], check=True)
-
-    subprocess.run(["tmux", "select-layout", "-t", SESSION_NAME, "main-vertical"], check=True)
-    subprocess.run(["tmux", "resize-pane", "-t", f"{SESSION_NAME}:main.0", "-x", "33%"], check=True)
-    subprocess.run(["tmux", "resize-pane", "-t", f"{SESSION_NAME}:main.3", "-x", "33%"], check=True)
+    t = f"{SESSION_NAME}:main"
+    subprocess.run(["tmux", "split-window", "-h", "-p", "50", "-t", t], check=True)
+    subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.1"], check=True)
+    subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.1"], check=True)
+    subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.3"], check=True)
 
     claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
-    subprocess.run(["tmux", "send-keys", "-t", f"{SESSION_NAME}:main.0", claude_cmd, "C-m"], check=True)
-    subprocess.run(["tmux", "send-keys", "-t", f"{SESSION_NAME}:main.1", "debussy watch", "C-m"], check=True)
-    subprocess.run(["tmux", "send-keys", "-t", f"{SESSION_NAME}:main.2", "watch -n 5 'debussy status'", "C-m"], check=True)
-    subprocess.run(["tmux", "send-keys", "-t", f"{SESSION_NAME}:main.3", "watch -n 10 'git log --oneline -20'", "C-m"], check=True)
+    subprocess.run(["tmux", "send-keys", "-t", f"{t}.0", claude_cmd, "C-m"], check=True)
+    subprocess.run(["tmux", "send-keys", "-t", f"{t}.1", "debussy watch", "C-m"], check=True)
+    subprocess.run(["tmux", "send-keys", "-t", f"{t}.2", "watch -n 5 'debussy status'", "C-m"], check=True)
+    subprocess.run(["tmux", "send-keys", "-t", f"{t}.3", "watch -n 10 'git log --oneline -20'", "C-m"], check=True)
 
     conductor_prompt = """You are @conductor - the orchestrator. NEVER write code yourself.
 
@@ -77,25 +74,30 @@ NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
         "Enter"
     ], check=True)
 
-    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.0", "-T", "conductor"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.1", "-T", "watcher"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.2", "-T", "status"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.3", "-T", "git"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.4", "-T", "cmd"], check=True)
+    t = f"{SESSION_NAME}:main"
+    subprocess.run(["tmux", "select-pane", "-t", f"{t}.0", "-T", "conductor"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{t}.1", "-T", "watcher"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{t}.2", "-T", "status"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{t}.3", "-T", "git"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{t}.4", "-T", "cmd"], check=True)
 
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-status", "top"], check=True)
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} "], check=True)
 
-    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.0"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{t}.0"], check=True)
 
     print("🎼 Debussy started")
     print("")
     print("Layout:")
-    print("  ┌──────────┬──────────┬──────────┐")
-    print("  │conductor │          │   git    │")
-    print("  ├──────────┤  status  ├──────────┤")
-    print("  │ watcher  │          │   cmd    │")
-    print("  └──────────┴──────────┴──────────┘")
+    print("  ┌────────────┬──────────┐")
+    print("  │            │ watcher  │")
+    print("  │            ├──────────┤")
+    print("  │ conductor  │ status   │")
+    print("  │            ├──────────┤")
+    print("  │            │ git      │")
+    print("  │            ├──────────┤")
+    print("  │            │ cmd      │")
+    print("  └────────────┴──────────┘")
     print("")
 
     subprocess.run(["tmux", "attach-session", "-t", SESSION_NAME])
