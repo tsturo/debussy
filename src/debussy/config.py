@@ -16,7 +16,7 @@ DEFAULTS = {
     "max_testers": 3,
     "max_reviewers": 3,
     "max_total_agents": 6,
-    "use_tmux_windows": False,
+    "use_tmux_windows": True,
 }
 
 

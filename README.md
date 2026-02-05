@@ -97,7 +97,7 @@ dbs config max_total_agents 8       # Set total agent limit
 dbs config use_tmux_windows true    # Spawn agents as tmux windows
 ```
 
-Defaults: 3 per role, 6 total, tmux windows off.
+Defaults: 3 per role, 6 total, tmux windows on.
 
 ### tmux Windows Mode
 
