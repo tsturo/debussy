@@ -276,7 +276,7 @@ IF MERGE CONFLICTS cannot be resolved:
             claude_cmd += " --dangerously-skip-permissions"
 
         escaped_prompt = prompt.replace("'", "'\"'\"'")
-        shell_cmd = f"script -q /dev/null {claude_cmd} --print '{escaped_prompt}'; echo ''; echo '[Done. Press Enter to close]'; read"
+        shell_cmd = f"script -q /dev/null {claude_cmd} --print '{escaped_prompt}'"
 
         try:
             subprocess.run([
