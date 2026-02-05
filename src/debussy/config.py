@@ -16,6 +16,7 @@ DEFAULTS = {
     "max_testers": 3,
     "max_reviewers": 3,
     "max_total_agents": 6,
+    "use_tmux_windows": False,
 }
 
 
@@ -30,7 +31,7 @@ def get_config():
         return DEFAULTS.copy()
 
 
-def set_config(key: str, value: int):
+def set_config(key: str, value):
     CONFIG_DIR.mkdir(exist_ok=True)
     cfg = get_config()
     cfg[key] = value

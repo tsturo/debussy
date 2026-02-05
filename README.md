@@ -90,14 +90,24 @@ dbs debug                # Troubleshoot pipeline detection
 ## Configuration
 
 ```bash
-dbs config                      # Show all
-dbs config max_developers 5     # Set max developers
-dbs config max_testers 3        # Set max testers
-dbs config max_reviewers 3      # Set max reviewers
-dbs config max_total_agents 8   # Set total agent limit
+dbs config                          # Show all
+dbs config max_developers 5         # Set max developers
+dbs config max_testers 3            # Set max testers
+dbs config max_reviewers 3          # Set max reviewers
+dbs config max_total_agents 8       # Set total agent limit
+dbs config use_tmux_windows true    # Spawn agents as tmux windows
 ```
 
-Defaults: 3 per role, 6 total.
+Defaults: 3 per role, 6 total, tmux windows off.
+
+### tmux Windows Mode
+
+When `use_tmux_windows` is enabled, agents spawn as separate tmux windows instead of background processes:
+
+- Real-time output visible (no log buffering)
+- Switch between agents with `Ctrl-b n/p` or `Ctrl-b w`
+- Window closes when agent finishes (press Enter to dismiss)
+- Works only when watcher runs inside tmux session
 
 ---
 

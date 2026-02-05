@@ -8,7 +8,7 @@ from pathlib import Path
 
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
-from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES
+from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, SESSION_NAME, get_config
 
 STATUS_TO_ROLE = {
     "open": "developer",
@@ -46,11 +46,12 @@ class Watcher:
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         state = {}
         for key, info in self.running.items():
-            if info["proc"].poll() is None:
+            if self.is_agent_alive(info):
                 state[info["bead"]] = {
                     "agent": info.get("name", info["role"]),
                     "role": info["role"],
                     "log": info.get("log", ""),
+                    "tmux": info.get("tmux", False),
                 }
         with open(self.state_file, "w") as f:
             json.dump(state, f)
@@ -69,11 +70,16 @@ class Watcher:
         timestamp = datetime.now().strftime("%H:%M:%S")
         print(f"{timestamp} {icon} {msg}")
 
+    def is_agent_alive(self, info: dict) -> bool:
+        if info.get("tmux"):
+            return self.tmux_window_exists(info.get("name", ""))
+        proc = info.get("proc")
+        return proc is not None and proc.poll() is None
+
     def is_bead_running(self, bead_id: str) -> bool:
         for info in self.running.values():
             if info.get("bead") == bead_id:
-                proc = info["proc"]
-                if proc.poll() is None:
+                if self.is_agent_alive(info):
                     return True
         return False
 
@@ -81,15 +87,14 @@ class Watcher:
         count = 0
         for info in self.running.values():
             if info.get("role") == role:
-                proc = info["proc"]
-                if proc.poll() is None:
+                if self.is_agent_alive(info):
                     count += 1
         return count
 
     def count_total_running(self) -> int:
         count = 0
         for info in self.running.values():
-            if info["proc"].poll() is None:
+            if self.is_agent_alive(info):
                 count += 1
         return count
 
@@ -116,6 +121,16 @@ class Watcher:
             return "Blocked by" in result.stdout
         except Exception:
             return False
+
+    def in_tmux(self) -> bool:
+        return os.environ.get("TMUX") is not None
+
+    def tmux_window_exists(self, window_name: str) -> bool:
+        result = subprocess.run(
+            ["tmux", "list-windows", "-t", SESSION_NAME, "-F", "#{window_name}"],
+            capture_output=True, text=True
+        )
+        return window_name in result.stdout.split('\n')
 
     def get_prompt(self, role: str, bead_id: str, status: str) -> str:
         if role == "developer":
@@ -248,16 +263,51 @@ IF MERGE CONFLICTS cannot be resolved:
     def spawn_agent(self, role: str, bead_id: str, status: str):
         key = f"{role}:{bead_id}"
 
+        cfg = get_config()
+        use_tmux = cfg.get("use_tmux_windows", False) and self.in_tmux()
+
         if key in self.running:
-            proc = self.running[key]["proc"]
-            if proc.poll() is None:
-                return
+            info = self.running[key]
+            if use_tmux:
+                if self.tmux_window_exists(info["name"]):
+                    return
+            else:
+                if info.get("proc") and info["proc"].poll() is None:
+                    return
 
         agent_name = self.get_agent_name(role)
         self.log(f"Spawning {agent_name} for {bead_id}", "🚀")
 
         prompt = self.get_prompt(role, bead_id, status)
 
+        if use_tmux:
+            self.spawn_tmux_agent(key, agent_name, bead_id, role, prompt)
+        else:
+            self.spawn_background_agent(key, agent_name, bead_id, role, prompt)
+
+    def spawn_tmux_agent(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str):
+        claude_cmd = "claude"
+        if YOLO_MODE:
+            claude_cmd += " --dangerously-skip-permissions"
+        escaped_prompt = prompt.replace("'", "'\\''")
+        full_cmd = f"{claude_cmd} --print '{escaped_prompt}'; echo '\\n[Agent finished. Press Enter to close]'; read"
+
+        try:
+            subprocess.run([
+                "tmux", "new-window", "-t", SESSION_NAME,
+                "-n", agent_name, "-d", full_cmd
+            ], check=True)
+            self.running[key] = {
+                "bead": bead_id,
+                "role": role,
+                "name": agent_name,
+                "tmux": True,
+            }
+            self.save_state()
+        except Exception as e:
+            self.log(f"Failed to spawn tmux window: {e}", "✗")
+
+    def spawn_background_agent(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str):
         cmd = ["claude"]
         if YOLO_MODE:
             cmd.append("--dangerously-skip-permissions")
@@ -274,7 +324,15 @@ IF MERGE CONFLICTS cannot be resolved:
                 stdout=log_handle, stderr=subprocess.STDOUT,
                 bufsize=0
             )
-            self.running[key] = {"proc": proc, "bead": bead_id, "role": role, "name": agent_name, "log": str(log_file), "log_handle": log_handle}
+            self.running[key] = {
+                "proc": proc,
+                "bead": bead_id,
+                "role": role,
+                "name": agent_name,
+                "log": str(log_file),
+                "log_handle": log_handle,
+                "tmux": False,
+            }
             self.save_state()
         except Exception as e:
             self.log(f"Failed to spawn {role}: {e}", "✗")
@@ -324,16 +382,26 @@ IF MERGE CONFLICTS cannot be resolved:
     def cleanup_finished(self):
         cleaned = False
         for key, info in list(self.running.items()):
-            proc = info["proc"]
-            if proc.poll() is not None:
-                name = info.get("name", info.get("role", "agent"))
-                bead = info.get("bead", "")
-                if "log_handle" in info:
-                    info["log_handle"].close()
-                self.log(f"{name} finished {bead} (exit {proc.returncode})", "🛑")
+            name = info.get("name", info.get("role", "agent"))
+            bead = info.get("bead", "")
+            finished = False
+
+            if info.get("tmux"):
+                if not self.tmux_window_exists(name):
+                    finished = True
+            else:
+                proc = info.get("proc")
+                if proc and proc.poll() is not None:
+                    if "log_handle" in info:
+                        info["log_handle"].close()
+                    finished = True
+
+            if finished:
+                self.log(f"{name} finished {bead}", "🛑")
                 self.used_names.discard(name)
                 del self.running[key]
                 cleaned = True
+
         if cleaned:
             self.save_state()
 
@@ -360,7 +428,7 @@ IF MERGE CONFLICTS cannot be resolved:
                 if tick % 12 == 0:
                     active = [(info.get("name", info["role"]), info["bead"])
                               for info in self.running.values()
-                              if info["proc"].poll() is None]
+                              if self.is_agent_alive(info)]
                     if active:
                         self.log(f"Active ({len(active)}):", "🔄")
                         for name, bead in active:
@@ -373,6 +441,12 @@ IF MERGE CONFLICTS cannot be resolved:
 
         self.log("Stopping agents...", "🛑")
         for info in self.running.values():
-            info["proc"].terminate()
+            if info.get("tmux"):
+                subprocess.run(
+                    ["tmux", "kill-window", "-t", f"{SESSION_NAME}:{info['name']}"],
+                    capture_output=True
+                )
+            elif info.get("proc"):
+                info["proc"].terminate()
 
         self.log("Watcher stopped")

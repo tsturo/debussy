@@ -275,8 +275,18 @@ def cmd_config(args):
     from .config import get_config, set_config
 
     if args.key and args.value is not None:
-        set_config(args.key, args.value)
-        log(f"Set {args.key} = {args.value}", "✓")
+        value = args.value
+        if value.lower() in ("true", "1", "yes", "on"):
+            value = True
+        elif value.lower() in ("false", "0", "no", "off"):
+            value = False
+        else:
+            try:
+                value = int(value)
+            except ValueError:
+                pass
+        set_config(args.key, value)
+        log(f"Set {args.key} = {value}", "✓")
     elif args.key:
         cfg = get_config()
         val = cfg.get(args.key, "not set")
