@@ -201,9 +201,9 @@ If CHANGES NEEDED:
         log_file = logs_dir / f"{agent_name}.log"
 
         try:
-            with open(log_file, "w") as f:
-                proc = subprocess.Popen(cmd, cwd=os.getcwd(), stdout=f, stderr=subprocess.STDOUT)
-            self.running[key] = {"proc": proc, "bead": bead_id, "role": role, "name": agent_name, "log": str(log_file)}
+            log_handle = open(log_file, "w")
+            proc = subprocess.Popen(cmd, cwd=os.getcwd(), stdout=log_handle, stderr=subprocess.STDOUT)
+            self.running[key] = {"proc": proc, "bead": bead_id, "role": role, "name": agent_name, "log": str(log_file), "log_handle": log_handle}
         except Exception as e:
             self.log(f"Failed to spawn {role}: {e}", "✗")
 
@@ -255,6 +255,8 @@ If CHANGES NEEDED:
             if proc.poll() is not None:
                 name = info.get("name", info.get("role", "agent"))
                 bead = info.get("bead", "")
+                if "log_handle" in info:
+                    info["log_handle"].close()
                 self.log(f"{name} finished {bead} (exit {proc.returncode})", "🛑")
                 self.used_names.discard(name)
                 del self.running[key]
