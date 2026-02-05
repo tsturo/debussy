@@ -42,7 +42,11 @@ def main():
     p.set_defaults(func=cli.cmd_init)
 
     p = subparsers.add_parser("clear", help="Clear all beads and config")
+    p.add_argument("-f", "--force", action="store_true", help="Skip confirmation")
     p.set_defaults(func=cli.cmd_clear)
+
+    p = subparsers.add_parser("backup", help="Backup beads database")
+    p.set_defaults(func=cli.cmd_backup)
 
     p = subparsers.add_parser("logs", help="View agent logs")
     p.add_argument("agent", nargs="?", help="Agent name (e.g., developer-beethoven)")

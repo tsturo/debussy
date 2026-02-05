@@ -113,7 +113,16 @@ class Watcher:
 5. bd update {bead_id} --status reviewing
 6. Exit
 
-IMPORTANT: Do NOT use "bd close". Use "bd update {bead_id} --status reviewing" to pass to reviewer."""
+IMPORTANT: Do NOT use "bd close". Use "bd update {bead_id} --status reviewing" to pass to reviewer.
+
+IF BLOCKED or requirements unclear:
+  bd comment {bead_id} "Question: [your question]"
+  bd update {bead_id} --status planning
+  Exit
+
+IF YOU FIND AN UNRELATED BUG:
+  bd create "Bug: [description]" --status planning
+  Continue with your task"""
 
         elif role == "tester" and status == "testing":
             return f"""You are a tester. Test bead {bead_id}.
@@ -134,6 +143,11 @@ If TESTS FAIL:
   bd update {bead_id} --status open
   Exit
 
+IF BLOCKED or unclear what to test:
+  bd comment {bead_id} "Question: [your question]"
+  bd update {bead_id} --status planning
+  Exit
+
 IMPORTANT: Always write tests before approving. No untested code passes."""
 
         elif role == "tester" and status == "acceptance":
@@ -150,6 +164,11 @@ If PASS:
 If FAIL:
   bd comment {bead_id} "Acceptance failed: [details]"
   bd update {bead_id} --status open
+  Exit
+
+IF BLOCKED:
+  bd comment {bead_id} "Question: [your question]"
+  bd update {bead_id} --status planning
   Exit"""
 
         elif role == "reviewer":
@@ -166,6 +185,11 @@ If APPROVED:
 If CHANGES NEEDED:
   bd comment {bead_id} "Review feedback: [details]"
   bd update {bead_id} --status open
+  Exit
+
+IF BLOCKED or requirements unclear:
+  bd comment {bead_id} "Question: [your question]"
+  bd update {bead_id} --status planning
   Exit"""
 
         elif role == "integrator":
@@ -180,7 +204,12 @@ If CHANGES NEEDED:
 7. git branch -d feature/{bead_id}
 8. git push origin --delete feature/{bead_id}
 9. bd update {bead_id} --status acceptance
-10. Exit"""
+10. Exit
+
+IF MERGE CONFLICTS cannot be resolved:
+  bd comment {bead_id} "Merge conflict: [details]"
+  bd update {bead_id} --status open
+  Exit"""
 
         return f"""You are a {role}. Work on bead {bead_id} (status={status}).
 

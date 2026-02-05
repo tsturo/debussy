@@ -267,6 +267,32 @@ def cmd_init(args):
     _configure_beads_statuses()
 
 
+def _backup_beads():
+    import shutil
+    from pathlib import Path
+
+    beads_dir = Path(".beads")
+    if not beads_dir.exists():
+        return None
+
+    backup_dir = Path(".debussy/backups")
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = backup_dir / f"beads_{timestamp}"
+    shutil.copytree(beads_dir, backup_path)
+    return backup_path
+
+
+def cmd_backup(args):
+    """Backup beads database."""
+    backup_path = _backup_beads()
+    if backup_path:
+        log(f"Backed up to {backup_path}", "✓")
+    else:
+        log("No .beads directory to backup", "⚠️")
+
+
 def cmd_clear(args):
     """Clear all beads and runtime config."""
     import shutil
@@ -275,13 +301,31 @@ def cmd_clear(args):
     beads_dir = Path(".beads")
     debussy_dir = Path(".debussy")
 
+    if beads_dir.exists() and not getattr(args, 'force', False):
+        result = subprocess.run(["bd", "list"], capture_output=True, text=True)
+        task_count = len([l for l in result.stdout.strip().split('\n') if l.strip()]) if result.stdout.strip() else 0
+        if task_count > 0:
+            print(f"⚠️  This will delete {task_count} tasks!")
+            confirm = input("Type 'yes' to confirm: ")
+            if confirm.lower() != 'yes':
+                log("Aborted", "✗")
+                return 1
+
     if beads_dir.exists():
+        backup_path = _backup_beads()
+        if backup_path:
+            log(f"Backed up to {backup_path}", "💾")
         shutil.rmtree(beads_dir)
         log("Removed .beads", "🗑")
 
     if debussy_dir.exists():
-        shutil.rmtree(debussy_dir)
-        log("Removed .debussy", "🗑")
+        for item in debussy_dir.iterdir():
+            if item.name != "backups":
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+        log("Cleared .debussy (kept backups)", "🗑")
 
     result = subprocess.run(["bd", "init"], capture_output=True)
     if result.returncode != 0:
