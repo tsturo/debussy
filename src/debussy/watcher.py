@@ -8,7 +8,7 @@ from pathlib import Path
 
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
-from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, get_max_for_role
+from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES
 
 STATUS_TO_ROLE = {
     "open": "developer",
@@ -70,6 +70,27 @@ class Watcher:
                 if proc.poll() is None:
                     count += 1
         return count
+
+    def count_total_running(self) -> int:
+        count = 0
+        for info in self.running.values():
+            if info["proc"].poll() is None:
+                count += 1
+        return count
+
+    def get_dynamic_max(self, role: str) -> int:
+        from .config import get_config, SINGLETON_ROLES
+        if role in SINGLETON_ROLES:
+            return 1
+        cfg = get_config()
+        base_max = cfg.get(f"max_{role}s", 3)
+        max_total = cfg.get("max_total_agents", 6)
+        total = self.count_total_running()
+        if total >= max_total:
+            return 1
+        if total >= max_total - 2:
+            return min(base_max, 2)
+        return base_max
 
     def is_blocked(self, bead_id: str) -> bool:
         try:
@@ -240,7 +261,7 @@ If CHANGES NEEDED:
                     if self.is_blocked(bead_id):
                         continue
 
-                    max_allowed = get_max_for_role(role)
+                    max_allowed = self.get_dynamic_max(role)
                     if self.count_running_by_role(role) >= max_allowed:
                         if bead_id not in self.queued:
                             self.log(f"Queued: {bead_id} waiting for {role} slot", "⏳")

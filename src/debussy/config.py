@@ -15,6 +15,7 @@ DEFAULTS = {
     "max_developers": 3,
     "max_testers": 3,
     "max_reviewers": 3,
+    "max_total_agents": 6,
 }
 
 
