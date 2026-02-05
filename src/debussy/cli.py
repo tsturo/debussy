@@ -208,3 +208,27 @@ def cmd_config(args):
         print("Current config:")
         for k, v in cfg.items():
             print(f"  {k} = {v}")
+
+
+def cmd_clear(args):
+    """Clear all beads and runtime config."""
+    import shutil
+    from pathlib import Path
+
+    beads_dir = Path(".beads")
+    debussy_dir = Path(".debussy")
+
+    if beads_dir.exists():
+        shutil.rmtree(beads_dir)
+        log("Removed .beads", "🗑")
+
+    if debussy_dir.exists():
+        shutil.rmtree(debussy_dir)
+        log("Removed .debussy", "🗑")
+
+    result = subprocess.run(["bd", "init"], capture_output=True)
+    if result.returncode == 0:
+        log("Initialized fresh beads", "✓")
+    else:
+        log("Failed to init beads", "✗")
+        return 1
