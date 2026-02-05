@@ -34,6 +34,9 @@ def main():
     p.add_argument("value", nargs="?", type=int, help="Value to set")
     p.set_defaults(func=cli.cmd_config)
 
+    p = subparsers.add_parser("init", help="Initialize beads with pipeline statuses")
+    p.set_defaults(func=cli.cmd_init)
+
     p = subparsers.add_parser("clear", help="Clear all beads and config")
     p.set_defaults(func=cli.cmd_clear)
 

@@ -220,6 +220,34 @@ def cmd_config(args):
             print(f"  {k} = {v}")
 
 
+PIPELINE_STATUSES = "planning,testing,reviewing,merging,acceptance,done"
+
+
+def _configure_beads_statuses():
+    result = subprocess.run(
+        ["bd", "config", "set", "status.custom", PIPELINE_STATUSES],
+        capture_output=True
+    )
+    if result.returncode == 0:
+        log("Configured pipeline statuses", "✓")
+    else:
+        log("Failed to configure statuses", "✗")
+
+
+def cmd_init(args):
+    """Initialize beads with debussy pipeline statuses."""
+    from pathlib import Path
+
+    if not Path(".beads").exists():
+        result = subprocess.run(["bd", "init"], capture_output=True)
+        if result.returncode != 0:
+            log("Failed to init beads", "✗")
+            return 1
+        log("Initialized beads", "✓")
+
+    _configure_beads_statuses()
+
+
 def cmd_clear(args):
     """Clear all beads and runtime config."""
     import shutil
@@ -237,8 +265,9 @@ def cmd_clear(args):
         log("Removed .debussy", "🗑")
 
     result = subprocess.run(["bd", "init"], capture_output=True)
-    if result.returncode == 0:
-        log("Initialized fresh beads", "✓")
-    else:
+    if result.returncode != 0:
         log("Failed to init beads", "✗")
         return 1
+    log("Initialized fresh beads", "✓")
+
+    _configure_beads_statuses()
