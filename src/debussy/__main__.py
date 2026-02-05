@@ -29,6 +29,10 @@ def main():
     p = subparsers.add_parser("upgrade", help="Upgrade to latest")
     p.set_defaults(func=cli.cmd_upgrade)
 
+    p = subparsers.add_parser("restart", help="Restart session (optionally upgrade first)")
+    p.add_argument("-u", "--upgrade", action="store_true", help="Upgrade before restart")
+    p.set_defaults(func=cli.cmd_restart)
+
     p = subparsers.add_parser("config", help="View or set config")
     p.add_argument("key", nargs="?", help="Config key (max_developers, max_testers, max_reviewers)")
     p.add_argument("value", nargs="?", type=int, help="Value to set")

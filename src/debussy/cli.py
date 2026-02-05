@@ -202,6 +202,21 @@ def cmd_upgrade(args):
     return result.returncode
 
 
+def cmd_restart(args):
+    """Upgrade and restart the session."""
+    log("Killing current session...", "🛑")
+    subprocess.run(["tmux", "kill-session", "-t", SESSION_NAME], capture_output=True)
+
+    if args.upgrade:
+        result = cmd_upgrade(args)
+        if result != 0:
+            return result
+
+    log("Starting new session...", "🚀")
+    import sys
+    subprocess.run([sys.executable, "-m", "debussy", "start"])
+
+
 def cmd_config(args):
     """View or set config."""
     from .config import get_config, set_config
