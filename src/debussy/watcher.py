@@ -89,16 +89,21 @@ IMPORTANT: Do NOT use "bd close". Use "bd update {bead_id} --status testing" to 
 
 1. bd show {bead_id}
 2. git checkout feature/{bead_id}
-3. Run tests, verify functionality
+3. Review the changes (git diff develop...HEAD)
+4. Write automated tests for the new functionality
+5. Run all tests
+6. Commit and push the tests
 
-If PASS:
+If ALL TESTS PASS:
   bd update {bead_id} --status reviewing
   Exit
 
-If FAIL:
+If TESTS FAIL:
   bd comment {bead_id} "Tests failed: [details]"
   bd update {bead_id} --status open
-  Exit"""
+  Exit
+
+IMPORTANT: Always write tests before approving. No untested code passes."""
 
         elif role == "tester" and status == "acceptance":
             return f"""You are a tester. Acceptance test for bead {bead_id} (post-merge).
