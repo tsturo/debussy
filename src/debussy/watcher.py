@@ -136,13 +136,10 @@ If CHANGES NEEDED:
 4. Exit"""
 
     def extract_bead_id(self, line: str) -> str | None:
-        parts = line.split()
-        if len(parts) < 2:
-            return None
-        bead_id = parts[1]
-        if not bead_id or bead_id.startswith('['):
-            return None
-        return bead_id
+        for part in line.split():
+            if part.startswith("bd-"):
+                return part
+        return None
 
     def spawn_agent(self, role: str, bead_id: str, status: str):
         key = f"{role}:{bead_id}"
@@ -235,9 +232,9 @@ If CHANGES NEEDED:
                 tick += 1
                 if tick % 12 == 0:
                     if self.running:
-                        self.log("Active agents:", "🔄")
-                        for key, info in self.running.items():
-                            self.log(f"  {info['role']}: {info['bead']}", "")
+                        self.log("Active:", "🔄")
+                        for info in self.running.values():
+                            self.log(f"  {info['role']} → {info['bead']}", "")
                     else:
                         self.log("Idle", "💤")
             except Exception as e:

@@ -142,33 +142,43 @@ def cmd_status(args):
     """Show system status."""
     print("\n=== DEBUSSY STATUS ===\n")
 
+    planning = _get_tasks_by_status("planning")
+    if planning:
+        print(f"📋 PLANNING ({len(planning)})")
+        for t in planning:
+            print(f"   {t}")
+        print()
+
     pipeline_statuses = [
-        ("open", "developer"),
-        ("testing", "tester"),
-        ("reviewing", "reviewer"),
-        ("merging", "integrator"),
-        ("acceptance", "tester"),
+        ("open", "→ developer"),
+        ("testing", "→ tester"),
+        ("reviewing", "→ reviewer"),
+        ("merging", "→ integrator"),
+        ("acceptance", "→ tester"),
     ]
 
     active = []
     for status, role in pipeline_statuses:
         tasks = _get_tasks_by_status(status)
         for t in tasks:
-            active.append(f"[{status}→{role}] {t}")
+            active.append(f"[{status} {role}] {t}")
 
-    in_progress = _get_tasks_by_status("in-progress")
-    for t in in_progress:
-        active.append(f"[in-progress] {t}")
-
-    _print_section("▶", "ACTIVE", active, "no active work")
-    if not active:
+    if active:
+        print(f"▶ ACTIVE ({len(active)})")
+        for a in active:
+            print(f"   {a}")
+        print()
+    else:
+        print("▶ ACTIVE: none")
         print()
 
     _print_raw(["bd", "blocked"])
 
     done_tasks = _get_tasks_by_status("done")
     if done_tasks:
-        print(f"✓ DONE: {len(done_tasks)} completed")
+        print(f"✓ DONE ({len(done_tasks)})")
+        for t in done_tasks:
+            print(f"   {t}")
         print()
 
 
