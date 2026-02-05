@@ -75,7 +75,7 @@ bd update <id> --status open
 Tasks flow automatically through the pipeline:
 
 ```
-planning → open → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
+planning → open → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
 ```
 
 Watcher spawns agents automatically when status is `open` or later. Tasks in `planning` are ignored until you release them.

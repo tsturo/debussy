@@ -40,7 +40,7 @@ Role-specific instructions are in `.claude/subagents/`.
 Tasks flow automatically through statuses:
 
 ```
-planning → (conductor releases) → open → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
+planning → (conductor releases) → open → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
 ```
 
 **Watcher spawns agents based on status:**
@@ -49,8 +49,8 @@ planning → (conductor releases) → open → developer → testing → tester 
 |--------|---------------|
 | planning | none (conductor is planning) |
 | open | developer |
-| testing | tester |
 | reviewing | reviewer |
+| testing | tester |
 | merging | integrator |
 | acceptance | tester |
 

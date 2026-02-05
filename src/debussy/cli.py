@@ -54,7 +54,7 @@ bd update bd-001 --status open
 bd update bd-002 --status open
 
 PIPELINE (automatic after release):
-planning → open → developer → testing → tester → reviewing → reviewer → merging → integrator → acceptance → tester → done
+planning → open → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
 
 Watcher spawns agents when status is 'open'. Max 3 developers/testers/reviewers run in parallel.
 

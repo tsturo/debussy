@@ -12,8 +12,8 @@ from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, get_max_for_role
 
 STATUS_TO_ROLE = {
     "open": "developer",
-    "testing": "tester",
     "reviewing": "reviewer",
+    "testing": "tester",
     "merging": "integrator",
     "acceptance": "tester",
 }
@@ -79,10 +79,10 @@ class Watcher:
 2. git checkout -b feature/{bead_id} (or checkout existing branch)
 3. Implement the task
 4. Commit and push changes
-5. bd update {bead_id} --status testing
+5. bd update {bead_id} --status reviewing
 6. Exit
 
-IMPORTANT: Do NOT use "bd close". Use "bd update {bead_id} --status testing" to pass to tester."""
+IMPORTANT: Do NOT use "bd close". Use "bd update {bead_id} --status reviewing" to pass to reviewer."""
 
         elif role == "tester" and status == "testing":
             return f"""You are a tester. Test bead {bead_id}.
@@ -95,7 +95,7 @@ IMPORTANT: Do NOT use "bd close". Use "bd update {bead_id} --status testing" to 
 6. Commit and push the tests
 
 If ALL TESTS PASS:
-  bd update {bead_id} --status reviewing
+  bd update {bead_id} --status merging
   Exit
 
 If TESTS FAIL:
@@ -129,7 +129,7 @@ If FAIL:
 3. Review: git diff develop...HEAD
 
 If APPROVED:
-  bd update {bead_id} --status merging
+  bd update {bead_id} --status testing
   Exit
 
 If CHANGES NEEDED:
