@@ -16,6 +16,9 @@ Thumbs.db
 .beads/*.db
 .beads/*.db-*
 
+# Debussy runtime config
+.debussy/
+
 # Temporary files
 *.tmp
 *.temp

@@ -7,7 +7,7 @@ from datetime import datetime
 
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
-from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, MAX_PARALLEL_PER_ROLE
+from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, get_max_for_role
 
 STATUS_TO_ROLE = {
     "open": "developer",
@@ -190,7 +190,7 @@ If CHANGES NEEDED:
                     if self.is_blocked(bead_id):
                         continue
 
-                    max_allowed = 1 if role in SINGLETON_ROLES else MAX_PARALLEL_PER_ROLE
+                    max_allowed = get_max_for_role(role)
                     if self.count_running_by_role(role) >= max_allowed:
                         self.log(f"Waiting: {role} at capacity ({max_allowed}), {bead_id} queued", "⏳")
                         continue

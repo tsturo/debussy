@@ -190,3 +190,21 @@ def cmd_upgrade(args):
     else:
         log("Upgrade failed", "✗")
     return result.returncode
+
+
+def cmd_config(args):
+    """View or set config."""
+    from .config import get_config, set_config
+
+    if args.key and args.value is not None:
+        set_config(args.key, args.value)
+        log(f"Set {args.key} = {args.value}", "✓")
+    elif args.key:
+        cfg = get_config()
+        val = cfg.get(args.key, "not set")
+        print(f"{args.key} = {val}")
+    else:
+        cfg = get_config()
+        print("Current config:")
+        for k, v in cfg.items():
+            print(f"  {k} = {v}")
