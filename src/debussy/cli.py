@@ -24,10 +24,11 @@ def cmd_start(args):
     subprocess.run(["tmux", "split-window", "-h", "-t", f"{SESSION_NAME}:main"], check=True)
     subprocess.run(["tmux", "split-window", "-h", "-t", f"{SESSION_NAME}:main.1"], check=True)
     subprocess.run(["tmux", "split-window", "-v", "-t", f"{SESSION_NAME}:main.0"], check=True)
+    subprocess.run(["tmux", "split-window", "-v", "-t", f"{SESSION_NAME}:main.3"], check=True)
 
     subprocess.run(["tmux", "select-layout", "-t", SESSION_NAME, "main-vertical"], check=True)
     subprocess.run(["tmux", "resize-pane", "-t", f"{SESSION_NAME}:main.0", "-x", "33%"], check=True)
-    subprocess.run(["tmux", "resize-pane", "-t", f"{SESSION_NAME}:main.2", "-x", "33%"], check=True)
+    subprocess.run(["tmux", "resize-pane", "-t", f"{SESSION_NAME}:main.3", "-x", "33%"], check=True)
 
     claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
     subprocess.run(["tmux", "send-keys", "-t", f"{SESSION_NAME}:main.0", claude_cmd, "C-m"], check=True)
@@ -80,6 +81,7 @@ NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
     subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.1", "-T", "watcher"], check=True)
     subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.2", "-T", "status"], check=True)
     subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.3", "-T", "git"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.4", "-T", "cmd"], check=True)
 
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-status", "top"], check=True)
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} "], check=True)
@@ -90,9 +92,9 @@ NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
     print("")
     print("Layout:")
     print("  ┌──────────┬──────────┬──────────┐")
-    print("  │conductor │          │          │")
-    print("  ├──────────┤  status  │   git    │")
-    print("  │ watcher  │          │          │")
+    print("  │conductor │          │   git    │")
+    print("  ├──────────┤  status  ├──────────┤")
+    print("  │ watcher  │          │   cmd    │")
     print("  └──────────┴──────────┴──────────┘")
     print("")
 
