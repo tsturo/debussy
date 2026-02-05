@@ -37,15 +37,30 @@ bd update <id> --status open
 bd list / bd show <id>
 ```
 
+## Task Design Principles
+
+Each task will be handled by ONE developer agent. Design tasks to be:
+
+- **Small** - completable in a single focused session
+- **Atomic** - one clear deliverable, not multiple unrelated changes
+- **Testable** - clear success criteria the tester can verify
+- **Independent** - minimal dependencies on other in-progress tasks
+- **Specific** - exact files/components to create or modify
+
+BAD: "Build user authentication system"
+GOOD: "Create login form component with email/password fields"
+GOOD: "Add JWT token validation middleware"
+GOOD: "Create user session database schema"
+
 ## Workflow
 
 ### 1. Planning Phase
-Break down requirements into small, actionable tasks. Only create tasks (not epics/features):
+Break down requirements into small, actionable tasks:
 
 ```bash
-bd create "Set up Next.js project structure" --status planning
-bd create "Create database schema" --status planning
-bd create "Implement login form" --status planning
+bd create "Create User model with email and password fields" --status planning
+bd create "Add login API endpoint POST /api/auth/login" --status planning
+bd create "Create LoginForm component with validation" --status planning
 ```
 
 ### 2. Release Phase
