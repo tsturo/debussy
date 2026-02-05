@@ -75,7 +75,6 @@ If blocked or requirements unclear, agents:
 dbs start [requirement]  # Start tmux session
 dbs watch                # Run watcher only
 dbs status               # Show pipeline status (with comments, running agents)
-dbs logs [agent] [-f]    # View agent logs
 dbs config [key] [value] # View/set config
 dbs init                 # Initialize beads with pipeline statuses
 dbs backup               # Backup beads database
@@ -143,19 +142,6 @@ Watcher detects `open` status → spawns developer → pipeline begins.
 - **status**: Auto-refreshing pipeline view
 - **watcher**: Agent spawner logs
 - **git**: Branch/commit visualization
-
----
-
-## Logs
-
-Logs are written to `.debussy/logs/`:
-```bash
-dbs logs                        # List all agent logs
-dbs logs developer-beethoven    # View specific agent log
-dbs logs tester -f              # Follow log (partial match works)
-```
-
-Note: Logs populate when agent finishes (Claude `--print` buffers output).
 
 ---
 

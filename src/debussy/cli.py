@@ -433,36 +433,3 @@ def cmd_debug(args):
     print()
 
 
-def cmd_logs(args):
-    """View agent logs."""
-    from pathlib import Path
-
-    logs_dir = Path(".debussy/logs")
-    if not logs_dir.exists():
-        print("No logs yet. Start the watcher first.")
-        return
-
-    if args.agent:
-        log_file = logs_dir / f"{args.agent}.log"
-        if not log_file.exists():
-            matches = list(logs_dir.glob(f"*{args.agent}*.log"))
-            if matches:
-                log_file = matches[0]
-            else:
-                print(f"No log found for '{args.agent}'")
-                print("Available:", [f.stem for f in logs_dir.glob("*.log")])
-                return
-        if args.follow:
-            subprocess.run(["tail", "-f", str(log_file)])
-        else:
-            subprocess.run(["tail", "-100", str(log_file)])
-    else:
-        logs = list(logs_dir.glob("*.log"))
-        if not logs:
-            print("No agent logs yet.")
-            return
-        print("Agent logs:")
-        for log_file in sorted(logs, key=lambda f: f.stat().st_mtime, reverse=True):
-            size = log_file.stat().st_size
-            print(f"  {log_file.stem}: {size} bytes")
-        print("\nUsage: dbs logs <agent-name> [-f]")

@@ -48,11 +48,6 @@ def main():
     p = subparsers.add_parser("backup", help="Backup beads database")
     p.set_defaults(func=cli.cmd_backup)
 
-    p = subparsers.add_parser("logs", help="View agent logs")
-    p.add_argument("agent", nargs="?", help="Agent name (e.g., developer-beethoven)")
-    p.add_argument("-f", "--follow", action="store_true", help="Follow log output")
-    p.set_defaults(func=cli.cmd_logs)
-
     p = subparsers.add_parser("debug", help="Debug watcher pipeline")
     p.set_defaults(func=cli.cmd_debug)
 
