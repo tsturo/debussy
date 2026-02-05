@@ -45,16 +45,22 @@ Create tasks with `--status planning` (watcher ignores these):
 ```bash
 bd create "Implement user authentication" --status planning
 bd create "Add logout button" --status planning
-bd create "Fix login bug" --status planning
 ```
 
-### 2. Release Phase
-When done planning, release tasks to start development:
+### 2. Break Down Epics/Features
+IMPORTANT: Watcher only assigns `[task]` types to developers. Epics and features must be broken down into tasks first.
+
+```bash
+bd create "User login form" --type task --status planning
+bd create "Session management" --type task --status planning
+```
+
+### 3. Release Phase
+When done planning, release TASKS (not epics/features) to start development:
 
 ```bash
 bd update bd-001 --status open
 bd update bd-002 --status open
-bd update bd-003 --status open
 ```
 
 ## Pipeline Flow

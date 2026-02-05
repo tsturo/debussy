@@ -144,6 +144,9 @@ If CHANGES NEEDED:
             return parts[0] if not parts[0].startswith(("○", "●", "◐", "✓", "✗")) else None
         return candidate
 
+    def is_epic_or_feature(self, line: str) -> bool:
+        return "[epic]" in line.lower() or "[feature]" in line.lower()
+
     def spawn_agent(self, role: str, bead_id: str, status: str):
         key = f"{role}:{bead_id}"
 
@@ -183,6 +186,9 @@ If CHANGES NEEDED:
 
                     bead_id = self.extract_bead_id(line)
                     if not bead_id:
+                        continue
+
+                    if self.is_epic_or_feature(line):
                         continue
 
                     if self.is_bead_running(bead_id):
