@@ -4,6 +4,7 @@ import os
 import signal
 import subprocess
 from datetime import datetime
+from pathlib import Path
 
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
@@ -180,9 +181,14 @@ If CHANGES NEEDED:
             cmd.append("--dangerously-skip-permissions")
         cmd.extend(["--print", prompt])
 
+        logs_dir = Path(".debussy/logs")
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        log_file = logs_dir / f"{agent_name}.log"
+
         try:
-            proc = subprocess.Popen(cmd, cwd=os.getcwd())
-            self.running[key] = {"proc": proc, "bead": bead_id, "role": role, "name": agent_name}
+            with open(log_file, "w") as f:
+                proc = subprocess.Popen(cmd, cwd=os.getcwd(), stdout=f, stderr=subprocess.STDOUT)
+            self.running[key] = {"proc": proc, "bead": bead_id, "role": role, "name": agent_name, "log": str(log_file)}
         except Exception as e:
             self.log(f"Failed to spawn {role}: {e}", "✗")
 

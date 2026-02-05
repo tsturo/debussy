@@ -44,6 +44,11 @@ def main():
     p = subparsers.add_parser("clear", help="Clear all beads and config")
     p.set_defaults(func=cli.cmd_clear)
 
+    p = subparsers.add_parser("logs", help="View agent logs")
+    p.add_argument("agent", nargs="?", help="Agent name (e.g., developer-beethoven)")
+    p.add_argument("-f", "--follow", action="store_true", help="Follow log output")
+    p.set_defaults(func=cli.cmd_logs)
+
     args = parser.parse_args()
 
     if not args.command:
