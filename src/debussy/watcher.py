@@ -21,6 +21,7 @@ STATUS_TO_ROLE = {
 class Watcher:
     def __init__(self):
         self.running: dict[str, dict] = {}
+        self.queued: set[str] = set()
         self.should_exit = False
 
     def log(self, msg: str, icon: str = "•"):
@@ -192,9 +193,12 @@ If CHANGES NEEDED:
 
                     max_allowed = get_max_for_role(role)
                     if self.count_running_by_role(role) >= max_allowed:
-                        self.log(f"Waiting: {role} at capacity ({max_allowed}), {bead_id} queued", "⏳")
+                        if bead_id not in self.queued:
+                            self.log(f"Queued: {bead_id} waiting for {role} slot", "⏳")
+                            self.queued.add(bead_id)
                         continue
 
+                    self.queued.discard(bead_id)
                     self.spawn_agent(role, bead_id, status)
 
             except subprocess.TimeoutExpired:
