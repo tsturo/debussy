@@ -1,5 +1,6 @@
 """CLI commands for Debussy."""
 
+import os
 import subprocess
 from datetime import datetime
 
