@@ -5,6 +5,8 @@ import signal
 import subprocess
 from datetime import datetime
 
+os.environ.pop("ANTHROPIC_API_KEY", None)
+
 from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, MAX_PARALLEL_PER_ROLE
 
 STATUS_TO_ROLE = {
@@ -159,9 +161,7 @@ If CHANGES NEEDED:
         cmd.extend(["--print", prompt])
 
         try:
-            env = os.environ.copy()
-            env.pop("ANTHROPIC_API_KEY", None)
-            proc = subprocess.Popen(cmd, cwd=os.getcwd(), env=env)
+            proc = subprocess.Popen(cmd, cwd=os.getcwd())
             self.running[key] = {"proc": proc, "bead": bead_id, "role": role}
         except Exception as e:
             self.log(f"Failed to spawn {role}: {e}", "✗")
