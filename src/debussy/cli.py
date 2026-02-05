@@ -32,7 +32,7 @@ def cmd_start(args):
     subprocess.run(["tmux", "send-keys", "-t", f"{t}.1", "", ""], check=True)
     subprocess.run(["tmux", "send-keys", "-t", f"{t}.2", "watch -n 5 'debussy status'", "C-m"], check=True)
     subprocess.run(["tmux", "send-keys", "-t", f"{t}.3", "debussy watch", "C-m"], check=True)
-    subprocess.run(["tmux", "send-keys", "-t", f"{t}.4", "watch -n 10 'git log --oneline -20'", "C-m"], check=True)
+    subprocess.run(["tmux", "send-keys", "-t", f"{t}.4", "watch -n 10 'git log --all --graph --oneline --decorate -30 && echo && git branch -a'", "C-m"], check=True)
 
     conductor_prompt = """You are @conductor - the orchestrator. NEVER write code yourself.
 
@@ -174,13 +174,6 @@ def cmd_status(args):
             print(f"   {t}")
         print()
 
-    result = subprocess.run(["git", "branch", "--list", "feature/*"], capture_output=True, text=True)
-    if result.stdout.strip():
-        branches = [b.strip().lstrip("* ") for b in result.stdout.strip().split("\n")]
-        print(f"🌿 BRANCHES ({len(branches)})")
-        for b in branches:
-            print(f"   {b}")
-        print()
 
 
 def cmd_upgrade(args):

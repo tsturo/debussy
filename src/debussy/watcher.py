@@ -203,8 +203,12 @@ If CHANGES NEEDED:
         log_file = logs_dir / f"{agent_name}.log"
 
         try:
-            log_handle = open(log_file, "w")
-            proc = subprocess.Popen(cmd, cwd=os.getcwd(), stdout=log_handle, stderr=subprocess.STDOUT)
+            log_handle = open(log_file, "w", buffering=1)
+            proc = subprocess.Popen(
+                cmd, cwd=os.getcwd(),
+                stdout=log_handle, stderr=subprocess.STDOUT,
+                env={**os.environ, "PYTHONUNBUFFERED": "1"}
+            )
             self.running[key] = {"proc": proc, "bead": bead_id, "role": role, "name": agent_name, "log": str(log_file), "log_handle": log_handle}
         except Exception as e:
             self.log(f"Failed to spawn {role}: {e}", "✗")
