@@ -125,15 +125,16 @@ Watcher detects `open` status → spawns developer → pipeline begins.
 
 ```
 ┌──────────┬──────────┬──────────┐
-│conductor │          │ watcher  │
-├──────────┤  status  ├──────────┤
-│   cmd    │          │   git    │
+│conductor │  status  │ watcher  │
+├──────────┼──────────┼──────────┤
+│   cmd    │  agents  │   git    │
 └──────────┴──────────┴──────────┘
 ```
 
 - **conductor**: Main Claude instance for task creation
 - **cmd**: Shell for manual commands
 - **status**: Auto-refreshing pipeline view
+- **agents**: Real-time agent output log
 - **watcher**: Agent spawner logs
 - **git**: Branch/commit visualization
 

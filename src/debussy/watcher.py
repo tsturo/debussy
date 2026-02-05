@@ -276,7 +276,9 @@ IF MERGE CONFLICTS cannot be resolved:
             claude_cmd += " --dangerously-skip-permissions"
 
         escaped_prompt = prompt.replace("'", "'\"'\"'")
-        shell_cmd = f"script -q /dev/null {claude_cmd} --print '{escaped_prompt}'"
+        log_file = Path(".debussy/agent_output.log")
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        shell_cmd = f"echo '\\n=== {agent_name} ({bead_id}) ===' >> {log_file}; script -q /dev/null {claude_cmd} --print '{escaped_prompt}' | tee -a {log_file}"
 
         try:
             subprocess.run([
