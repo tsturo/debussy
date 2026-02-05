@@ -268,11 +268,11 @@ IF MERGE CONFLICTS cannot be resolved:
         log_file = logs_dir / f"{agent_name}.log"
 
         try:
-            log_handle = open(log_file, "w", buffering=1)
+            log_handle = open(log_file, "wb", buffering=0)
             proc = subprocess.Popen(
                 cmd, cwd=os.getcwd(),
                 stdout=log_handle, stderr=subprocess.STDOUT,
-                env={**os.environ, "PYTHONUNBUFFERED": "1"}
+                bufsize=0
             )
             self.running[key] = {"proc": proc, "bead": bead_id, "role": role, "name": agent_name, "log": str(log_file), "log_handle": log_handle}
             self.save_state()
