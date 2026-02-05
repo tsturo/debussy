@@ -17,12 +17,27 @@ STATUS_TO_ROLE = {
     "acceptance": "tester",
 }
 
+COMPOSERS = [
+    "bach", "mozart", "beethoven", "chopin", "liszt", "brahms", "wagner",
+    "tchaikovsky", "dvorak", "grieg", "rachmaninoff", "ravel", "prokofiev",
+    "stravinsky", "gershwin", "copland", "bernstein", "glass", "reich",
+]
+
 
 class Watcher:
     def __init__(self):
         self.running: dict[str, dict] = {}
         self.queued: set[str] = set()
+        self.used_names: set[str] = set()
         self.should_exit = False
+
+    def get_agent_name(self, role: str) -> str:
+        for name in COMPOSERS:
+            full_name = f"{role}-{name}"
+            if full_name not in self.used_names:
+                self.used_names.add(full_name)
+                return full_name
+        return f"{role}-{len(self.used_names)}"
 
     def log(self, msg: str, icon: str = "•"):
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -155,7 +170,8 @@ If CHANGES NEEDED:
             if proc.poll() is None:
                 return
 
-        self.log(f"Spawning {role} for {bead_id}", "🚀")
+        agent_name = self.get_agent_name(role)
+        self.log(f"Spawning {agent_name} for {bead_id}", "🚀")
 
         prompt = self.get_prompt(role, bead_id, status)
 
@@ -166,7 +182,7 @@ If CHANGES NEEDED:
 
         try:
             proc = subprocess.Popen(cmd, cwd=os.getcwd())
-            self.running[key] = {"proc": proc, "bead": bead_id, "role": role}
+            self.running[key] = {"proc": proc, "bead": bead_id, "role": role, "name": agent_name}
         except Exception as e:
             self.log(f"Failed to spawn {role}: {e}", "✗")
 
@@ -216,9 +232,10 @@ If CHANGES NEEDED:
         for key, info in list(self.running.items()):
             proc = info["proc"]
             if proc.poll() is not None:
-                role = info.get("role", "agent")
+                name = info.get("name", info.get("role", "agent"))
                 bead = info.get("bead", "")
-                self.log(f"{role} finished {bead} (exit {proc.returncode})", "🛑")
+                self.log(f"{name} finished {bead} (exit {proc.returncode})", "🛑")
+                self.used_names.discard(name)
                 del self.running[key]
 
     def signal_handler(self, signum, frame):
@@ -243,7 +260,8 @@ If CHANGES NEEDED:
                     if self.running:
                         self.log("Active:", "🔄")
                         for info in self.running.values():
-                            self.log(f"  {info['role']} → {info['bead']}", "")
+                            name = info.get("name", info["role"])
+                            self.log(f"  {name} → {info['bead']}", "")
                     else:
                         self.log("Idle", "💤")
             except Exception as e:
