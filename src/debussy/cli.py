@@ -144,6 +144,25 @@ def _get_running_agents():
         return {}
 
 
+def _get_bead_comments(bead_id: str) -> list[str]:
+    result = subprocess.run(
+        ["bd", "show", bead_id],
+        capture_output=True, text=True, timeout=5
+    )
+    if result.returncode != 0:
+        return []
+    comments = []
+    in_comments = False
+    for line in result.stdout.split('\n'):
+        if line.startswith("Comments:") or line.startswith("## Comments"):
+            in_comments = True
+            continue
+        if in_comments:
+            if line.strip() and not line.startswith("---"):
+                comments.append(line.strip())
+    return comments
+
+
 def cmd_status(args):
     """Show system status."""
     print("\n=== DEBUSSY STATUS ===\n")
@@ -172,14 +191,21 @@ def cmd_status(args):
             bead_id = t.split()[0] if t else ""
             if bead_id in running:
                 agent = running[bead_id]["agent"]
-                active.append(f"[{status}] {t} ← {agent} 🔄")
+                active.append((f"[{status}] {t} ← {agent} 🔄", bead_id))
             else:
-                active.append(f"[{status} {role}] {t}")
+                active.append((f"[{status} {role}] {t}", bead_id))
 
     if active:
         print(f"▶ ACTIVE ({len(active)})")
-        for a in active:
-            print(f"   {a}")
+        for line, bead_id in active:
+            print(f"   {line}")
+            try:
+                comments = _get_bead_comments(bead_id)
+                if comments:
+                    last_comment = comments[-1][:80]
+                    print(f"      💬 {last_comment}")
+            except Exception:
+                pass
         print()
     else:
         print("▶ ACTIVE: none")
