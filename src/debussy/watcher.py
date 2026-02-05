@@ -156,8 +156,10 @@ If CHANGES NEEDED:
 4. Resolve conflicts if any
 5. Run tests
 6. git push origin develop
-7. bd update {bead_id} --status acceptance
-8. Exit"""
+7. git branch -d feature/{bead_id}
+8. git push origin --delete feature/{bead_id}
+9. bd update {bead_id} --status acceptance
+10. Exit"""
 
         return f"""You are a {role}. Work on bead {bead_id} (status={status}).
 
