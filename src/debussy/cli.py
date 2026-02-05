@@ -25,7 +25,11 @@ def cmd_start(args):
     ], check=True)
 
     subprocess.run([
-        "tmux", "split-window", "-v", "-t", f"{SESSION_NAME}:main.1"
+        "tmux", "split-window", "-v", "-t", f"{SESSION_NAME}:main.0"
+    ], check=True)
+
+    subprocess.run([
+        "tmux", "resize-pane", "-t", f"{SESSION_NAME}:main.1", "-x", "50%"
     ], check=True)
 
     claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
@@ -35,12 +39,12 @@ def cmd_start(args):
     ], check=True)
 
     subprocess.run([
-        "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.1",
+        "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.2",
         "debussy watch", "C-m"
     ], check=True)
 
     subprocess.run([
-        "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.2",
+        "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.1",
         "watch -n 5 'debussy status'", "C-m"
     ], check=True)
 
@@ -86,8 +90,8 @@ NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
     ], check=True)
 
     subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.0", "-T", "conductor"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.1", "-T", "watcher"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.2", "-T", "status"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.1", "-T", "status"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{SESSION_NAME}:main.2", "-T", "watcher"], check=True)
 
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-status", "top"], check=True)
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} "], check=True)
@@ -98,9 +102,9 @@ NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
     print("")
     print("Layout:")
     print("  ┌──────────┬──────────┐")
-    print("  │          │ watcher  │")
-    print("  │conductor ├──────────┤")
-    print("  │          │ status   │")
+    print("  │conductor │          │")
+    print("  ├──────────┤  status  │")
+    print("  │ watcher  │          │")
     print("  └──────────┴──────────┘")
     print("")
 
@@ -204,17 +208,27 @@ def cmd_upgrade(args):
 
 def cmd_restart(args):
     """Upgrade and restart the session."""
-    log("Killing current session...", "🛑")
-    subprocess.run(["tmux", "kill-session", "-t", SESSION_NAME], capture_output=True)
+    import tempfile
 
     if args.upgrade:
         result = cmd_upgrade(args)
         if result != 0:
             return result
 
-    log("Starting new session...", "🚀")
-    import sys
-    subprocess.run([sys.executable, "-m", "debussy", "start"])
+    script = f"""#!/bin/bash
+sleep 1
+tmux kill-session -t {SESSION_NAME} 2>/dev/null
+sleep 1
+cd {os.getcwd()}
+debussy start
+"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+        f.write(script)
+        script_path = f.name
+
+    os.chmod(script_path, 0o755)
+    subprocess.Popen(["nohup", script_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    log("Restarting in background...", "🔄")
 
 
 def cmd_config(args):
