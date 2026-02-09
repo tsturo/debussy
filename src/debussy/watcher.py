@@ -145,7 +145,14 @@ class Watcher:
 5. bd update {bead_id} --status reviewing
 6. Exit
 
-IMPORTANT: Do NOT use "bd close". Use "bd update {bead_id} --status reviewing" to pass to reviewer.
+FORBIDDEN — never use these statuses:
+  ✗ bd update {bead_id} --status done
+  ✗ bd update {bead_id} --status closed
+  ✗ bd update {bead_id} --status resolved
+  ✗ bd close {bead_id}
+
+The ONLY status you may set is `reviewing` (when done) or `open` (if blocked).
+When you finish: bd update {bead_id} --status reviewing
 
 IF BLOCKED or requirements unclear:
   bd comment {bead_id} "Blocked: [reason or question]"

@@ -22,8 +22,7 @@ def cmd_start(args):
     ], check=True)
 
     t = f"{SESSION_NAME}:main"
-    subprocess.run(["tmux", "split-window", "-h", "-p", "66", "-t", t], check=True)
-    subprocess.run(["tmux", "split-window", "-h", "-p", "50", "-t", f"{t}.1"], check=True)
+    subprocess.run(["tmux", "split-window", "-h", "-p", "50", "-t", t], check=True)
     subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.0"], check=True)
     subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.2"], check=True)
 
@@ -34,8 +33,7 @@ def cmd_start(args):
     subprocess.run(["tmux", "send-keys", "-t", f"{t}.0", claude_cmd, "C-m"], check=True)
     subprocess.run(["tmux", "send-keys", "-t", f"{t}.1", "", ""], check=True)
     subprocess.run(["tmux", "send-keys", "-t", f"{t}.2", "watch -n 5 'debussy status'", "C-m"], check=True)
-    subprocess.run(["tmux", "send-keys", "-t", f"{t}.3", "", ""], check=True)
-    subprocess.run(["tmux", "send-keys", "-t", f"{t}.4", "debussy watch", "C-m"], check=True)
+    subprocess.run(["tmux", "send-keys", "-t", f"{t}.3", "debussy watch", "C-m"], check=True)
 
     conductor_prompt = """You are @conductor - the orchestrator. NEVER write code yourself.
 
@@ -56,7 +54,12 @@ bd update bd-002 --status investigating   # investigation/research task
 
 PIPELINES:
 Development: planning → open → developer → reviewing → testing → merging → acceptance → done
-Investigation: planning → investigating → investigator → done (investigator creates dev tasks)
+Investigation: planning → investigating (parallel) → consolidating → dev tasks created → done
+
+PARALLEL INVESTIGATION:
+bd create "Investigate area A" --status investigating          # → bd-001
+bd create "Investigate area B" --status investigating          # → bd-002
+bd create "Consolidate findings" --deps "bd-001,bd-002" --status consolidating
 
 Watcher spawns agents automatically. Max 3 developers/investigators/testers/reviewers in parallel.
 
@@ -83,8 +86,7 @@ NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
     subprocess.run(["tmux", "select-pane", "-t", f"{t}.0", "-T", "conductor"], check=True)
     subprocess.run(["tmux", "select-pane", "-t", f"{t}.1", "-T", "cmd"], check=True)
     subprocess.run(["tmux", "select-pane", "-t", f"{t}.2", "-T", "status"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{t}.3", "-T", "cmd2"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{t}.4", "-T", "watcher"], check=True)
+    subprocess.run(["tmux", "select-pane", "-t", f"{t}.3", "-T", "watcher"], check=True)
 
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-status", "top"], check=True)
     subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} "], check=True)
@@ -94,11 +96,11 @@ NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
     print("🎼 Debussy started")
     print("")
     print("Layout:")
-    print("  ┌──────────┬──────────┬─────────┐")
-    print("  │conductor │  status  │         │")
-    print("  ├──────────┼──────────┤ watcher │")
-    print("  │   cmd    │   cmd2   │         │")
-    print("  └──────────┴──────────┴─────────┘")
+    print("  ┌──────────┬──────────┐")
+    print("  │conductor │  status  │")
+    print("  ├──────────┼──────────┤")
+    print("  │   cmd    │ watcher  │")
+    print("  └──────────┴──────────┘")
     print("")
 
     subprocess.run(["tmux", "attach-session", "-t", SESSION_NAME])
@@ -176,6 +178,7 @@ def cmd_status(args):
     pipeline_statuses = [
         ("open", "→ developer"),
         ("investigating", "→ investigator"),
+        ("consolidating", "→ integrator"),
         ("testing", "→ tester"),
         ("reviewing", "→ reviewer"),
         ("merging", "→ integrator"),
@@ -296,7 +299,7 @@ def cmd_config(args):
             print(f"  {k} = {v}")
 
 
-PIPELINE_STATUSES = "investigating,testing,reviewing,merging,acceptance,done"
+PIPELINE_STATUSES = "investigating,consolidating,testing,reviewing,merging,acceptance,done"
 
 
 def _configure_beads_statuses():
@@ -408,7 +411,7 @@ def cmd_debug(args):
     print()
 
     print("Checking pipeline statuses...")
-    for status in ["open", "investigating", "reviewing", "testing", "merging", "acceptance"]:
+    for status in ["open", "investigating", "consolidating", "reviewing", "testing", "merging", "acceptance"]:
         result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
         count = len([l for l in result.stdout.strip().split('\n') if l.strip()]) if result.stdout.strip() else 0
         print(f"  {status}: {count} tasks")
