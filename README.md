@@ -150,17 +150,17 @@ Investigators work in parallel. Consolidation bead stays blocked until all finis
 ## tmux Layout
 
 ```
-┌──────────┬──────────┐
-│conductor │  status  │
-├──────────┼──────────┤
-│   cmd    │ watcher  │
-└──────────┴──────────┘
+┌──────────┬──────────┬─────────┐
+│conductor │          │         │
+├──────────┤  status  │ watcher │
+│   cmd    │          │         │
+└──────────┴──────────┴─────────┘
 ```
 
 - **conductor**: Main Claude instance for task creation
 - **cmd**: Shell for manual commands
-- **status**: Auto-refreshing pipeline view
-- **watcher**: Agent spawner logs
+- **status**: Auto-refreshing pipeline view (full height)
+- **watcher**: Agent spawner logs (full height)
 
 ---
 

@@ -22,9 +22,9 @@ def cmd_start(args):
     ], check=True)
 
     t = f"{SESSION_NAME}:main"
-    subprocess.run(["tmux", "split-window", "-h", "-p", "50", "-t", t], check=True)
+    subprocess.run(["tmux", "split-window", "-h", "-p", "33", "-t", t], check=True)
+    subprocess.run(["tmux", "split-window", "-h", "-p", "50", "-t", f"{t}.0"], check=True)
     subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.0"], check=True)
-    subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.2"], check=True)
 
     from pathlib import Path
     Path(".debussy").mkdir(parents=True, exist_ok=True)
@@ -96,11 +96,11 @@ NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
     print("🎼 Debussy started")
     print("")
     print("Layout:")
-    print("  ┌──────────┬──────────┐")
-    print("  │conductor │  status  │")
-    print("  ├──────────┼──────────┤")
-    print("  │   cmd    │ watcher  │")
-    print("  └──────────┴──────────┘")
+    print("  ┌──────────┬──────────┬─────────┐")
+    print("  │conductor │          │         │")
+    print("  ├──────────┤  status  │ watcher │")
+    print("  │   cmd    │          │         │")
+    print("  └──────────┴──────────┴─────────┘")
     print("")
 
     subprocess.run(["tmux", "attach-session", "-t", SESSION_NAME])
