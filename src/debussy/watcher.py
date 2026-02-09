@@ -13,6 +13,7 @@ from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, SESSION_NAME, get
 STATUS_TO_ROLE = {
     "open": "developer",
     "investigating": "investigator",
+    "consolidating": "integrator",
     "reviewing": "reviewer",
     "testing": "tester",
     "merging": "integrator",
@@ -214,16 +215,37 @@ If CHANGES NEEDED:
 1. bd show {bead_id}
 2. Research the codebase, understand the problem
 3. Document findings as bead comments: bd comment {bead_id} "Finding: [details]"
-4. Create developer tasks based on findings: bd create "Task description" --status open
-5. bd update {bead_id} --status done
-6. Exit
+4. bd update {bead_id} --status done
+5. Exit
+
+IMPORTANT: Do NOT create developer tasks. Only document findings as comments.
+A consolidation step will review all findings and create dev tasks.
 
 IF BLOCKED or need more info:
   bd comment {bead_id} "Blocked: [reason]"
   bd update {bead_id} --status open
   Exit"""
 
-        elif role == "integrator":
+        elif role == "integrator" and status == "consolidating":
+            return f"""You are an integrator consolidating investigation findings for bead {bead_id}.
+
+1. bd show {bead_id}
+2. Read the bead's dependencies to find the investigation beads
+3. For each investigation bead: bd show <investigation-bead-id> — read all findings from comments
+4. Synthesize findings into a coherent plan
+5. Create developer tasks: bd create "Task description" --status open
+6. bd update {bead_id} --status done
+7. Exit
+
+Each developer task should be small, atomic, and independently completable.
+Include enough context from investigation findings that developers can start without re-investigating.
+
+IF BLOCKED or findings are insufficient:
+  bd comment {bead_id} "Blocked: [reason]"
+  bd update {bead_id} --status planning
+  Exit"""
+
+        elif role == "integrator" and status == "merging":
             return f"""You are an integrator. Merge bead {bead_id}.
 
 1. bd show {bead_id}

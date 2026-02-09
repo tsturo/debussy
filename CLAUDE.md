@@ -41,10 +41,10 @@ Two pipelines depending on task type:
 
 ```
 Development:   planning → open → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
-Investigation: planning → investigating → investigator → done
+Investigation: planning → investigating (parallel) → consolidating (integrator) → dev tasks created → done
 ```
 
-Investigators research the problem and create developer tasks directly.
+Investigators research in parallel and document findings. A consolidation step (integrator) synthesizes findings and creates developer tasks.
 
 **Watcher spawns agents based on status:**
 
@@ -53,6 +53,7 @@ Investigators research the problem and create developer tasks directly.
 | planning | none (conductor is planning) |
 | open | developer |
 | investigating | investigator |
+| consolidating | integrator |
 | reviewing | reviewer |
 | testing | tester |
 | merging | integrator |
@@ -71,12 +72,13 @@ Investigators research the problem and create developer tasks directly.
 - Creates tasks with `bd create "title" --status planning`
 - Releases dev tasks: `bd update <id> --status open`
 - Releases investigation tasks: `bd update <id> --status investigating`
+- Creates consolidation bead blocked by investigation beads: `bd create "Consolidate findings" --deps "bd-x,bd-y,bd-z" --status consolidating`
 - Monitors progress with `debussy status`
 - **Does not write code**
 
 ### @investigator
 - Researches codebase, documents findings as bead comments
-- Creates developer tasks with `--status open` based on findings
+- Does NOT create developer tasks (consolidation step handles that)
 - Sets `--status done` when investigation complete
 
 ### @developer
@@ -92,7 +94,8 @@ Investigators research the problem and create developer tasks directly.
 - Sets `--status merging` if approved, `--status open` if changes needed
 
 ### @integrator
-- Merges feature branches to develop
+- Consolidates investigation findings into developer tasks (status `consolidating`)
+- Merges feature branches to develop (status `merging`)
 - Sets `--status acceptance` after merge
 
 ---
@@ -110,12 +113,26 @@ bd update <bead-id> --status open            # development task
 bd update <bead-id> --status investigating   # investigation task
 ```
 
+### Parallel Investigation (conductor only)
+```bash
+bd create "Investigate area A" --status investigating          # → bd-001
+bd create "Investigate area B" --status investigating          # → bd-002
+bd create "Consolidate findings" --deps "bd-001,bd-002" --status consolidating
+```
+The consolidation bead stays blocked until all investigation beads finish.
+
 ### Status Transitions
 
 Investigator:
 ```bash
-bd create "Dev task from findings" --status open   # create dev tasks
+bd comment <bead-id> "Finding: [details]"          # document findings
 bd update <bead-id> --status done                  # complete investigation
+```
+
+Integrator (consolidation):
+```bash
+bd create "Dev task from findings" --status open   # create dev tasks
+bd update <bead-id> --status done                  # complete consolidation
 ```
 
 Developer:
