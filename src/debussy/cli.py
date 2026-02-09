@@ -54,13 +54,14 @@ bd create "Implement user login" --status planning
 bd create "Add logout button" --status planning
 
 RELEASING TASKS (when planning complete):
-bd update bd-001 --status open
-bd update bd-002 --status open
+bd update bd-001 --status open            # development task
+bd update bd-002 --status investigating   # investigation/research task
 
-PIPELINE (automatic after release):
-planning → open → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
+PIPELINES:
+Development: planning → open → developer → reviewing → testing → merging → acceptance → done
+Investigation: planning → investigating → investigator → done (investigator creates dev tasks)
 
-Watcher spawns agents when status is 'open'. Max 3 developers/testers/reviewers run in parallel.
+Watcher spawns agents automatically. Max 3 developers/investigators/testers/reviewers in parallel.
 
 NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
 
@@ -178,6 +179,7 @@ def cmd_status(args):
 
     pipeline_statuses = [
         ("open", "→ developer"),
+        ("investigating", "→ investigator"),
         ("testing", "→ tester"),
         ("reviewing", "→ reviewer"),
         ("merging", "→ integrator"),
@@ -298,7 +300,7 @@ def cmd_config(args):
             print(f"  {k} = {v}")
 
 
-PIPELINE_STATUSES = "testing,reviewing,merging,acceptance,done"
+PIPELINE_STATUSES = "investigating,testing,reviewing,merging,acceptance,done"
 
 
 def _configure_beads_statuses():
@@ -410,7 +412,7 @@ def cmd_debug(args):
     print()
 
     print("Checking pipeline statuses...")
-    for status in ["open", "reviewing", "testing", "merging", "acceptance"]:
+    for status in ["open", "investigating", "reviewing", "testing", "merging", "acceptance"]:
         result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
         count = len([l for l in result.stdout.strip().split('\n') if l.strip()]) if result.stdout.strip() else 0
         print(f"  {status}: {count} tasks")

@@ -37,11 +37,14 @@ Role-specific instructions are in `.claude/subagents/`.
 
 ## Pipeline Flow
 
-Tasks flow automatically through statuses:
+Two pipelines depending on task type:
 
 ```
-planning → (conductor releases) → open → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
+Development:   planning → open → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
+Investigation: planning → investigating → investigator → done
 ```
+
+Investigators research the problem and create developer tasks directly.
 
 **Watcher spawns agents based on status:**
 
@@ -49,13 +52,14 @@ planning → (conductor releases) → open → developer → reviewing → revie
 |--------|---------------|
 | planning | none (conductor is planning) |
 | open | developer |
+| investigating | investigator |
 | reviewing | reviewer |
 | testing | tester |
 | merging | integrator |
 | acceptance | tester |
 
 **Parallelization:**
-- Max 3 developers, testers, reviewers can run simultaneously
+- Max 3 developers, investigators, testers, reviewers can run simultaneously
 - Integrator is singleton (to avoid merge conflicts)
 
 ---
@@ -65,9 +69,15 @@ planning → (conductor releases) → open → developer → reviewing → revie
 ### @conductor
 - Entry point — user talks to conductor
 - Creates tasks with `bd create "title" --status planning`
-- When done planning, releases tasks: `bd update <id> --status open`
+- Releases dev tasks: `bd update <id> --status open`
+- Releases investigation tasks: `bd update <id> --status investigating`
 - Monitors progress with `debussy status`
 - **Does not write code**
+
+### @investigator
+- Researches codebase, documents findings as bead comments
+- Creates developer tasks with `--status open` based on findings
+- Sets `--status done` when investigation complete
 
 ### @developer
 - Implements features and fixes bugs
@@ -96,10 +106,17 @@ bd create "Implement feature X" --status planning
 
 ### Releasing Tasks (conductor only)
 ```bash
-bd update <bead-id> --status open
+bd update <bead-id> --status open            # development task
+bd update <bead-id> --status investigating   # investigation task
 ```
 
 ### Status Transitions
+
+Investigator:
+```bash
+bd create "Dev task from findings" --status open   # create dev tasks
+bd update <bead-id> --status done                  # complete investigation
+```
 
 Developer:
 ```bash
@@ -166,7 +183,8 @@ debussy start              # Start system (tmux)
 debussy watch              # Run watcher
 debussy status             # Show status
 bd create "title" --status planning
-bd update <id> --status open   # Release task for development
+bd update <id> --status open            # Release task for development
+bd update <id> --status investigating   # Release task for investigation
 bd update <id> --status <status>
 bd show <id>
 bd list

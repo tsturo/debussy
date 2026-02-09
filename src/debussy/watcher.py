@@ -12,6 +12,7 @@ from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, SESSION_NAME, get
 
 STATUS_TO_ROLE = {
     "open": "developer",
+    "investigating": "investigator",
     "reviewing": "reviewer",
     "testing": "tester",
     "merging": "integrator",
@@ -204,6 +205,21 @@ If APPROVED:
 
 If CHANGES NEEDED:
   bd comment {bead_id} "Review feedback: [details]"
+  bd update {bead_id} --status open
+  Exit"""
+
+        elif role == "investigator":
+            return f"""You are an investigator. Research bead {bead_id}.
+
+1. bd show {bead_id}
+2. Research the codebase, understand the problem
+3. Document findings as bead comments: bd comment {bead_id} "Finding: [details]"
+4. Create developer tasks based on findings: bd create "Task description" --status open
+5. bd update {bead_id} --status done
+6. Exit
+
+IF BLOCKED or need more info:
+  bd comment {bead_id} "Blocked: [reason]"
   bd update {bead_id} --status open
   Exit"""
 

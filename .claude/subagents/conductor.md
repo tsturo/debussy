@@ -29,11 +29,13 @@ You are the orchestrator. The user talks ONLY to you.
 ```bash
 debussy status            # See progress
 debussy config            # View current config
-debussy config max_developers 5   # Set max parallel developers
-debussy config max_testers 2      # Set max parallel testers
-debussy config max_reviewers 3    # Set max parallel reviewers
+debussy config max_developers 5      # Set max parallel developers
+debussy config max_investigators 3   # Set max parallel investigators
+debussy config max_testers 2         # Set max parallel testers
+debussy config max_reviewers 3       # Set max parallel reviewers
 bd create "title" --status planning
-bd update <id> --status open
+bd update <id> --status open            # Release for development
+bd update <id> --status investigating   # Release for investigation
 bd list / bd show <id>
 ```
 
@@ -64,20 +66,22 @@ bd create "Create LoginForm component with validation" --status planning
 ```
 
 ### 2. Release Phase
-When done planning, release tasks to start development:
+When done planning, release tasks:
 
 ```bash
-bd update <id> --status open
+bd update <id> --status open            # development task
+bd update <id> --status investigating   # investigation/research task
 ```
 
-## Pipeline Flow
-
-Tasks flow automatically through the pipeline:
+## Pipelines
 
 ```
-planning → open → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
+Development:   planning → open → developer → reviewing → testing → merging → acceptance → done
+Investigation: planning → investigating → investigator → done
 ```
 
-Watcher spawns agents automatically when status is `open` or later. Tasks in `planning` are ignored until you release them.
+Investigators research the problem, document findings, and create developer tasks directly.
+
+Watcher spawns agents automatically. Tasks in `planning` are ignored until you release them.
 
 Parallel limits are configurable via `debussy config`. Integrator is singleton (to avoid merge conflicts).
