@@ -25,6 +25,8 @@ dbs start
 
 The **watcher** polls bead statuses every 5 seconds and spawns Claude agents:
 
+### Development Pipeline
+
 | Status | Agent | Next Status |
 |--------|-------|-------------|
 | `open` | developer | `reviewing` |
@@ -41,7 +43,22 @@ developer  reviewer   tester   integrator    tester
   └─────────┴──────────┴──────────┘  (on failure/blocker → open with comment)
 ```
 
-**Parallel:** Up to 3 developers/testers/reviewers work simultaneously (configurable).
+### Investigation Pipeline
+
+| Status | Agent | Next Status |
+|--------|-------|-------------|
+| `investigating` | investigator | `done` |
+| `consolidating` | integrator | `done` (creates dev tasks) |
+
+```
+investigating (2-3 parallel) → consolidating → dev tasks created
+       ↓                             ↓
+  investigator                   integrator
+```
+
+Investigators research in parallel and document findings as comments. A consolidation bead (blocked by investigation beads) waits for all to finish, then the integrator synthesizes findings into developer tasks.
+
+**Parallel:** Up to 3 developers/investigators/testers/reviewers work simultaneously (configurable).
 **Singleton:** Only one integrator (avoids merge conflicts).
 **Dynamic limits:** Total agents capped at 6; reduces per-role limits when busy.
 **Blocked beads:** Skipped automatically.
@@ -55,10 +72,11 @@ Agents are named after composers (e.g., `developer-beethoven`, `tester-chopin`).
 | Agent | Does |
 |-------|------|
 | **conductor** | Creates tasks. Never writes code. |
+| **investigator** | Researches codebase, documents findings as comments |
 | **developer** | Implements on feature branch, sets status → `reviewing` |
 | **reviewer** | Reviews code, sets status → `testing` (or `open` for changes) |
 | **tester** | Tests code, writes automated tests, sets status → `merging` (or `open` on fail) |
-| **integrator** | Merges to develop, deletes feature branch, sets status → `acceptance` |
+| **integrator** | Consolidates investigation findings / merges to develop |
 
 ### Agent Communication
 
@@ -91,6 +109,7 @@ dbs debug                # Troubleshoot pipeline detection
 ```bash
 dbs config                          # Show all
 dbs config max_developers 5         # Set max developers
+dbs config max_investigators 3      # Set max investigators
 dbs config max_testers 3            # Set max testers
 dbs config max_reviewers 3          # Set max reviewers
 dbs config max_total_agents 8       # Set total agent limit
@@ -112,12 +131,19 @@ When `use_tmux_windows` is enabled, agents spawn as separate tmux windows instea
 
 ## Creating Tasks
 
-Conductor creates beads with open status:
+### Development Tasks
 ```bash
 bd create "Implement feature X" --status open
 ```
-
 Watcher detects `open` status → spawns developer → pipeline begins.
+
+### Parallel Investigation
+```bash
+bd create "Investigate area A" --status investigating
+bd create "Investigate area B" --status investigating
+bd create "Consolidate findings" --deps "bd-001,bd-002" --status consolidating
+```
+Investigators work in parallel. Consolidation bead stays blocked until all finish, then integrator creates dev tasks.
 
 ---
 
