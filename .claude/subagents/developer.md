@@ -30,10 +30,10 @@ git push -u origin feature/<bead-id>
 ### Completing Work
 
 ```bash
-bd update <bead-id> --status testing
+bd update <bead-id> --status reviewing
 ```
 
-**IMPORTANT:** Set status to `testing` when done, NOT `done`. Pipeline continues automatically.
+**IMPORTANT:** Set status to `reviewing` when done, NOT `done`. Pipeline continues automatically.
 
 ## Development Standards
 

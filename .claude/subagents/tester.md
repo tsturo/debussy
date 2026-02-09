@@ -29,13 +29,13 @@ git checkout feature/<bead-id>
 
 **If tests pass:**
 ```bash
-bd update <bead-id> --status reviewing
+bd update <bead-id> --status merging
 ```
 
 **If tests fail:**
 ```bash
 bd comment <bead-id> "Tests failed: [details]"
-bd update <bead-id> --status pending
+bd update <bead-id> --status open
 ```
 
 ## Acceptance Testing (post-merge)
@@ -54,7 +54,7 @@ bd update <bead-id> --status done
 **If acceptance fails:**
 ```bash
 bd comment <bead-id> "Acceptance failed: [details]"
-bd update <bead-id> --status pending
+bd update <bead-id> --status open
 ```
 
 ## What to Test

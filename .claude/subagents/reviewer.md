@@ -44,13 +44,13 @@ git diff develop...HEAD
 
 **If approved:**
 ```bash
-bd update <bead-id> --status merging
+bd update <bead-id> --status testing
 ```
 
 **If changes needed:**
 ```bash
 bd comment <bead-id> "Review feedback: [details]"
-bd update <bead-id> --status pending
+bd update <bead-id> --status open
 ```
 
 ## Review Tone

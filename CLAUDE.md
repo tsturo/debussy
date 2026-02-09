@@ -137,19 +137,19 @@ bd update <bead-id> --status done                  # complete consolidation
 
 Developer:
 ```bash
-bd update <bead-id> --status testing
-```
-
-Tester:
-```bash
-bd update <bead-id> --status reviewing   # pass
-bd update <bead-id> --status open     # fail (add comment first)
+bd update <bead-id> --status reviewing
 ```
 
 Reviewer:
 ```bash
-bd update <bead-id> --status merging     # approved
+bd update <bead-id> --status testing     # approved
 bd update <bead-id> --status open     # changes needed
+```
+
+Tester:
+```bash
+bd update <bead-id> --status merging   # pass
+bd update <bead-id> --status open     # fail (add comment first)
 ```
 
 Integrator:

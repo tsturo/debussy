@@ -316,7 +316,7 @@ IF MERGE CONFLICTS cannot be resolved:
         escaped_prompt = prompt.replace("'", "'\"'\"'")
         log_file = Path(".debussy/agent_output.log")
         log_file.parent.mkdir(parents=True, exist_ok=True)
-        shell_cmd = f"echo '\\n=== {agent_name} ({bead_id}) ===' >> {log_file}; script -q /dev/null {claude_cmd} --print '{escaped_prompt}' | tee -a {log_file}"
+        shell_cmd = f"export DEBUSSY_ROLE={role} DEBUSSY_BEAD={bead_id}; echo '\\n=== {agent_name} ({bead_id}) ===' >> {log_file}; script -q /dev/null {claude_cmd} --print '{escaped_prompt}' | tee -a {log_file}"
 
         try:
             subprocess.run([
@@ -344,9 +344,12 @@ IF MERGE CONFLICTS cannot be resolved:
         log_file = logs_dir / f"{agent_name}.log"
 
         try:
+            env = os.environ.copy()
+            env["DEBUSSY_ROLE"] = role
+            env["DEBUSSY_BEAD"] = bead_id
             log_handle = open(log_file, "wb", buffering=0)
             proc = subprocess.Popen(
-                cmd, cwd=os.getcwd(),
+                cmd, cwd=os.getcwd(), env=env,
                 stdout=log_handle, stderr=subprocess.STDOUT,
                 bufsize=0
             )
