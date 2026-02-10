@@ -18,13 +18,16 @@ def _extract_status(words):
     return None
 
 
+AGENT_STATUSES = {"development", "investigating", "consolidating", "reviewing", "testing", "merging", "acceptance"}
+
+
 def _validate_create(command, role):
     words = command.split()
     target_status = _extract_status(words)
     if not target_status:
         return
-    if target_status != "planning":
-        print(f"Tasks must be created with --status planning (got '{target_status}')", file=sys.stderr)
+    if target_status in AGENT_STATUSES:
+        print(f"Cannot create bead with agent-triggering status '{target_status}'", file=sys.stderr)
         sys.exit(2)
 
 
