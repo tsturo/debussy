@@ -8,7 +8,7 @@ from pathlib import Path
 
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
-from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, SESSION_NAME, get_config
+from .config import POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, SESSION_NAME, get_config, get_base_branch
 
 STATUS_TO_ROLE = {
     "open": "developer",
@@ -135,15 +135,25 @@ class Watcher:
         return window_name in result.stdout.split('\n')
 
     def get_prompt(self, role: str, bead_id: str, status: str) -> str:
+        base = get_base_branch()
+        if not base:
+            return f"""ERROR: No base branch configured. The conductor must create a feature branch first.
+Run: debussy config base_branch <branch-name>
+Exit immediately."""
+
         if role == "developer":
             return f"""You are a developer. Work on bead {bead_id}.
+Base branch: {base}
 
 1. bd show {bead_id}
-2. git checkout -b feature/{bead_id} (or checkout existing branch)
-3. Implement the task
-4. Commit and push changes
-5. bd update {bead_id} --status reviewing
-6. Exit
+2. git fetch origin && git checkout {base} && git pull origin {base}
+3. git checkout -b feature/{bead_id} (or checkout existing branch)
+4. Implement the task
+5. Commit and push changes
+6. bd update {bead_id} --status reviewing
+7. Exit
+
+IMPORTANT: Branch feature/{bead_id} off {base}, NOT master.
 
 FORBIDDEN — never use these statuses:
   ✗ bd update {bead_id} --status done
@@ -165,10 +175,11 @@ IF YOU FIND AN UNRELATED BUG:
 
         elif role == "tester" and status == "testing":
             return f"""You are a tester. Test bead {bead_id}.
+Base branch: {base}
 
 1. bd show {bead_id}
 2. git checkout feature/{bead_id}
-3. Review the changes (git diff develop...HEAD)
+3. Review the changes (git diff {base}...HEAD)
 4. Write automated tests for the new functionality
 5. Run all tests
 6. Commit and push the tests
@@ -186,9 +197,10 @@ IMPORTANT: Always write tests before approving. No untested code passes."""
 
         elif role == "tester" and status == "acceptance":
             return f"""You are a tester. Acceptance test for bead {bead_id} (post-merge).
+Base branch: {base}
 
 1. bd show {bead_id}
-2. git checkout develop && git pull
+2. git checkout {base} && git pull origin {base}
 3. Run full test suite, verify feature works
 
 If PASS:
@@ -202,10 +214,11 @@ If FAIL:
 
         elif role == "reviewer":
             return f"""You are a code reviewer. Review bead {bead_id}.
+Base branch: {base}
 
 1. bd show {bead_id}
 2. git checkout feature/{bead_id}
-3. Review: git diff develop...HEAD
+3. Review: git diff {base}...HEAD
 
 If APPROVED:
   bd update {bead_id} --status testing
@@ -254,17 +267,20 @@ IF BLOCKED or findings are insufficient:
 
         elif role == "integrator" and status == "merging":
             return f"""You are an integrator. Merge bead {bead_id}.
+Base branch: {base}
 
 1. bd show {bead_id}
-2. git checkout develop && git pull
+2. git checkout {base} && git pull origin {base}
 3. git merge feature/{bead_id} --no-ff
 4. Resolve conflicts if any
 5. Run tests
-6. git push origin develop
+6. git push origin {base}
 7. git branch -d feature/{bead_id}
 8. git push origin --delete feature/{bead_id}
 9. bd update {bead_id} --status acceptance
 10. Exit
+
+IMPORTANT: Merge into {base}, NEVER into master.
 
 IF MERGE CONFLICTS cannot be resolved:
   bd comment {bead_id} "Merge conflict: [details]"

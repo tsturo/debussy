@@ -40,6 +40,11 @@ def set_config(key: str, value):
         json.dump(cfg, f, indent=2)
 
 
+def get_base_branch() -> str | None:
+    cfg = get_config()
+    return cfg.get("base_branch")
+
+
 def get_max_for_role(role: str) -> int:
     if role in SINGLETON_ROLES:
         return 1

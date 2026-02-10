@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate-bd-transition.sh"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate-bd-transition.py"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-bead-updated.sh"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-bead-updated.py"
           }
         ]
       }

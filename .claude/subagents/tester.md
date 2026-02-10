@@ -40,10 +40,10 @@ bd update <bead-id> --status open
 
 ## Acceptance Testing (post-merge)
 
-When testing a merged feature:
+When testing a merged feature on the conductor's base branch:
 
 ```bash
-git checkout develop && git pull
+git checkout <base-branch> && git pull origin <base-branch>
 ```
 
 **If acceptance passes:**

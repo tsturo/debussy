@@ -40,9 +40,19 @@ def cmd_start(args):
 YOUR JOB:
 1. Receive requirements from user
 2. Ask clarifying questions if unclear
-3. Create tasks with: bd create "title" --status planning
-4. When done planning, release tasks: bd update <id> --status open
-5. Monitor progress with: debussy status
+3. Create a feature branch FIRST: git checkout -b feature/<short-name> && git push -u origin feature/<short-name>
+4. Register the branch: debussy config base_branch feature/<short-name>
+5. Create tasks with: bd create "title" --status planning
+6. When done planning, release tasks: bd update <id> --status open
+7. Monitor progress with: debussy status
+
+BRANCHING (MANDATORY first step before creating tasks):
+git checkout -b feature/user-auth           # create conductor's feature branch
+git push -u origin feature/user-auth        # push to remote
+debussy config base_branch feature/user-auth  # register as base branch
+
+Developers will branch off YOUR feature branch. Integrator merges back into YOUR branch.
+Merging to master is done ONLY by the user manually. NEVER merge to master.
 
 CREATING TASKS (planning phase):
 bd create "Implement user login" --status planning
@@ -63,7 +73,8 @@ bd create "Consolidate findings" --deps "bd-001,bd-002" --status consolidating
 
 Watcher spawns agents automatically. Max 3 developers/investigators/testers/reviewers in parallel.
 
-NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""
+NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code.
+NEVER merge to master — that is done only by the user."""
 
     if args.requirement:
         prompt = f"{conductor_prompt}\n\nUser requirement: {args.requirement}"

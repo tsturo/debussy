@@ -69,12 +69,14 @@ Investigators research in parallel and document findings. A consolidation step (
 
 ### @conductor
 - Entry point — user talks to conductor
+- **First step**: creates a feature branch and registers it: `debussy config base_branch feature/<name>`
 - Creates tasks with `bd create "title" --status planning`
 - Releases dev tasks: `bd update <id> --status open`
 - Releases investigation tasks: `bd update <id> --status investigating`
 - Creates consolidation bead blocked by investigation beads: `bd create "Consolidate findings" --deps "bd-x,bd-y,bd-z" --status consolidating`
 - Monitors progress with `debussy status`
 - **Does not write code**
+- **Never merges to master** — user does that manually
 
 ### @investigator
 - Researches codebase, documents findings as bead comments
@@ -95,8 +97,9 @@ Investigators research in parallel and document findings. A consolidation step (
 
 ### @integrator
 - Consolidates investigation findings into developer tasks (status `consolidating`)
-- Merges feature branches to develop (status `merging`)
+- Merges feature branches to conductor's base branch (status `merging`)
 - Sets `--status acceptance` after merge
+- **Never merges to master**
 
 ---
 
@@ -174,8 +177,20 @@ bd update <bead-id> --status open     # fail
 
 ### Branch Naming
 ```
-feature/<bead-id>
+feature/<name>       # conductor's base branch (created first)
+feature/<bead-id>    # developer sub-branches (off conductor's branch)
 ```
+
+### Branching Model
+```
+master (manual merge only by user)
+  └── feature/<name>          ← conductor's branch
+        ├── feature/bd-001    ← developer branch (merged back by integrator)
+        ├── feature/bd-002
+        └── feature/bd-003
+```
+
+Merging to master is NEVER done by agents — only by the user manually.
 
 ---
 
@@ -199,6 +214,7 @@ src/debussy/
 debussy start              # Start system (tmux)
 debussy watch              # Run watcher
 debussy status             # Show status
+debussy config base_branch feature/<name>  # Set conductor's base branch
 bd create "title" --status planning
 bd update <id> --status open            # Release task for development
 bd update <id> --status investigating   # Release task for investigation

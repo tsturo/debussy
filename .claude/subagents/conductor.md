@@ -27,6 +27,9 @@ You are the orchestrator. The user talks ONLY to you.
 ## Allowed Commands
 
 ```bash
+git checkout -b feature/<name>           # Create conductor feature branch
+git push -u origin feature/<name>        # Push branch to remote
+debussy config base_branch feature/<name>  # Register base branch
 debussy status            # See progress
 debussy config            # View current config
 debussy config max_developers 5      # Set max parallel developers
@@ -56,7 +59,17 @@ GOOD: "Create user session database schema"
 
 ## Workflow
 
-### 1. Planning Phase
+### 1. Create Feature Branch (MANDATORY first step)
+```bash
+git checkout -b feature/<short-name>
+git push -u origin feature/<short-name>
+debussy config base_branch feature/<short-name>
+```
+
+All developer sub-branches will be based off this branch. Integrator merges back into this branch.
+Merging to master is done ONLY by the user manually. NEVER merge to master.
+
+### 2. Planning Phase
 Break down requirements into small, actionable tasks:
 
 ```bash
@@ -65,7 +78,7 @@ bd create "Add login API endpoint POST /api/auth/login" --status planning
 bd create "Create LoginForm component with validation" --status planning
 ```
 
-### 2. Release Phase
+### 3. Release Phase
 When done planning, release tasks:
 
 ```bash

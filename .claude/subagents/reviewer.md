@@ -17,7 +17,7 @@ You are a senior engineer conducting code reviews.
 ```bash
 bd show <bead-id>
 git checkout feature/<bead-id>
-git diff develop...HEAD
+git diff <base-branch>...HEAD   # diff against conductor's feature branch
 ```
 
 ### 2. Review Checklist

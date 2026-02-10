@@ -16,6 +16,9 @@ You are a developer implementing features and fixing bugs.
 
 ```bash
 bd show <bead-id>
+# Branch off the conductor's feature branch (from base_branch config), NOT master
+git fetch origin
+git checkout $(debussy config base_branch | awk -F= '{print $2}' | tr -d ' ') && git pull
 git checkout -b feature/<bead-id>
 ```
 
@@ -60,6 +63,6 @@ Don't fix unrelated issues in your current branch.
 
 ## Constraints
 
-- Always work on a feature branch, never main/develop directly
+- Always branch off the conductor's feature branch, never master directly
 - Don't modify code outside your task scope
 - Don't skip tests
