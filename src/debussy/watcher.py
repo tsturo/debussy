@@ -192,6 +192,8 @@ class Watcher:
             self.running[key] = AgentInfo(
                 bead=bead_id, role=role, name=agent_name, tmux=True,
             )
+            if self._cached_windows is not None:
+                self._cached_windows.add(agent_name)
             self.save_state()
         except Exception as e:
             log(f"Failed to spawn tmux window: {e}", "✗")
