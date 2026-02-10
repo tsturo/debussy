@@ -116,6 +116,9 @@ class Watcher:
         max_total = get_config().get("max_total_agents", 6)
         return len(self._alive_agents()) >= max_total
 
+    def has_running_role(self, role: str) -> bool:
+        return any(a.role == role for a in self._alive_agents())
+
     def is_blocked(self, bead_id: str) -> bool:
         try:
             result = subprocess.run(
@@ -239,6 +242,12 @@ class Watcher:
                         continue
 
                     if self.is_blocked(bead_id):
+                        continue
+
+                    if role == "integrator" and self.has_running_role("integrator"):
+                        if bead_id not in self.queued:
+                            log(f"Queued: {bead_id} waiting for integrator", "⏳")
+                            self.queued.add(bead_id)
                         continue
 
                     if self.is_at_capacity():
