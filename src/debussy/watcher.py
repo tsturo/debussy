@@ -12,7 +12,7 @@ from pathlib import Path
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
 from .config import (
-    POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, SESSION_NAME,
+    AGENT_TIMEOUT, POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, SESSION_NAME,
     HEARTBEAT_TICKS, STATUS_TO_ROLE, atomic_write,
     get_config, log,
 )
@@ -50,6 +50,7 @@ class AgentInfo:
     proc: subprocess.Popen | None = None
     log_path: str = ""
     log_handle: object = field(default=None, repr=False)
+    started_at: float = field(default_factory=time.time)
 
     def is_alive(self, tmux_windows: set[str] | None = None) -> bool:
         if self.tmux:
@@ -265,6 +266,29 @@ class Watcher:
             except Exception as e:
                 log(f"Error checking {status}: {e}", "⚠️")
 
+    def _check_timeouts(self):
+        now = time.time()
+        timeout = get_config().get("agent_timeout", AGENT_TIMEOUT)
+        for key, agent in list(self.running.items()):
+            if not agent.is_alive(self._cached_windows):
+                continue
+            elapsed = now - agent.started_at
+            if elapsed < timeout:
+                continue
+            log(f"{agent.name} timed out after {int(elapsed)}s on {agent.bead}", "⏰")
+            agent.stop()
+            try:
+                subprocess.run(
+                    ["bd", "comment", agent.bead, f"Agent {agent.name} timed out after {int(elapsed)}s"],
+                    capture_output=True, timeout=5,
+                )
+                subprocess.run(
+                    ["bd", "update", agent.bead, "--status", "planning"],
+                    capture_output=True, timeout=5,
+                )
+            except Exception:
+                pass
+
     def cleanup_finished(self):
         cleaned = False
         for key, agent in list(self.running.items()):
@@ -306,6 +330,7 @@ class Watcher:
         while not self.should_exit:
             try:
                 self._refresh_tmux_cache()
+                self._check_timeouts()
                 self.cleanup_finished()
                 self.check_pipeline()
                 self.save_state()

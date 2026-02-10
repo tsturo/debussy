@@ -33,6 +33,8 @@ PIPELINES:
 Development: planning → open → developer → reviewing → testing → merging → acceptance → done
 Investigation: planning → investigating (parallel) → consolidating → dev tasks created → done
 
+Investigators document findings as comments. The consolidation step synthesizes findings and creates developer tasks.
+
 PARALLEL INVESTIGATION:
 bd create "Investigate area A" --status investigating          # → bd-001
 bd create "Investigate area B" --status investigating          # → bd-002
@@ -40,13 +42,19 @@ bd create "Consolidate findings" --deps "bd-001,bd-002" --status consolidating
 
 Watcher spawns agents automatically. Max 3 developers/investigators/testers/reviewers in parallel.
 
+RECOVERY (stuck tasks):
+bd update <id> --status done           # skip stuck investigation
+bd update <id> --status investigating  # retry investigation
+bd update <id> --status open           # retry development task
+Monitor with: debussy status
+
 NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code.
 NEVER merge to master — that is done only by the user."""
 
 
 def get_prompt(role: str, bead_id: str, status: str) -> str:
     base = get_base_branch()
-    if not base and role not in ("investigator",) and status != "consolidating":
+    if not base and role not in ("investigator",):
         return (
             "ERROR: No base branch configured. The conductor must create a feature branch first.\n"
             "Run: debussy config base_branch <branch-name>\n"
@@ -56,13 +64,14 @@ def get_prompt(role: str, bead_id: str, status: str) -> str:
     builders = {
         "developer": _developer_prompt,
         "reviewer": _reviewer_prompt,
-        "investigator": _investigator_prompt,
     }
 
     if role == "tester":
         return _tester_prompt(bead_id, base, status)
     if role == "integrator":
         return _integrator_prompt(bead_id, base, status)
+    if role == "investigator":
+        return _investigator_prompt(bead_id, base, status)
 
     builder = builders.get(role)
     if builder:
@@ -175,7 +184,13 @@ If CHANGES NEEDED:
   Exit"""
 
 
-def _investigator_prompt(bead_id: str, base: str) -> str:
+def _investigator_prompt(bead_id: str, base: str, status: str) -> str:
+    if status == "consolidating":
+        return _investigator_consolidating_prompt(bead_id)
+    return _investigator_investigating_prompt(bead_id)
+
+
+def _investigator_investigating_prompt(bead_id: str) -> str:
     return f"""You are an investigator. Research bead {bead_id}.
 
 1. bd show {bead_id}
@@ -189,18 +204,12 @@ A consolidation step will review all findings and create dev tasks.
 
 IF BLOCKED or need more info:
   bd comment {bead_id} "Blocked: [reason]"
-  bd update {bead_id} --status open
+  bd update {bead_id} --status planning
   Exit"""
 
 
-def _integrator_prompt(bead_id: str, base: str, status: str) -> str:
-    if status == "consolidating":
-        return _integrator_consolidating_prompt(bead_id)
-    return _integrator_merging_prompt(bead_id, base)
-
-
-def _integrator_consolidating_prompt(bead_id: str) -> str:
-    return f"""You are an integrator consolidating investigation findings for bead {bead_id}.
+def _investigator_consolidating_prompt(bead_id: str) -> str:
+    return f"""You are an investigator consolidating investigation findings for bead {bead_id}.
 
 1. bd show {bead_id}
 2. Read the bead's dependencies to find the investigation beads
@@ -217,6 +226,10 @@ IF BLOCKED or findings are insufficient:
   bd comment {bead_id} "Blocked: [reason]"
   bd update {bead_id} --status planning
   Exit"""
+
+
+def _integrator_prompt(bead_id: str, base: str, status: str) -> str:
+    return _integrator_merging_prompt(bead_id, base)
 
 
 def _integrator_merging_prompt(bead_id: str, base: str) -> str:

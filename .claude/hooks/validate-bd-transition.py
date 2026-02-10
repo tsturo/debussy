@@ -7,7 +7,7 @@ ALLOWED_TRANSITIONS = {
     "developer": {"reviewing", "open"},
     "reviewer": {"testing", "open"},
     "tester": {"merging", "done", "open"},
-    "investigator": {"done", "open"},
+    "investigator": {"done", "open", "planning"},
     "integrator": {"done", "planning", "acceptance", "open"},
 }
 

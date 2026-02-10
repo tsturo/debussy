@@ -41,10 +41,10 @@ Two pipelines depending on task type:
 
 ```
 Development:   planning → open → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
-Investigation: planning → investigating (parallel) → consolidating (integrator) → dev tasks created → done
+Investigation: planning → investigating (parallel) → consolidating (investigator) → dev tasks created → done
 ```
 
-Investigators research in parallel and document findings. A consolidation step (integrator) synthesizes findings and creates developer tasks.
+Investigators research in parallel and document findings. A consolidation step (investigator) synthesizes findings and creates developer tasks.
 
 **Watcher spawns agents based on status:**
 
@@ -53,7 +53,7 @@ Investigators research in parallel and document findings. A consolidation step (
 | planning | none (conductor is planning) |
 | open | developer |
 | investigating | investigator |
-| consolidating | integrator |
+| consolidating | investigator |
 | reviewing | reviewer |
 | testing | tester |
 | merging | integrator |
@@ -95,8 +95,10 @@ Investigators research in parallel and document findings. A consolidation step (
 - Reviews code for quality and security
 - Sets `--status merging` if approved, `--status open` if changes needed
 
+### @investigator
+- Also handles `consolidating` status: synthesizes investigation findings into developer tasks
+
 ### @integrator
-- Consolidates investigation findings into developer tasks (status `consolidating`)
 - Merges feature branches to conductor's base branch (status `merging`)
 - Sets `--status acceptance` after merge
 - **Never merges to master**
@@ -132,7 +134,7 @@ bd comment <bead-id> "Finding: [details]"          # document findings
 bd update <bead-id> --status done                  # complete investigation
 ```
 
-Integrator (consolidation):
+Investigator (consolidation):
 ```bash
 bd create "Dev task from findings" --status open   # create dev tasks
 bd update <bead-id> --status done                  # complete consolidation

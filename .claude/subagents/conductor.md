@@ -90,11 +90,22 @@ bd update <id> --status investigating   # investigation/research task
 
 ```
 Development:   planning → open → developer → reviewing → testing → merging → acceptance → done
-Investigation: planning → investigating → investigator → done
+Investigation: planning → investigating (parallel) → consolidating → dev tasks created → done
 ```
 
-Investigators research the problem, document findings, and create developer tasks directly.
+Investigators research and document findings as comments. A consolidation step synthesizes findings and creates developer tasks.
 
 Watcher spawns agents automatically. Tasks in `planning` are ignored until you release them.
 
 Parallel limits are configurable via `debussy config`. Integrator is singleton (to avoid merge conflicts).
+
+## Recovery
+
+If an investigation or task is stuck:
+```bash
+bd update <id> --status done           # skip stuck investigation
+bd update <id> --status investigating  # retry investigation
+bd update <id> --status open           # retry development task
+```
+
+Monitor with `debussy status` and intervene when tasks stall.

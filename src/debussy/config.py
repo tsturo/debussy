@@ -13,6 +13,7 @@ COMMENT_TRUNCATE_LEN = 80
 YOLO_MODE = True
 SESSION_NAME = "debussy"
 SINGLETON_ROLES = ["integrator"]
+AGENT_TIMEOUT = 900
 
 CONFIG_DIR = Path(".debussy")
 CONFIG_FILE = CONFIG_DIR / "config.json"
@@ -29,7 +30,7 @@ DEFAULTS = {
 STATUS_TO_ROLE = {
     "open": "developer",
     "investigating": "investigator",
-    "consolidating": "integrator",
+    "consolidating": "investigator",
     "reviewing": "reviewer",
     "testing": "tester",
     "merging": "integrator",

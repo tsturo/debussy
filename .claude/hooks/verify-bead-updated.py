@@ -8,7 +8,7 @@ BAD_STATUSES = {
     "developer": {"open"},
     "reviewer": {"reviewing"},
     "tester": {"testing", "acceptance"},
-    "investigator": {"investigating"},
+    "investigator": {"investigating", "consolidating"},
     "integrator": {"consolidating", "merging"},
 }
 
