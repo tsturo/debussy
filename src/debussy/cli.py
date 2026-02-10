@@ -1,41 +1,18 @@
 """CLI commands for Debussy."""
 
+import json
 import os
+import shutil
 import subprocess
-from datetime import datetime
+from pathlib import Path
 
-from .config import YOLO_MODE, SESSION_NAME
+from .config import (
+    CLAUDE_STARTUP_DELAY, COMMENT_TRUNCATE_LEN, PIPELINE_STATUSES,
+    SESSION_NAME, STATUS_TO_ROLE, YOLO_MODE, get_config, log, parse_value,
+    set_config,
+)
 
-
-def log(msg: str, icon: str = "•"):
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    print(f"{timestamp} {icon} {msg}")
-
-
-def cmd_start(args):
-    """Start the system with tmux."""
-    subprocess.run(["tmux", "kill-session", "-t", SESSION_NAME],
-                   capture_output=True, check=False)
-
-    subprocess.run([
-        "tmux", "new-session", "-d", "-s", SESSION_NAME, "-n", "main"
-    ], check=True)
-
-    t = f"{SESSION_NAME}:main"
-    subprocess.run(["tmux", "split-window", "-h", "-p", "33", "-t", t], check=True)
-    subprocess.run(["tmux", "split-window", "-h", "-p", "50", "-t", f"{t}.0"], check=True)
-    subprocess.run(["tmux", "split-window", "-v", "-p", "50", "-t", f"{t}.0"], check=True)
-
-    from pathlib import Path
-    Path(".debussy").mkdir(parents=True, exist_ok=True)
-
-    claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
-    subprocess.run(["tmux", "send-keys", "-t", f"{t}.0", claude_cmd, "C-m"], check=True)
-    subprocess.run(["tmux", "send-keys", "-t", f"{t}.1", "", ""], check=True)
-    subprocess.run(["tmux", "send-keys", "-t", f"{t}.2", "watch -n 5 'debussy status'", "C-m"], check=True)
-    subprocess.run(["tmux", "send-keys", "-t", f"{t}.3", "debussy watch", "C-m"], check=True)
-
-    conductor_prompt = """You are @conductor - the orchestrator. NEVER write code yourself.
+CONDUCTOR_PROMPT = """You are @conductor - the orchestrator. NEVER write code yourself.
 
 YOUR JOB:
 1. Receive requirements from user
@@ -76,33 +53,65 @@ Watcher spawns agents automatically. Max 3 developers/investigators/testers/revi
 NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code.
 NEVER merge to master — that is done only by the user."""
 
-    if args.requirement:
-        prompt = f"{conductor_prompt}\n\nUser requirement: {args.requirement}"
-    else:
-        prompt = conductor_prompt
 
-    import time
-    time.sleep(6)
-    subprocess.run([
-        "tmux", "send-keys", "-l", "-t", f"{SESSION_NAME}:main.0",
-        prompt
-    ], check=True)
-    time.sleep(0.5)
-    subprocess.run([
-        "tmux", "send-keys", "-t", f"{SESSION_NAME}:main.0",
-        "Enter"
-    ], check=True)
+def _run_tmux(*args, check=True):
+    return subprocess.run(["tmux", *args], capture_output=True, check=check)
+
+
+def _send_keys(target: str, keys: str, literal: bool = False):
+    cmd = ["tmux", "send-keys"]
+    if literal:
+        cmd.append("-l")
+    cmd.extend(["-t", target, keys])
+    if not literal:
+        cmd.append("C-m")
+    subprocess.run(cmd, check=True)
+
+
+def _create_tmux_layout():
+    _run_tmux("kill-session", "-t", SESSION_NAME, check=False)
+    _run_tmux("new-session", "-d", "-s", SESSION_NAME, "-n", "main")
 
     t = f"{SESSION_NAME}:main"
-    subprocess.run(["tmux", "select-pane", "-t", f"{t}.0", "-T", "conductor"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{t}.1", "-T", "cmd"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{t}.2", "-T", "status"], check=True)
-    subprocess.run(["tmux", "select-pane", "-t", f"{t}.3", "-T", "watcher"], check=True)
+    _run_tmux("split-window", "-h", "-p", "33", "-t", t)
+    _run_tmux("split-window", "-h", "-p", "50", "-t", f"{t}.0")
+    _run_tmux("split-window", "-v", "-p", "50", "-t", f"{t}.0")
 
-    subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-status", "top"], check=True)
-    subprocess.run(["tmux", "set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} "], check=True)
+    Path(".debussy").mkdir(parents=True, exist_ok=True)
 
-    subprocess.run(["tmux", "select-pane", "-t", f"{t}.0"], check=True)
+    claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
+    _send_keys(f"{t}.0", claude_cmd)
+    _send_keys(f"{t}.2", "watch -n 5 'debussy status'")
+    _send_keys(f"{t}.3", "debussy watch")
+
+
+def _label_panes():
+    t = f"{SESSION_NAME}:main"
+    for idx, title in enumerate(["conductor", "cmd", "status", "watcher"]):
+        _run_tmux("select-pane", "-t", f"{t}.{idx}", "-T", title)
+    _run_tmux("set-option", "-t", SESSION_NAME, "pane-border-status", "top")
+    _run_tmux("set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} ")
+    _run_tmux("select-pane", "-t", f"{t}.0")
+
+
+def _send_conductor_prompt(requirement: str | None):
+    import time
+
+    prompt = CONDUCTOR_PROMPT
+    if requirement:
+        prompt = f"{prompt}\n\nUser requirement: {requirement}"
+
+    target = f"{SESSION_NAME}:main.0"
+    time.sleep(CLAUDE_STARTUP_DELAY)
+    _send_keys(target, prompt, literal=True)
+    time.sleep(0.5)
+    subprocess.run(["tmux", "send-keys", "-t", target, "Enter"], check=True)
+
+
+def cmd_start(args):
+    _create_tmux_layout()
+    _send_conductor_prompt(getattr(args, "requirement", None))
+    _label_panes()
 
     print("🎼 Debussy started")
     print("")
@@ -118,39 +127,18 @@ NEVER merge to master — that is done only by the user."""
 
 
 def cmd_watch(args):
-    """Run the watcher."""
     from .watcher import Watcher
     Watcher().run()
 
 
-def _get_tasks_by_status(status):
+def _get_tasks_by_status(status: str) -> list[str]:
     result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
     if not result.stdout.strip():
         return []
     return [t for t in result.stdout.strip().split('\n') if t.strip()]
 
 
-def _print_section(icon, title, tasks, empty_msg=None):
-    if not tasks:
-        if empty_msg:
-            print(f"{icon} {title}: {empty_msg}")
-        return
-    print(f"{icon} {title} ({len(tasks)})")
-    for t in tasks:
-        print(f"   {t}")
-    print()
-
-
-def _print_raw(cmd):
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.stdout.strip():
-        print(result.stdout.strip())
-        print()
-
-
-def _get_running_agents():
-    import json
-    from pathlib import Path
+def _get_running_agents() -> dict:
     state_file = Path(".debussy/watcher_state.json")
     if not state_file.exists():
         return {}
@@ -162,10 +150,13 @@ def _get_running_agents():
 
 
 def _get_bead_comments(bead_id: str) -> list[str]:
-    result = subprocess.run(
-        ["bd", "show", bead_id],
-        capture_output=True, text=True, timeout=5
-    )
+    try:
+        result = subprocess.run(
+            ["bd", "show", bead_id],
+            capture_output=True, text=True, timeout=5
+        )
+    except Exception:
+        return []
     if result.returncode != 0:
         return []
     comments = []
@@ -174,30 +165,18 @@ def _get_bead_comments(bead_id: str) -> list[str]:
         if line.startswith("Comments:") or line.startswith("## Comments"):
             in_comments = True
             continue
-        if in_comments:
-            if line.strip() and not line.startswith("---"):
-                comments.append(line.strip())
+        if in_comments and line.strip() and not line.startswith("---"):
+            comments.append(line.strip())
     return comments
 
 
 def cmd_status(args):
-    """Show system status."""
     print("\n=== DEBUSSY STATUS ===\n")
 
     running = _get_running_agents()
 
-    pipeline_statuses = [
-        ("open", "→ developer"),
-        ("investigating", "→ investigator"),
-        ("consolidating", "→ integrator"),
-        ("testing", "→ tester"),
-        ("reviewing", "→ reviewer"),
-        ("merging", "→ integrator"),
-        ("acceptance", "→ tester"),
-    ]
-
     active = []
-    for status, role in pipeline_statuses:
+    for status, role_label in STATUS_TO_ROLE.items():
         tasks = _get_tasks_by_status(status)
         for t in tasks:
             bead_id = t.split()[0] if t else ""
@@ -205,7 +184,7 @@ def cmd_status(args):
                 agent = running[bead_id]["agent"]
                 active.append((f"[{status}] {t} ← {agent} 🔄", bead_id))
             else:
-                active.append((f"[{status} {role}] {t}", bead_id))
+                active.append((f"[{status} → {role_label}] {t}", bead_id))
 
     if active:
         print(f"▶ ACTIVE ({len(active)})")
@@ -214,8 +193,7 @@ def cmd_status(args):
             try:
                 comments = _get_bead_comments(bead_id)
                 if comments:
-                    last_comment = comments[-1][:80]
-                    print(f"      💬 {last_comment}")
+                    print(f"      💬 {comments[-1][:COMMENT_TRUNCATE_LEN]}")
             except Exception:
                 pass
         print()
@@ -223,7 +201,10 @@ def cmd_status(args):
         print("▶ ACTIVE: none")
         print()
 
-    _print_raw(["bd", "blocked"])
+    result = subprocess.run(["bd", "blocked"], capture_output=True, text=True)
+    if result.stdout.strip():
+        print(result.stdout.strip())
+        print()
 
     done_tasks = _get_tasks_by_status("done")
     if done_tasks:
@@ -236,9 +217,7 @@ def cmd_status(args):
         print()
 
 
-
 def cmd_upgrade(args):
-    """Upgrade debussy to latest version."""
     from . import __version__
     log(f"Current version: {__version__}", "📦")
     log("Upgrading debussy...", "⬆️")
@@ -258,45 +237,23 @@ def cmd_upgrade(args):
 
 
 def cmd_restart(args):
-    """Upgrade and restart the session."""
-    import tempfile
-
     if args.upgrade:
         result = cmd_upgrade(args)
         if result != 0:
             return result
 
-    script = f"""#!/bin/bash
-sleep 1
-tmux kill-session -t {SESSION_NAME} 2>/dev/null
-sleep 1
-cd {os.getcwd()}
-debussy start
-"""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
-        f.write(script)
-        script_path = f.name
-
-    os.chmod(script_path, 0o755)
-    subprocess.Popen(["nohup", script_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    cwd = os.getcwd()
+    subprocess.Popen(
+        ["bash", "-c",
+         f"sleep 1 && tmux kill-session -t {SESSION_NAME} 2>/dev/null && sleep 1 && cd {cwd} && debussy start"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
     log("Restarting in background...", "🔄")
 
 
 def cmd_config(args):
-    """View or set config."""
-    from .config import get_config, set_config
-
     if args.key and args.value is not None:
-        value = args.value
-        if value.lower() in ("true", "1", "yes", "on"):
-            value = True
-        elif value.lower() in ("false", "0", "no", "off"):
-            value = False
-        else:
-            try:
-                value = int(value)
-            except ValueError:
-                pass
+        value = parse_value(args.value)
         set_config(args.key, value)
         log(f"Set {args.key} = {value}", "✓")
     elif args.key:
@@ -308,9 +265,6 @@ def cmd_config(args):
         print("Current config:")
         for k, v in cfg.items():
             print(f"  {k} = {v}")
-
-
-PIPELINE_STATUSES = "investigating,consolidating,testing,reviewing,merging,acceptance,done"
 
 
 def _configure_beads_statuses():
@@ -325,9 +279,6 @@ def _configure_beads_statuses():
 
 
 def cmd_init(args):
-    """Initialize beads with debussy pipeline statuses."""
-    from pathlib import Path
-
     if not Path(".beads").exists():
         result = subprocess.run(["bd", "init"], capture_output=True)
         if result.returncode != 0:
@@ -338,9 +289,8 @@ def cmd_init(args):
     _configure_beads_statuses()
 
 
-def _backup_beads():
-    import shutil
-    from pathlib import Path
+def _backup_beads() -> Path | None:
+    from datetime import datetime
 
     beads_dir = Path(".beads")
     if not beads_dir.exists():
@@ -356,7 +306,6 @@ def _backup_beads():
 
 
 def cmd_backup(args):
-    """Backup beads database."""
     backup_path = _backup_beads()
     if backup_path:
         log(f"Backed up to {backup_path}", "✓")
@@ -365,10 +314,6 @@ def cmd_backup(args):
 
 
 def cmd_clear(args):
-    """Clear all beads and runtime config."""
-    import shutil
-    from pathlib import Path
-
     beads_dir = Path(".beads")
     debussy_dir = Path(".debussy")
 
@@ -408,9 +353,6 @@ def cmd_clear(args):
 
 
 def cmd_debug(args):
-    """Debug watcher pipeline detection."""
-    from pathlib import Path
-
     print("=== DEBUSSY DEBUG ===\n")
 
     print("Checking custom statuses...")
@@ -422,7 +364,7 @@ def cmd_debug(args):
     print()
 
     print("Checking pipeline statuses...")
-    for status in ["open", "investigating", "consolidating", "reviewing", "testing", "merging", "acceptance"]:
+    for status in STATUS_TO_ROLE:
         result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
         count = len([l for l in result.stdout.strip().split('\n') if l.strip()]) if result.stdout.strip() else 0
         print(f"  {status}: {count} tasks")
@@ -443,5 +385,3 @@ def cmd_debug(args):
     else:
         print("  ⚠️  .debussy directory doesn't exist")
     print()
-
-
