@@ -32,10 +32,7 @@ git push -u origin feature/<name>        # Push branch to remote
 debussy config base_branch feature/<name>  # Register base branch
 debussy status            # See progress
 debussy config            # View current config
-debussy config max_developers 5      # Set max parallel developers
-debussy config max_investigators 3   # Set max parallel investigators
-debussy config max_testers 2         # Set max parallel testers
-debussy config max_reviewers 3       # Set max parallel reviewers
+debussy config max_total_agents 6    # Set max parallel agents
 bd create "title" --status planning
 bd update <id> --status development     # Release for development
 bd update <id> --status investigating   # Release for investigation
@@ -97,7 +94,7 @@ Investigators research and document findings as comments. A consolidation step s
 
 Watcher spawns agents automatically. Tasks in `planning` are ignored until you release them.
 
-Parallel limits are configurable via `debussy config`. Integrator is singleton (to avoid merge conflicts).
+Total agent limit is configurable via `debussy config max_total_agents N`.
 
 ## Recovery
 

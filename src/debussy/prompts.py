@@ -47,7 +47,7 @@ bd update bd-001 --status investigating
 bd update bd-002 --status investigating
 bd update bd-003 --status consolidating
 
-Watcher spawns agents automatically. Max 3 developers/investigators/testers/reviewers in parallel.
+Watcher spawns agents automatically (max_total_agents limit applies).
 
 RECOVERY (stuck tasks):
 bd update <id> --status done           # skip stuck investigation

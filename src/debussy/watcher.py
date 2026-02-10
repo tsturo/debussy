@@ -12,7 +12,7 @@ from pathlib import Path
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
 from .config import (
-    AGENT_TIMEOUT, POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, SESSION_NAME,
+    AGENT_TIMEOUT, POLL_INTERVAL, YOLO_MODE, SESSION_NAME,
     HEARTBEAT_TICKS, STATUS_TO_ROLE, atomic_write,
     get_config, log,
 )
@@ -112,21 +112,9 @@ class Watcher:
     def is_bead_running(self, bead_id: str) -> bool:
         return any(a.bead == bead_id and a.is_alive(self._cached_windows) for a in self.running.values())
 
-    def count_running_by_role(self, role: str) -> int:
-        return sum(1 for a in self._alive_agents() if a.role == role)
-
-    def get_dynamic_max(self, role: str) -> int:
-        if role in SINGLETON_ROLES:
-            return 1
-        cfg = get_config()
-        base_max = cfg.get(f"max_{role}s", 3)
-        max_total = cfg.get("max_total_agents", 6)
-        total = len(self._alive_agents())
-        if total >= max_total:
-            return 0
-        if total >= max_total - 2:
-            return min(base_max, 2)
-        return base_max
+    def is_at_capacity(self) -> bool:
+        max_total = get_config().get("max_total_agents", 6)
+        return len(self._alive_agents()) >= max_total
 
     def is_blocked(self, bead_id: str) -> bool:
         try:
@@ -253,10 +241,9 @@ class Watcher:
                     if self.is_blocked(bead_id):
                         continue
 
-                    max_allowed = self.get_dynamic_max(role)
-                    if self.count_running_by_role(role) >= max_allowed:
+                    if self.is_at_capacity():
                         if bead_id not in self.queued:
-                            log(f"Queued: {bead_id} waiting for {role} slot", "⏳")
+                            log(f"Queued: {bead_id} waiting for agent slot", "⏳")
                             self.queued.add(bead_id)
                         continue
 

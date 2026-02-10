@@ -61,8 +61,7 @@ Investigators research in parallel and document findings. A consolidation step (
 | acceptance | tester |
 
 **Parallelization:**
-- Max 3 developers, investigators, testers, reviewers can run simultaneously
-- Integrator is singleton (to avoid merge conflicts)
+- Total agents capped by `max_total_agents` (default 6)
 
 ---
 

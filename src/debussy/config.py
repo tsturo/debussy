@@ -12,17 +12,12 @@ CLAUDE_STARTUP_DELAY = 6
 COMMENT_TRUNCATE_LEN = 80
 YOLO_MODE = True
 SESSION_NAME = "debussy"
-SINGLETON_ROLES = ["integrator"]
 AGENT_TIMEOUT = 900
 
 CONFIG_DIR = Path(".debussy")
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 DEFAULTS = {
-    "max_developers": 3,
-    "max_investigators": 3,
-    "max_testers": 3,
-    "max_reviewers": 3,
     "max_total_agents": 6,
     "use_tmux_windows": True,
 }
