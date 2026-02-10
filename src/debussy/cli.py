@@ -130,6 +130,23 @@ def _get_bead_comments(bead_id: str) -> list[str]:
     return comments
 
 
+def _print_section(label: str, items: list, show_comments: bool = False):
+    if items:
+        print(f"{label} ({len(items)})")
+        for line, bead_id in items:
+            print(f"   {line}")
+            if show_comments:
+                try:
+                    comments = _get_bead_comments(bead_id)
+                    if comments:
+                        print(f"      💬 {comments[-1][:COMMENT_TRUNCATE_LEN]}")
+                except Exception:
+                    pass
+    else:
+        print(f"{label}: none")
+    print()
+
+
 def cmd_status(args):
     print("\n=== DEBUSSY STATUS ===\n")
 
@@ -137,44 +154,32 @@ def cmd_status(args):
 
     active = []
     for status, role_label in STATUS_TO_ROLE.items():
-        tasks = _get_tasks_by_status(status)
-        for t in tasks:
+        for t in _get_tasks_by_status(status):
             bead_id = t.split()[0] if t else ""
             if bead_id in running:
                 agent = running[bead_id]["agent"]
                 active.append((f"[{status}] {t} ← {agent} 🔄", bead_id))
             else:
                 active.append((f"[{status} → {role_label}] {t}", bead_id))
+    _print_section("▶ ACTIVE", active, show_comments=True)
 
-    if active:
-        print(f"▶ ACTIVE ({len(active)})")
-        for line, bead_id in active:
-            print(f"   {line}")
-            try:
-                comments = _get_bead_comments(bead_id)
-                if comments:
-                    print(f"      💬 {comments[-1][:COMMENT_TRUNCATE_LEN]}")
-            except Exception:
-                pass
-        print()
-    else:
-        print("▶ ACTIVE: none")
-        print()
+    backlog = []
+    for status in ("open", "planning"):
+        for t in _get_tasks_by_status(status):
+            bead_id = t.split()[0] if t else ""
+            backlog.append((f"[{status}] {t}", bead_id))
+    _print_section("◻ BACKLOG", backlog)
 
     result = subprocess.run(["bd", "blocked"], capture_output=True, text=True)
     if result.stdout.strip():
         print(result.stdout.strip())
         print()
 
-    done_tasks = _get_tasks_by_status("done")
-    if done_tasks:
-        print(f"✓ DONE ({len(done_tasks)})")
-        for t in done_tasks:
-            print(f"   {t}")
-        print()
-    else:
-        print("✓ DONE: none")
-        print()
+    done = []
+    for t in _get_tasks_by_status("done"):
+        bead_id = t.split()[0] if t else ""
+        done.append((t, bead_id))
+    _print_section("✓ DONE", done)
 
 
 def cmd_upgrade(args):
