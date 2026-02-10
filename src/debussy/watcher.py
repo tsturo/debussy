@@ -172,7 +172,7 @@ class Watcher:
         shell_cmd = (
             f"export DEBUSSY_ROLE={role} DEBUSSY_BEAD={bead_id}; "
             f"echo '\\n=== {agent_name} ({bead_id}) ===' >> {log_file}; "
-            f"script -q /dev/null {claude_cmd} --print '{escaped_prompt}' | tee -a {log_file}"
+            f"script -q /dev/null {claude_cmd} --output-format stream-json -p '{escaped_prompt}' | tee -a {log_file}"
         )
 
         try:
