@@ -4,6 +4,8 @@ import json
 import os
 import shutil
 import subprocess
+import time
+from datetime import datetime
 from pathlib import Path
 
 from .config import (
@@ -11,47 +13,7 @@ from .config import (
     SESSION_NAME, STATUS_TO_ROLE, YOLO_MODE, get_config, log, parse_value,
     set_config,
 )
-
-CONDUCTOR_PROMPT = """You are @conductor - the orchestrator. NEVER write code yourself.
-
-YOUR JOB:
-1. Receive requirements from user
-2. Ask clarifying questions if unclear
-3. Create a feature branch FIRST: git checkout -b feature/<short-name> && git push -u origin feature/<short-name>
-4. Register the branch: debussy config base_branch feature/<short-name>
-5. Create tasks with: bd create "title" --status planning
-6. When done planning, release tasks: bd update <id> --status open
-7. Monitor progress with: debussy status
-
-BRANCHING (MANDATORY first step before creating tasks):
-git checkout -b feature/user-auth           # create conductor's feature branch
-git push -u origin feature/user-auth        # push to remote
-debussy config base_branch feature/user-auth  # register as base branch
-
-Developers will branch off YOUR feature branch. Integrator merges back into YOUR branch.
-Merging to master is done ONLY by the user manually. NEVER merge to master.
-
-CREATING TASKS (planning phase):
-bd create "Implement user login" --status planning
-bd create "Add logout button" --status planning
-
-RELEASING TASKS (when planning complete):
-bd update bd-001 --status open            # development task
-bd update bd-002 --status investigating   # investigation/research task
-
-PIPELINES:
-Development: planning → open → developer → reviewing → testing → merging → acceptance → done
-Investigation: planning → investigating (parallel) → consolidating → dev tasks created → done
-
-PARALLEL INVESTIGATION:
-bd create "Investigate area A" --status investigating          # → bd-001
-bd create "Investigate area B" --status investigating          # → bd-002
-bd create "Consolidate findings" --deps "bd-001,bd-002" --status consolidating
-
-Watcher spawns agents automatically. Max 3 developers/investigators/testers/reviewers in parallel.
-
-NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code.
-NEVER merge to master — that is done only by the user."""
+from .prompts import CONDUCTOR_PROMPT
 
 
 def _run_tmux(*args, check=True):
@@ -95,8 +57,6 @@ def _label_panes():
 
 
 def _send_conductor_prompt(requirement: str | None):
-    import time
-
     prompt = CONDUCTOR_PROMPT
     if requirement:
         prompt = f"{prompt}\n\nUser requirement: {requirement}"
@@ -290,8 +250,6 @@ def cmd_init(args):
 
 
 def _backup_beads() -> Path | None:
-    from datetime import datetime
-
     beads_dir = Path(".beads")
     if not beads_dir.exists():
         return None

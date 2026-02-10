@@ -78,12 +78,6 @@ def get_base_branch() -> str | None:
     return get_config().get("base_branch")
 
 
-def get_max_for_role(role: str) -> int:
-    if role in SINGLETON_ROLES:
-        return 1
-    return get_config().get(f"max_{role}s", 3)
-
-
 def parse_value(value: str) -> str | bool | int:
     if value.lower() in ("true", "1", "yes", "on"):
         return True

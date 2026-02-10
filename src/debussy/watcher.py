@@ -13,7 +13,7 @@ os.environ.pop("ANTHROPIC_API_KEY", None)
 
 from .config import (
     POLL_INTERVAL, YOLO_MODE, SINGLETON_ROLES, SESSION_NAME,
-    HEARTBEAT_TICKS, STATUS_TO_ROLE, atomic_write, get_base_branch,
+    HEARTBEAT_TICKS, STATUS_TO_ROLE, atomic_write,
     get_config, log,
 )
 from .prompts import get_prompt
@@ -33,6 +33,14 @@ COMPOSERS = [
 ]
 
 
+def _tmux_windows() -> set[str]:
+    result = subprocess.run(
+        ["tmux", "list-windows", "-t", SESSION_NAME, "-F", "#{window_name}"],
+        capture_output=True, text=True
+    )
+    return set(result.stdout.strip().split('\n'))
+
+
 @dataclass
 class AgentInfo:
     bead: str
@@ -43,14 +51,11 @@ class AgentInfo:
     log_path: str = ""
     log_handle: object = field(default=None, repr=False)
 
-    @property
-    def is_alive(self) -> bool:
+    def is_alive(self, tmux_windows: set[str] | None = None) -> bool:
         if self.tmux:
-            result = subprocess.run(
-                ["tmux", "list-windows", "-t", SESSION_NAME, "-F", "#{window_name}"],
-                capture_output=True, text=True
-            )
-            return self.name in result.stdout.split('\n')
+            if tmux_windows is None:
+                tmux_windows = _tmux_windows()
+            return self.name in tmux_windows
         return self.proc is not None and self.proc.poll() is None
 
     def stop(self):
@@ -74,9 +79,14 @@ class Watcher:
         self.used_names: set[str] = set()
         self.should_exit = False
         self.state_file = Path(".debussy/watcher_state.json")
+        self._cached_windows: set[str] | None = None
+
+    def _refresh_tmux_cache(self):
+        has_tmux = any(a.tmux for a in self.running.values())
+        self._cached_windows = _tmux_windows() if has_tmux else None
 
     def _alive_agents(self) -> list[AgentInfo]:
-        return [a for a in self.running.values() if a.is_alive]
+        return [a for a in self.running.values() if a.is_alive(self._cached_windows)]
 
     def save_state(self):
         state = {}
@@ -99,7 +109,7 @@ class Watcher:
         return f"{role}-{len(self.used_names)}"
 
     def is_bead_running(self, bead_id: str) -> bool:
-        return any(a.bead == bead_id and a.is_alive for a in self.running.values())
+        return any(a.bead == bead_id and a.is_alive(self._cached_windows) for a in self.running.values())
 
     def count_running_by_role(self, role: str) -> int:
         return sum(1 for a in self._alive_agents() if a.role == role)
@@ -143,7 +153,7 @@ class Watcher:
     def spawn_agent(self, role: str, bead_id: str, status: str):
         key = f"{role}:{bead_id}"
 
-        if key in self.running and self.running[key].is_alive:
+        if key in self.running and self.running[key].is_alive(self._cached_windows):
             return
 
         agent_name = self.get_agent_name(role)
@@ -213,27 +223,6 @@ class Watcher:
         except Exception as e:
             log(f"Failed to spawn {role}: {e}", "✗")
 
-    def _list_all_beads(self) -> dict[str, list[str]]:
-        try:
-            result = subprocess.run(
-                ["bd", "list"], capture_output=True, text=True, timeout=10
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                return {}
-        except Exception:
-            return {}
-
-        beads_by_status: dict[str, list[str]] = {}
-        for line in result.stdout.strip().split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-            for status in STATUS_TO_ROLE:
-                if f"[{status}]" in line.lower() or f" {status} " in f" {line.lower()} ":
-                    beads_by_status.setdefault(status, []).append(line)
-                    break
-        return beads_by_status
-
     def check_pipeline(self):
         for status, role in STATUS_TO_ROLE.items():
             try:
@@ -279,7 +268,7 @@ class Watcher:
     def cleanup_finished(self):
         cleaned = False
         for key, agent in list(self.running.items()):
-            if not agent.is_alive:
+            if not agent.is_alive(self._cached_windows):
                 agent.cleanup()
                 log(f"{agent.name} finished {agent.bead}", "🛑")
                 self.used_names.discard(agent.name)
@@ -316,6 +305,7 @@ class Watcher:
         tick = 0
         while not self.should_exit:
             try:
+                self._refresh_tmux_cache()
                 self.cleanup_finished()
                 self.check_pipeline()
                 self.save_state()
