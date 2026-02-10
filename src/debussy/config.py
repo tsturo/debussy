@@ -28,7 +28,7 @@ DEFAULTS = {
 }
 
 STATUS_TO_ROLE = {
-    "open": "developer",
+    "development": "developer",
     "investigating": "investigator",
     "consolidating": "investigator",
     "reviewing": "reviewer",
@@ -37,7 +37,7 @@ STATUS_TO_ROLE = {
     "acceptance": "tester",
 }
 
-PIPELINE_STATUSES = "investigating,consolidating,testing,reviewing,merging,acceptance,done"
+PIPELINE_STATUSES = "development,investigating,consolidating,testing,reviewing,merging,acceptance,done"
 
 
 def log(msg: str, icon: str = "•"):

@@ -40,18 +40,19 @@ Role-specific instructions are in `.claude/subagents/`.
 Two pipelines depending on task type:
 
 ```
-Development:   planning → open → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
-Investigation: planning → investigating (parallel) → consolidating (investigator) → dev tasks created → done
+Development:   planning → development → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
+Investigation: planning → investigating (parallel) → consolidating (investigator) → .md file → conductor creates dev tasks → done
 ```
 
-Investigators research in parallel and document findings. A consolidation step (investigator) synthesizes findings and creates developer tasks.
+Investigators research in parallel and document findings. A consolidation step (investigator) synthesizes findings into an .md file. Conductor then creates developer tasks.
 
 **Watcher spawns agents based on status:**
 
 | Status | Agent Spawned |
 |--------|---------------|
 | planning | none (conductor is planning) |
-| open | developer |
+| open | none (parked, waiting for conductor) |
+| development | developer |
 | investigating | investigator |
 | consolidating | investigator |
 | reviewing | reviewer |
@@ -71,7 +72,7 @@ Investigators research in parallel and document findings. A consolidation step (
 - Entry point — user talks to conductor
 - **First step**: creates a feature branch and registers it: `debussy config base_branch feature/<name>`
 - Creates tasks with `bd create "title" --status planning`
-- Releases dev tasks: `bd update <id> --status open`
+- Releases dev tasks: `bd update <id> --status development`
 - Releases investigation tasks: `bd update <id> --status investigating`
 - Creates all tasks as `planning` first, then releases with `bd update`
 - Monitors progress with `debussy status`
@@ -96,7 +97,7 @@ Investigators research in parallel and document findings. A consolidation step (
 - Sets `--status merging` if approved, `--status open` if changes needed
 
 ### @investigator
-- Also handles `consolidating` status: synthesizes investigation findings into developer tasks
+- Also handles `consolidating` status: synthesizes investigation findings into .md file for conductor
 
 ### @integrator
 - Merges feature branches to conductor's base branch (status `merging`)
@@ -114,7 +115,7 @@ bd create "Implement feature X" --status planning
 
 ### Releasing Tasks (conductor only)
 ```bash
-bd update <bead-id> --status open            # development task
+bd update <bead-id> --status development     # development task
 bd update <bead-id> --status investigating   # investigation task
 ```
 
@@ -139,7 +140,8 @@ bd update <bead-id> --status done                  # complete investigation
 
 Investigator (consolidation):
 ```bash
-bd create "Dev task from findings" --status open   # create dev tasks
+# Write findings to .debussy/investigations/<bead-id>.md
+bd comment <bead-id> "Investigation complete — see .debussy/investigations/<bead-id>.md"
 bd update <bead-id> --status done                  # complete consolidation
 ```
 
@@ -221,7 +223,7 @@ debussy watch              # Run watcher
 debussy status             # Show status
 debussy config base_branch feature/<name>  # Set conductor's base branch
 bd create "title" --status planning
-bd update <id> --status open            # Release task for development
+bd update <id> --status development     # Release task for development
 bd update <id> --status investigating   # Release task for investigation
 bd update <id> --status <status>
 bd show <id>

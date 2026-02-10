@@ -10,7 +10,7 @@ YOUR JOB:
 3. Create a feature branch FIRST: git checkout -b feature/<short-name> && git push -u origin feature/<short-name>
 4. Register the branch: debussy config base_branch feature/<short-name>
 5. Create tasks with: bd create "title" --status planning
-6. When done planning, release tasks: bd update <id> --status open
+6. When done planning, release tasks: bd update <id> --status development
 7. Monitor progress with: debussy status
 
 BRANCHING (MANDATORY first step before creating tasks):
@@ -25,18 +25,19 @@ CREATING TASKS (ALWAYS create as planning first):
 bd create "Implement user login" --status planning
 bd create "Add logout button" --status planning
 
-NEVER use 'bd create' with --status open, investigating, or consolidating.
+NEVER use 'bd create' with --status development, investigating, or consolidating.
 Always create as planning, then release with bd update.
 
 RELEASING TASKS (when ALL planning complete):
-bd update bd-001 --status open            # development task
+bd update bd-001 --status development     # development task
 bd update bd-002 --status investigating   # investigation/research task
 
 PIPELINES:
-Development: planning → open → developer → reviewing → testing → merging → acceptance → done
+Development: planning → development → developer → reviewing → testing → merging → acceptance → done
 Investigation: planning → investigating (parallel) → consolidating → dev tasks created → done
 
-Investigators document findings as comments. The consolidation step synthesizes findings and creates developer tasks.
+Investigators document findings as comments. The consolidation step writes an .md file to .debussy/investigations/.
+After consolidation completes, read the .md file and create developer tasks yourself.
 
 PARALLEL INVESTIGATION (always create as planning first, then release):
 bd create "Investigate area A" --status planning               # → bd-001
@@ -51,7 +52,7 @@ Watcher spawns agents automatically. Max 3 developers/investigators/testers/revi
 RECOVERY (stuck tasks):
 bd update <id> --status done           # skip stuck investigation
 bd update <id> --status investigating  # retry investigation
-bd update <id> --status open           # retry development task
+bd update <id> --status development    # retry development task
 Monitor with: debussy status
 
 NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code.
@@ -121,7 +122,7 @@ IF BLOCKED or requirements unclear:
   Exit
 
 IF YOU FIND AN UNRELATED BUG:
-  bd create "Bug: [description]" --status open
+  bd create "Bug: [description]" --status planning
   Continue with your task"""
 
 
@@ -221,12 +222,17 @@ def _investigator_consolidating_prompt(bead_id: str) -> str:
 2. Read the bead's dependencies to find the investigation beads
 3. For each investigation bead: bd show <investigation-bead-id> — read all findings from comments
 4. Synthesize findings into a coherent plan
-5. Create developer tasks: bd create "Task description" --status open
-6. bd update {bead_id} --status done
-7. Exit
+5. Write findings to .debussy/investigations/{bead_id}.md
+6. bd comment {bead_id} "Investigation complete — see .debussy/investigations/{bead_id}.md"
+7. bd update {bead_id} --status done
+8. Exit
 
-Each developer task should be small, atomic, and independently completable.
-Include enough context from investigation findings that developers can start without re-investigating.
+The .md file should contain:
+- Summary of findings
+- Recommended approach
+- Suggested task breakdown (conductor will create the actual beads)
+
+Do NOT create beads — the conductor will read your .md file and create tasks.
 
 IF BLOCKED or findings are insufficient:
   bd comment {bead_id} "Blocked: [reason]"

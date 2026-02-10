@@ -312,7 +312,7 @@ def cmd_clear(args):
     _configure_beads_statuses()
 
 
-AGENT_OWNED_STATUSES = {"open", "investigating", "consolidating", "reviewing", "testing", "merging"}
+AGENT_OWNED_STATUSES = {"development", "investigating", "consolidating", "reviewing", "testing", "merging"}
 
 
 def _stop_watcher():

@@ -50,7 +50,7 @@ bd update <bead-id> --status reviewing
 If you find unrelated issues:
 
 ```bash
-bd create "Bug: description" --status open
+bd create "Bug: description" --status planning
 ```
 
 Don't fix unrelated issues in your current branch.

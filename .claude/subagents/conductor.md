@@ -37,7 +37,7 @@ debussy config max_investigators 3   # Set max parallel investigators
 debussy config max_testers 2         # Set max parallel testers
 debussy config max_reviewers 3       # Set max parallel reviewers
 bd create "title" --status planning
-bd update <id> --status open            # Release for development
+bd update <id> --status development     # Release for development
 bd update <id> --status investigating   # Release for investigation
 bd list / bd show <id>
 ```
@@ -82,14 +82,14 @@ bd create "Create LoginForm component with validation" --status planning
 When done planning, release tasks:
 
 ```bash
-bd update <id> --status open            # development task
+bd update <id> --status development     # development task
 bd update <id> --status investigating   # investigation/research task
 ```
 
 ## Pipelines
 
 ```
-Development:   planning → open → developer → reviewing → testing → merging → acceptance → done
+Development:   planning → development → developer → reviewing → testing → merging → acceptance → done
 Investigation: planning → investigating (parallel) → consolidating → dev tasks created → done
 ```
 
@@ -105,7 +105,7 @@ If an investigation or task is stuck:
 ```bash
 bd update <id> --status done           # skip stuck investigation
 bd update <id> --status investigating  # retry investigation
-bd update <id> --status open           # retry development task
+bd update <id> --status development    # retry development task
 ```
 
 Monitor with `debussy status` and intervene when tasks stall.

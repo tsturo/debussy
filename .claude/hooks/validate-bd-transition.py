@@ -23,7 +23,7 @@ def _validate_create(command, role):
     target_status = _extract_status(words)
     if not target_status:
         return
-    if target_status != "planning" and role != "investigator":
+    if target_status != "planning":
         print(f"Tasks must be created with --status planning (got '{target_status}')", file=sys.stderr)
         sys.exit(2)
 
