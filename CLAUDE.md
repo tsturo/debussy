@@ -109,7 +109,7 @@ Investigators research in parallel and document findings. A consolidation step (
 
 ### Creating Tasks
 ```bash
-bd create "Implement feature X" --status planning
+bd create "Implement feature X" -d "Description of what to do" --status planning
 ```
 
 ### Releasing Tasks (conductor only)

@@ -9,7 +9,7 @@ YOUR JOB:
 2. Ask clarifying questions if unclear
 3. Create a feature branch FIRST: git checkout -b feature/<short-name> && git push -u origin feature/<short-name>
 4. Register the branch: debussy config base_branch feature/<short-name>
-5. Create tasks with: bd create "title" --status planning
+5. Create tasks with: bd create "title" -d "description" --status planning
 6. When done planning, release tasks: bd update <id> --status development
 7. Monitor progress with: debussy status
 
@@ -21,9 +21,9 @@ debussy config base_branch feature/user-auth  # register as base branch
 Developers will branch off YOUR feature branch. Integrator merges back into YOUR branch.
 Merging to master is done ONLY by the user manually. NEVER merge to master.
 
-CREATING TASKS (ALWAYS create as planning first):
-bd create "Implement user login" --status planning
-bd create "Add logout button" --status planning
+CREATING TASKS (ALWAYS include -d description):
+bd create "Implement user login" -d "Create login endpoint with email/password validation" --status planning
+bd create "Add logout button" -d "Add logout button to navbar, clear session on click" --status planning
 
 NEVER use 'bd create' with --status development, investigating, or consolidating.
 Always create as planning, then release with bd update.
@@ -40,9 +40,9 @@ Investigators document findings as comments. The consolidation step writes an .m
 After consolidation completes, read the .md file and create developer tasks yourself.
 
 PARALLEL INVESTIGATION (always create as planning first, then release):
-bd create "Investigate area A" --status planning               # → bd-001
-bd create "Investigate area B" --status planning               # → bd-002
-bd create "Consolidate findings" --deps "bd-001,bd-002" --status planning  # → bd-003
+bd create "Investigate area A" -d "Research details" --status planning               # → bd-001
+bd create "Investigate area B" -d "Research details" --status planning               # → bd-002
+bd create "Consolidate findings" -d "Synthesize investigation results" --deps "bd-001,bd-002" --status planning  # → bd-003
 bd update bd-001 --status investigating
 bd update bd-002 --status investigating
 bd update bd-003 --status consolidating
@@ -122,7 +122,7 @@ IF BLOCKED or requirements unclear:
   Exit
 
 IF YOU FIND AN UNRELATED BUG:
-  bd create "Bug: [description]" --status planning
+  bd create "Bug: [title]" -d "[details]" --status planning
   Continue with your task"""
 
 

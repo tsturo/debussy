@@ -33,7 +33,7 @@ debussy config base_branch feature/<name>  # Register base branch
 debussy status            # See progress
 debussy config            # View current config
 debussy config max_total_agents 6    # Set max parallel agents
-bd create "title" --status planning
+bd create "title" -d "description" --status planning
 bd update <id> --status development     # Release for development
 bd update <id> --status investigating   # Release for investigation
 bd list / bd show <id>
@@ -70,9 +70,9 @@ Merging to master is done ONLY by the user manually. NEVER merge to master.
 Break down requirements into small, actionable tasks:
 
 ```bash
-bd create "Create User model with email and password fields" --status planning
-bd create "Add login API endpoint POST /api/auth/login" --status planning
-bd create "Create LoginForm component with validation" --status planning
+bd create "Create User model" -d "Add User model with email and password fields, bcrypt hashing" --status planning
+bd create "Add login endpoint" -d "POST /api/auth/login — validate credentials, return JWT" --status planning
+bd create "Create LoginForm" -d "Login form component with email/password fields and validation" --status planning
 ```
 
 ### 3. Release Phase
