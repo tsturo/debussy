@@ -12,7 +12,7 @@ from pathlib import Path
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
 from .config import (
-    AGENT_TIMEOUT, POLL_INTERVAL, YOLO_MODE, SESSION_NAME,
+    AGENT_TIMEOUT, CLAUDE_STARTUP_DELAY, POLL_INTERVAL, YOLO_MODE, SESSION_NAME,
     HEARTBEAT_TICKS, STATUS_TO_ROLE, atomic_write,
     get_config, log,
 )
@@ -44,11 +44,26 @@ def _tmux_windows() -> set[str]:
     return set(result.stdout.strip().split('\n'))
 
 
+def _get_bead_status(bead_id: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["bd", "show", bead_id],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.split('\n'):
+            if line.strip().startswith("Status:"):
+                return line.split(":", 1)[1].strip()
+    except Exception:
+        pass
+    return None
+
+
 @dataclass
 class AgentInfo:
     bead: str
     role: str
     name: str
+    spawned_status: str = ""
     tmux: bool = False
     proc: subprocess.Popen | None = None
     log_path: str = ""
@@ -61,6 +76,12 @@ class AgentInfo:
                 tmux_windows = _tmux_windows()
             return self.name in tmux_windows
         return self.proc is not None and self.proc.poll() is None
+
+    def is_done(self) -> bool:
+        if not self.spawned_status:
+            return False
+        current = _get_bead_status(self.bead)
+        return current is not None and current != self.spawned_status
 
     def stop(self):
         if self.tmux:
@@ -161,31 +182,38 @@ class Watcher:
         use_tmux = cfg.get("use_tmux_windows", False) and os.environ.get("TMUX") is not None
 
         if use_tmux:
-            self._spawn_tmux(key, agent_name, bead_id, role, prompt)
+            self._spawn_tmux(key, agent_name, bead_id, role, prompt, status)
         else:
             self._spawn_background(key, agent_name, bead_id, role, prompt)
 
-    def _spawn_tmux(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str):
+    def _spawn_tmux(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str, status: str):
         claude_cmd = "claude"
         if YOLO_MODE:
             claude_cmd += " --dangerously-skip-permissions"
 
-        escaped_prompt = prompt.replace("'", "'\"'\"'")
-        log_file = Path(".debussy/agent_output.log")
-        log_file.parent.mkdir(parents=True, exist_ok=True)
-        shell_cmd = (
-            f"export DEBUSSY_ROLE={role} DEBUSSY_BEAD={bead_id}; "
-            f"echo '\\n=== {agent_name} ({bead_id}) ===' >> {log_file}; "
-            f"{claude_cmd} --verbose --print '{escaped_prompt}' 2>&1 | tee -a {log_file}"
-        )
+        shell_cmd = f"export DEBUSSY_ROLE={role} DEBUSSY_BEAD={bead_id}; {claude_cmd}"
 
         try:
             subprocess.run([
                 "tmux", "new-window", "-d", "-t", SESSION_NAME,
                 "-n", agent_name, "bash", "-c", shell_cmd
             ], check=True)
+
+            target = f"{SESSION_NAME}:{agent_name}"
+            time.sleep(CLAUDE_STARTUP_DELAY)
+            subprocess.run(
+                ["tmux", "send-keys", "-l", "-t", target, prompt],
+                check=True,
+            )
+            time.sleep(0.5)
+            subprocess.run(
+                ["tmux", "send-keys", "-t", target, "Enter"],
+                check=True,
+            )
+
             self.running[key] = AgentInfo(
-                bead=bead_id, role=role, name=agent_name, tmux=True,
+                bead=bead_id, role=role, name=agent_name,
+                spawned_status=status, tmux=True,
             )
             if self._cached_windows is not None:
                 self._cached_windows.add(agent_name)
@@ -294,9 +322,23 @@ class Watcher:
             except Exception:
                 pass
 
+    def _remove_agent(self, key: str, agent: AgentInfo):
+        agent.cleanup()
+        self.used_names.discard(agent.name)
+        del self.running[key]
+
     def cleanup_finished(self):
         cleaned = False
         for key, agent in list(self.running.items()):
+            if agent.tmux and agent.is_alive(self._cached_windows):
+                if agent.is_done():
+                    log(f"{agent.name} completed {agent.bead}", "✅")
+                    agent.stop()
+                    self.failures.pop(agent.bead, None)
+                    self._remove_agent(key, agent)
+                    cleaned = True
+                continue
+
             if not agent.is_alive(self._cached_windows):
                 elapsed = time.time() - agent.started_at
                 if elapsed < MIN_AGENT_RUNTIME:
@@ -305,9 +347,7 @@ class Watcher:
                 else:
                     self.failures.pop(agent.bead, None)
                     log(f"{agent.name} finished {agent.bead}", "🛑")
-                agent.cleanup()
-                self.used_names.discard(agent.name)
-                del self.running[key]
+                self._remove_agent(key, agent)
                 cleaned = True
 
         if cleaned:
