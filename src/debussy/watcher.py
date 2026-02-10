@@ -18,6 +18,9 @@ from .config import (
 )
 from .prompts import get_prompt
 
+MIN_AGENT_RUNTIME = 30
+MAX_RETRIES = 3
+
 COMPOSERS = [
     "bach", "mozart", "beethoven", "chopin", "liszt", "brahms", "wagner",
     "tchaikovsky", "dvorak", "grieg", "rachmaninoff", "ravel", "prokofiev",
@@ -78,6 +81,7 @@ class Watcher:
         self.running: dict[str, AgentInfo] = {}
         self.queued: set[str] = set()
         self.used_names: set[str] = set()
+        self.failures: dict[str, int] = {}
         self.should_exit = False
         self.state_file = Path(".debussy/watcher_state.json")
         self._cached_windows: set[str] | None = None
@@ -172,7 +176,7 @@ class Watcher:
         shell_cmd = (
             f"export DEBUSSY_ROLE={role} DEBUSSY_BEAD={bead_id}; "
             f"echo '\\n=== {agent_name} ({bead_id}) ===' >> {log_file}; "
-            f"script -q /dev/null {claude_cmd} --output-format stream-json -p '{escaped_prompt}' | tee -a {log_file}"
+            f"script -q /dev/null {claude_cmd} --verbose --print '{escaped_prompt}' | tee -a {log_file}"
         )
 
         try:
@@ -241,6 +245,9 @@ class Watcher:
                     if self.is_bead_running(bead_id):
                         continue
 
+                    if self.failures.get(bead_id, 0) >= MAX_RETRIES:
+                        continue
+
                     if self.is_blocked(bead_id):
                         continue
 
@@ -291,8 +298,14 @@ class Watcher:
         cleaned = False
         for key, agent in list(self.running.items()):
             if not agent.is_alive(self._cached_windows):
+                elapsed = time.time() - agent.started_at
+                if elapsed < MIN_AGENT_RUNTIME:
+                    self.failures[agent.bead] = self.failures.get(agent.bead, 0) + 1
+                    log(f"{agent.name} crashed after {int(elapsed)}s on {agent.bead} (attempt {self.failures[agent.bead]}/{MAX_RETRIES})", "💥")
+                else:
+                    self.failures.pop(agent.bead, None)
+                    log(f"{agent.name} finished {agent.bead}", "🛑")
                 agent.cleanup()
-                log(f"{agent.name} finished {agent.bead}", "🛑")
                 self.used_names.discard(agent.name)
                 del self.running[key]
                 cleaned = True
