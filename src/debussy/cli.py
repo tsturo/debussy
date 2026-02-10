@@ -315,9 +315,9 @@ def cmd_clear(args):
 AGENT_OWNED_STATUSES = {"open", "investigating", "consolidating", "reviewing", "testing", "merging"}
 
 
-def _stop_watcher_window():
+def _stop_watcher():
     subprocess.run(
-        ["tmux", "kill-window", "-t", f"{SESSION_NAME}:watcher"],
+        ["tmux", "send-keys", "-t", f"{SESSION_NAME}:main.3", "C-c"],
         capture_output=True,
     )
 
@@ -382,7 +382,7 @@ def _delete_orphan_branches(paused_beads: set[str]):
 def cmd_pause(args):
     state_file = Path(".debussy/watcher_state.json")
 
-    _stop_watcher_window()
+    _stop_watcher()
 
     state = {}
     if state_file.exists():
