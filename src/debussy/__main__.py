@@ -48,6 +48,10 @@ def main():
     p = subparsers.add_parser("backup", help="Backup beads database")
     p.set_defaults(func=cli.cmd_backup)
 
+    p = subparsers.add_parser("pause", help="Pause pipeline, reset agent beads to planning")
+    p.add_argument("--restart", action="store_true", help="Restart after pausing")
+    p.set_defaults(func=cli.cmd_pause)
+
     p = subparsers.add_parser("debug", help="Debug watcher pipeline")
     p.set_defaults(func=cli.cmd_debug)
 

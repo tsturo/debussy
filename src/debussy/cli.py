@@ -202,6 +202,8 @@ def cmd_restart(args):
         if result != 0:
             return result
 
+    cmd_pause(args)
+
     cwd = os.getcwd()
     subprocess.Popen(
         ["bash", "-c",
@@ -308,6 +310,105 @@ def cmd_clear(args):
     log("Initialized fresh beads", "✓")
 
     _configure_beads_statuses()
+
+
+AGENT_OWNED_STATUSES = {"open", "investigating", "consolidating", "reviewing", "testing", "merging"}
+
+
+def _stop_watcher_window():
+    subprocess.run(
+        ["tmux", "kill-window", "-t", f"{SESSION_NAME}:watcher"],
+        capture_output=True,
+    )
+
+
+def _kill_agent(agent: dict, agent_name: str):
+    if agent.get("tmux"):
+        subprocess.run(
+            ["tmux", "kill-window", "-t", f"{SESSION_NAME}:{agent_name}"],
+            capture_output=True,
+        )
+
+
+def _get_bead_status(bead_id: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["bd", "show", bead_id],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.split('\n'):
+            if line.strip().startswith("Status:"):
+                return line.split(":", 1)[1].strip()
+    except Exception:
+        pass
+    return None
+
+
+def _reset_bead_to_planning(bead_id: str):
+    status = _get_bead_status(bead_id)
+    if status and status in AGENT_OWNED_STATUSES:
+        subprocess.run(
+            ["bd", "comment", bead_id, "Paused by debussy pause"],
+            capture_output=True, timeout=5,
+        )
+        subprocess.run(
+            ["bd", "update", bead_id, "--status", "planning"],
+            capture_output=True, timeout=5,
+        )
+        log(f"Reset {bead_id} ({status} → planning)", "⏸")
+
+
+def _delete_orphan_branches(paused_beads: set[str]):
+    try:
+        result = subprocess.run(
+            ["git", "branch", "--list", "feature/bd-*"],
+            capture_output=True, text=True,
+        )
+        for line in result.stdout.strip().split('\n'):
+            branch = line.strip().lstrip("* ")
+            if not branch:
+                continue
+            bead_id = branch.replace("feature/", "")
+            if bead_id in paused_beads:
+                subprocess.run(
+                    ["git", "branch", "-D", branch],
+                    capture_output=True,
+                )
+                log(f"Deleted branch {branch}", "🗑")
+    except Exception as e:
+        log(f"Failed to clean branches: {e}", "⚠️")
+
+
+def cmd_pause(args):
+    state_file = Path(".debussy/watcher_state.json")
+
+    _stop_watcher_window()
+
+    state = {}
+    if state_file.exists():
+        try:
+            with open(state_file) as f:
+                state = json.load(f)
+        except Exception:
+            pass
+
+    paused_beads = set()
+    for bead_id, agent in state.items():
+        agent_name = agent.get("agent", "")
+        _kill_agent(agent, agent_name)
+        log(f"Killed {agent_name}", "🛑")
+        _reset_bead_to_planning(bead_id)
+        paused_beads.add(bead_id)
+
+    _delete_orphan_branches(paused_beads)
+
+    if state_file.exists():
+        state_file.unlink()
+
+    log("Pipeline paused", "⏸")
+
+    if getattr(args, "restart", False):
+        cmd_start(args)
 
 
 def cmd_debug(args):
