@@ -73,7 +73,7 @@ Investigators research in parallel and document findings. A consolidation step (
 - Creates tasks with `bd create "title" --status planning`
 - Releases dev tasks: `bd update <id> --status open`
 - Releases investigation tasks: `bd update <id> --status investigating`
-- Creates consolidation bead blocked by investigation beads: `bd create "Consolidate findings" --deps "bd-x,bd-y,bd-z" --status consolidating`
+- Creates all tasks as `planning` first, then releases with `bd update`
 - Monitors progress with `debussy status`
 - **Does not write code**
 - **Never merges to master** — user does that manually
@@ -120,9 +120,12 @@ bd update <bead-id> --status investigating   # investigation task
 
 ### Parallel Investigation (conductor only)
 ```bash
-bd create "Investigate area A" --status investigating          # → bd-001
-bd create "Investigate area B" --status investigating          # → bd-002
-bd create "Consolidate findings" --deps "bd-001,bd-002" --status consolidating
+bd create "Investigate area A" --status planning               # → bd-001
+bd create "Investigate area B" --status planning               # → bd-002
+bd create "Consolidate findings" --deps "bd-001,bd-002" --status planning  # → bd-003
+bd update bd-001 --status investigating
+bd update bd-002 --status investigating
+bd update bd-003 --status consolidating
 ```
 The consolidation bead stays blocked until all investigation beads finish.
 

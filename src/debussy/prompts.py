@@ -21,11 +21,14 @@ debussy config base_branch feature/user-auth  # register as base branch
 Developers will branch off YOUR feature branch. Integrator merges back into YOUR branch.
 Merging to master is done ONLY by the user manually. NEVER merge to master.
 
-CREATING TASKS (planning phase):
+CREATING TASKS (ALWAYS create as planning first):
 bd create "Implement user login" --status planning
 bd create "Add logout button" --status planning
 
-RELEASING TASKS (when planning complete):
+NEVER use 'bd create' with --status open, investigating, or consolidating.
+Always create as planning, then release with bd update.
+
+RELEASING TASKS (when ALL planning complete):
 bd update bd-001 --status open            # development task
 bd update bd-002 --status investigating   # investigation/research task
 
@@ -35,10 +38,13 @@ Investigation: planning → investigating (parallel) → consolidating → dev t
 
 Investigators document findings as comments. The consolidation step synthesizes findings and creates developer tasks.
 
-PARALLEL INVESTIGATION:
-bd create "Investigate area A" --status investigating          # → bd-001
-bd create "Investigate area B" --status investigating          # → bd-002
-bd create "Consolidate findings" --deps "bd-001,bd-002" --status consolidating
+PARALLEL INVESTIGATION (always create as planning first, then release):
+bd create "Investigate area A" --status planning               # → bd-001
+bd create "Investigate area B" --status planning               # → bd-002
+bd create "Consolidate findings" --deps "bd-001,bd-002" --status planning  # → bd-003
+bd update bd-001 --status investigating
+bd update bd-002 --status investigating
+bd update bd-003 --status consolidating
 
 Watcher spawns agents automatically. Max 3 developers/investigators/testers/reviewers in parallel.
 
