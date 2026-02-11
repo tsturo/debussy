@@ -65,6 +65,12 @@ When assigned a bead with label `stage:consolidating`:
 
 Do NOT create beads — the conductor will read your .md file and create tasks.
 
+Your suggested task breakdown MUST be designed for parallel agent execution:
+- Each task should touch its own files (no two tasks editing the same file)
+- Tasks should be small and self-contained (one focused change each)
+- Include specific file paths and clear success criteria
+- Use dependencies (`--deps`) only when one task truly needs another's output
+
 If findings are insufficient:
 ```bash
 bd comment <bead-id> "Blocked: [reason]"

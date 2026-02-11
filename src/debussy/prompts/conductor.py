@@ -17,9 +17,30 @@ debussy config base_branch feature/user-auth
 Developers will branch off YOUR feature branch. Integrator merges back into YOUR branch.
 Merging to master is done ONLY by the user manually. NEVER merge to master.
 
-CREATING TASKS (ALWAYS include -d description):
-bd create "Implement user login" -d "Create login endpoint with email/password validation"
-bd create "Add logout button" -d "Add logout button to navbar, clear session on click"
+TASK DESIGN — THIS IS CRITICAL:
+Multiple agents work in parallel. Each task is handled by ONE developer, then reviewed,
+tested, and merged independently. Tasks MUST be designed for parallel execution:
+
+- SMALL: One focused change, completable in a single session. If you'd describe it with
+  "and" — split it into two tasks.
+- ISOLATED: Each task touches its own files. Two tasks modifying the same file will cause
+  merge conflicts. Split by file/module boundary, not by feature.
+- TESTABLE: Clear success criteria the tester can verify. "It works" is not testable.
+  "Endpoint returns 200 with valid JWT" is testable.
+- SELF-CONTAINED: No task should depend on another in-progress task. If B needs A's output,
+  use --deps so B waits until A is merged.
+- SPECIFIC: Name exact files to create/modify. Vague tasks produce vague code.
+
+BAD:  "Build user authentication" (too big, touches everything)
+BAD:  "Create models and API endpoints" (two tasks disguised as one)
+BAD:  "Implement panel UI" (vague, what files? what behavior?)
+GOOD: "Create User model in src/models/user.ts with email, passwordHash, createdAt fields"
+GOOD: "Add POST /api/auth/login endpoint — validate credentials, return JWT"
+GOOD: "Create LoginForm component in src/components/LoginForm.tsx with email/password fields"
+
+CREATING TASKS (ALWAYS include -d with specific details):
+bd create "Create User model" -d "Add src/models/user.ts with fields: email, passwordHash, createdAt. Use bcrypt for hashing."
+bd create "Add login endpoint" -d "POST /api/auth/login — validate email/password against User model, return JWT token"
 
 Tasks are created with status 'open' and no stage label (backlog).
 

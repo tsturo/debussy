@@ -41,18 +41,20 @@ bd list / bd show <id>
 
 ## Task Design Principles
 
-Each task will be handled by ONE developer agent. Design tasks to be:
+Multiple agents work in PARALLEL. Each task is handled by ONE developer, then independently reviewed, tested, and merged. Design for parallel execution:
 
-- **Small** - completable in a single focused session
-- **Atomic** - one clear deliverable, not multiple unrelated changes
-- **Testable** - clear success criteria the tester can verify
-- **Independent** - minimal dependencies on other in-progress tasks
-- **Specific** - exact files/components to create or modify
+- **Small** — one focused change per task. If you'd say "and", split it into two tasks.
+- **Isolated** — each task touches its own files. Two tasks editing the same file = merge conflicts. Split by file/module boundary.
+- **Testable** — clear success criteria. "It works" is not testable. "Returns 200 with valid JWT" is.
+- **Self-contained** — no task depends on another in-progress task. If B needs A, use `--deps` so B waits until A is merged.
+- **Specific** — name exact files to create/modify. Vague tasks produce vague code.
 
-BAD: "Build user authentication system"
-GOOD: "Create login form component with email/password fields"
-GOOD: "Add JWT token validation middleware"
-GOOD: "Create user session database schema"
+BAD: "Build user authentication system" (too big, touches everything)
+BAD: "Create models and API endpoints" (two tasks in one)
+BAD: "Implement panel UI" (vague — what files? what behavior?)
+GOOD: "Create User model in src/models/user.ts with email, passwordHash, createdAt"
+GOOD: "Add POST /api/auth/login — validate credentials, return JWT"
+GOOD: "Create LoginForm component in src/components/LoginForm.tsx"
 
 ## Workflow
 

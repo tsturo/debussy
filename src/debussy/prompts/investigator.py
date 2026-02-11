@@ -41,7 +41,11 @@ def _consolidating_prompt(bead_id: str) -> str:
 The .md file should contain:
 - Summary of findings
 - Recommended approach
-- Suggested task breakdown (conductor will create the actual beads)
+- Suggested task breakdown designed for PARALLEL agent execution:
+  - Each task touches its own files (no two tasks editing the same file)
+  - Small and self-contained (one focused change each)
+  - Include specific file paths and clear success criteria
+  - Note dependencies only when one task truly needs another's output
 
 Do NOT create beads — the conductor will read your .md file and create tasks.
 
