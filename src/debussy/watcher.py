@@ -305,6 +305,17 @@ class Watcher:
         self.used_names.discard(agent.name)
         del self.running[key]
 
+    def _ensure_stage_removed(self, agent: AgentInfo):
+        if not agent.spawned_stage:
+            return
+        try:
+            subprocess.run(
+                ["bd", "update", agent.bead, "--remove-label", agent.spawned_stage],
+                capture_output=True, timeout=5,
+            )
+        except Exception:
+            pass
+
     def cleanup_finished(self):
         cleaned = False
         for key, agent in list(self.running.items()):
@@ -312,6 +323,7 @@ class Watcher:
                 if agent.is_done():
                     log(f"{agent.name} completed {agent.bead}", "✅")
                     agent.stop()
+                    self._ensure_stage_removed(agent)
                     self.failures.pop(agent.bead, None)
                     self._remove_agent(key, agent)
                     cleaned = True
@@ -323,6 +335,7 @@ class Watcher:
                     self.failures[agent.bead] = self.failures.get(agent.bead, 0) + 1
                     log(f"{agent.name} crashed after {int(elapsed)}s on {agent.bead} (attempt {self.failures[agent.bead]}/{MAX_RETRIES})", "💥")
                 else:
+                    self._ensure_stage_removed(agent)
                     self.failures.pop(agent.bead, None)
                     log(f"{agent.name} finished {agent.bead}", "🛑")
                 self._remove_agent(key, agent)
