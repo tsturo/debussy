@@ -32,6 +32,16 @@ STAGE_TO_ROLE = {
     "stage:acceptance": "tester",
 }
 
+NEXT_STAGE = {
+    "stage:development": "stage:reviewing",
+    "stage:reviewing": "stage:testing",
+    "stage:testing": "stage:merging",
+    "stage:merging": "stage:acceptance",
+    "stage:acceptance": None,
+    "stage:investigating": None,
+    "stage:consolidating": None,
+}
+
 
 def log(msg: str, icon: str = "•"):
     timestamp = datetime.now().strftime("%H:%M:%S")

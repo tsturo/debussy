@@ -13,7 +13,7 @@ os.environ.pop("ANTHROPIC_API_KEY", None)
 
 from .config import (
     AGENT_TIMEOUT, CLAUDE_STARTUP_DELAY, POLL_INTERVAL, YOLO_MODE, SESSION_NAME,
-    HEARTBEAT_TICKS, STAGE_TO_ROLE, atomic_write,
+    HEARTBEAT_TICKS, NEXT_STAGE, STAGE_TO_ROLE, atomic_write,
     get_config, log,
 )
 from .prompts import get_prompt
@@ -44,7 +44,7 @@ def _tmux_windows() -> set[str]:
     return set(result.stdout.strip().split('\n'))
 
 
-def _get_bead_status(bead_id: str) -> str | None:
+def _get_bead_json(bead_id: str) -> dict | None:
     try:
         result = subprocess.run(
             ["bd", "show", bead_id, "--json"],
@@ -52,10 +52,26 @@ def _get_bead_status(bead_id: str) -> str | None:
         )
         data = json.loads(result.stdout)
         if isinstance(data, list) and data:
-            return data[0].get("status")
+            return data[0]
     except Exception:
         pass
     return None
+
+
+def _get_bead_status(bead_id: str) -> str | None:
+    bead = _get_bead_json(bead_id)
+    return bead.get("status") if bead else None
+
+
+def _has_unresolved_deps(bead: dict) -> bool:
+    for dep in bead.get("dependencies", []):
+        dep_id = dep.get("depends_on_id")
+        if not dep_id:
+            continue
+        dep_status = _get_bead_status(dep_id)
+        if dep_status != "closed":
+            return True
+    return False
 
 
 @dataclass
@@ -257,6 +273,9 @@ class Watcher:
                     if bead.get("status") == "blocked":
                         continue
 
+                    if bead.get("dependency_count", 0) > 0 and _has_unresolved_deps(bead):
+                        continue
+
                     if role == "integrator" and self.has_running_role("integrator"):
                         if bead_id not in self.queued:
                             log(f"Queued: {bead_id} waiting for integrator", "⏳")
@@ -305,16 +324,35 @@ class Watcher:
         self.used_names.discard(agent.name)
         del self.running[key]
 
-    def _ensure_stage_removed(self, agent: AgentInfo):
+    def _ensure_stage_transition(self, agent: AgentInfo):
         if not agent.spawned_stage:
             return
-        try:
-            subprocess.run(
-                ["bd", "update", agent.bead, "--remove-label", agent.spawned_stage],
-                capture_output=True, timeout=5,
-            )
-        except Exception:
-            pass
+        bead = _get_bead_json(agent.bead)
+        if not bead:
+            return
+
+        labels = bead.get("labels", [])
+        has_spawned = agent.spawned_stage in labels
+        has_other_stage = any(
+            l.startswith("stage:") and l != agent.spawned_stage for l in labels
+        )
+
+        cmd = ["bd", "update", agent.bead]
+
+        if has_spawned:
+            cmd.extend(["--remove-label", agent.spawned_stage])
+
+        if not has_other_stage and bead.get("status") != "closed":
+            next_stage = NEXT_STAGE.get(agent.spawned_stage)
+            if next_stage:
+                cmd.extend(["--add-label", next_stage])
+                log(f"Advancing {agent.bead}: {agent.spawned_stage} → {next_stage}", "⏩")
+
+        if len(cmd) > 3:
+            try:
+                subprocess.run(cmd, capture_output=True, timeout=5)
+            except Exception:
+                pass
 
     def cleanup_finished(self):
         cleaned = False
@@ -323,7 +361,7 @@ class Watcher:
                 if agent.is_done():
                     log(f"{agent.name} completed {agent.bead}", "✅")
                     agent.stop()
-                    self._ensure_stage_removed(agent)
+                    self._ensure_stage_transition(agent)
                     self.failures.pop(agent.bead, None)
                     self._remove_agent(key, agent)
                     cleaned = True
@@ -335,7 +373,7 @@ class Watcher:
                     self.failures[agent.bead] = self.failures.get(agent.bead, 0) + 1
                     log(f"{agent.name} crashed after {int(elapsed)}s on {agent.bead} (attempt {self.failures[agent.bead]}/{MAX_RETRIES})", "💥")
                 else:
-                    self._ensure_stage_removed(agent)
+                    self._ensure_stage_transition(agent)
                     self.failures.pop(agent.bead, None)
                     log(f"{agent.name} finished {agent.bead}", "🛑")
                 self._remove_agent(key, agent)
