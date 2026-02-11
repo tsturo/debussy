@@ -399,16 +399,21 @@ class Watcher:
         labels = bead.get("labels", [])
         status = bead.get("status")
         has_rejected = "rejected" in labels
+        stage_labels = [l for l in labels if l.startswith("stage:")]
+        had_spawned_stage = agent.spawned_stage in stage_labels
 
         cmd = ["bd", "update", agent.bead]
 
         if status == "in_progress":
             cmd.extend(["--status", "open"])
             log(f"Agent left {agent.bead} as in_progress, resetting to open for retry", "⚠️")
+        elif not had_spawned_stage:
+            if has_rejected:
+                cmd.extend(["--remove-label", "rejected"])
+            log(f"Stage removed externally for {agent.bead}, skipping transition", "⏭️")
         else:
-            for label in labels:
-                if label.startswith("stage:"):
-                    cmd.extend(["--remove-label", label])
+            for label in stage_labels:
+                cmd.extend(["--remove-label", label])
 
             if has_rejected:
                 cmd.extend(["--remove-label", "rejected"])
