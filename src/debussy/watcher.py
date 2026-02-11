@@ -245,6 +245,38 @@ class Watcher:
         except Exception as e:
             log(f"Failed to spawn {role}: {e}", "✗")
 
+    def _unblock_ready(self):
+        try:
+            result = subprocess.run(
+                ["bd", "list", "--status", "blocked", "--json"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return
+            beads = json.loads(result.stdout)
+            if not isinstance(beads, list):
+                return
+        except Exception:
+            return
+
+        for bead in beads:
+            bead_id = bead.get("id")
+            if not bead_id:
+                continue
+            labels = bead.get("labels", [])
+            if not any(l.startswith("stage:") for l in labels):
+                continue
+            if _has_unresolved_deps(bead):
+                continue
+            try:
+                subprocess.run(
+                    ["bd", "update", bead_id, "--status", "open"],
+                    capture_output=True, timeout=5,
+                )
+                log(f"Unblocked {bead_id}: deps resolved", "🔓")
+            except Exception:
+                pass
+
     def check_pipeline(self):
         for stage, role in STAGE_TO_ROLE.items():
             try:
@@ -423,6 +455,7 @@ class Watcher:
                 self._refresh_tmux_cache()
                 self._check_timeouts()
                 self.cleanup_finished()
+                self._unblock_ready()
                 self.check_pipeline()
                 self.save_state()
 
