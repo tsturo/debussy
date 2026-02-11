@@ -13,7 +13,7 @@ os.environ.pop("ANTHROPIC_API_KEY", None)
 
 from .config import (
     AGENT_TIMEOUT, CLAUDE_STARTUP_DELAY, POLL_INTERVAL, YOLO_MODE, SESSION_NAME,
-    HEARTBEAT_TICKS, NEXT_STAGE, STAGE_TO_ROLE, atomic_write,
+    HEARTBEAT_TICKS, NEXT_STAGE, STAGE_ORDER, STAGE_TO_ROLE, atomic_write,
     get_config, log,
 )
 from .prompts import get_prompt
@@ -245,6 +245,39 @@ class Watcher:
         except Exception as e:
             log(f"Failed to spawn {role}: {e}", "✗")
 
+    def _enforce_single_stage(self):
+        try:
+            result = subprocess.run(
+                ["bd", "list", "--json"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return
+            beads = json.loads(result.stdout)
+            if not isinstance(beads, list):
+                return
+        except Exception:
+            return
+
+        for bead in beads:
+            labels = bead.get("labels", [])
+            stages = [l for l in labels if l.startswith("stage:")]
+            if len(stages) <= 1:
+                continue
+
+            bead_id = bead.get("id")
+            keep = max(stages, key=lambda s: STAGE_ORDER.get(s, 0))
+            cmd = ["bd", "update", bead_id]
+            for stage in stages:
+                if stage != keep:
+                    cmd.extend(["--remove-label", stage])
+
+            log(f"Cleaned {bead_id}: kept {keep}, removed {[s for s in stages if s != keep]}", "🧹")
+            try:
+                subprocess.run(cmd, capture_output=True, timeout=5)
+            except Exception:
+                pass
+
     def _unblock_ready(self):
         try:
             result = subprocess.run(
@@ -455,6 +488,7 @@ class Watcher:
                 self._refresh_tmux_cache()
                 self._check_timeouts()
                 self.cleanup_finished()
+                self._enforce_single_stage()
                 self._unblock_ready()
                 self.check_pipeline()
                 self.save_state()
