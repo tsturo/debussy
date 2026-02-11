@@ -23,13 +23,13 @@ DEFAULTS = {
 }
 
 STAGE_TO_ROLE = {
-    "stage:development": "developer",
-    "stage:investigating": "investigator",
-    "stage:consolidating": "investigator",
-    "stage:reviewing": "reviewer",
-    "stage:testing": "tester",
-    "stage:merging": "integrator",
     "stage:acceptance": "tester",
+    "stage:merging": "integrator",
+    "stage:testing": "tester",
+    "stage:reviewing": "reviewer",
+    "stage:consolidating": "investigator",
+    "stage:investigating": "investigator",
+    "stage:development": "developer",
 }
 
 STAGE_ORDER = {
