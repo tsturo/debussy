@@ -34,8 +34,10 @@ git push -u origin feature/<bead-id>
 ### Completing Work
 
 ```bash
-bd update <bead-id> --remove-label stage:development --add-label stage:reviewing --status open
+bd update <bead-id> --status open
 ```
+
+The watcher handles stage transitions automatically.
 
 ## Development Standards
 
@@ -58,12 +60,13 @@ Don't fix unrelated issues in your current branch.
 
 - **NEVER** use `bd close`
 - **NEVER** set status to `closed`
+- **NEVER** use `--add-label stage:*` or `--remove-label stage:*`
 
 ## If Blocked
 
 ```bash
 bd comment <bead-id> "Blocked: [reason]"
-bd update <bead-id> --remove-label stage:development --status open
+bd update <bead-id> --status blocked
 ```
 
 ## Constraints

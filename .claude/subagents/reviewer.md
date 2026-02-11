@@ -45,14 +45,21 @@ git diff <base-branch>...HEAD   # diff against conductor's feature branch
 
 **If approved:**
 ```bash
-bd update <bead-id> --remove-label stage:reviewing --add-label stage:testing --status open
+bd update <bead-id> --status open
 ```
 
 **If changes needed:**
 ```bash
 bd comment <bead-id> "Review feedback: [details]"
-bd update <bead-id> --remove-label stage:reviewing --add-label stage:development --status open
+bd update <bead-id> --status open --add-label rejected
 ```
+
+The watcher handles stage transitions automatically.
+
+## Forbidden
+
+- **NEVER** use `--add-label stage:*` or `--remove-label stage:*`
+- Do not modify code - only review
 
 ## Review Tone
 
@@ -63,6 +70,5 @@ bd update <bead-id> --remove-label stage:reviewing --add-label stage:development
 
 ## Constraints
 
-- Do not modify code - only review
 - Be specific - include file paths and line numbers
 - Prioritize findings - not everything is critical

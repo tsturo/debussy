@@ -332,21 +332,31 @@ class Watcher:
             return
 
         labels = bead.get("labels", [])
-        has_spawned = agent.spawned_stage in labels
-        has_other_stage = any(
-            l.startswith("stage:") and l != agent.spawned_stage for l in labels
-        )
+        status = bead.get("status")
+        has_rejected = "rejected" in labels
 
         cmd = ["bd", "update", agent.bead]
 
-        if has_spawned:
-            cmd.extend(["--remove-label", agent.spawned_stage])
+        if status == "in_progress":
+            cmd.extend(["--status", "open"])
+            log(f"Agent left {agent.bead} as in_progress, resetting to open for retry", "⚠️")
+        else:
+            if agent.spawned_stage in labels:
+                cmd.extend(["--remove-label", agent.spawned_stage])
 
-        if not has_other_stage and bead.get("status") != "closed":
-            next_stage = NEXT_STAGE.get(agent.spawned_stage)
-            if next_stage:
-                cmd.extend(["--add-label", next_stage])
-                log(f"Advancing {agent.bead}: {agent.spawned_stage} → {next_stage}", "⏩")
+            if has_rejected:
+                cmd.extend(["--remove-label", "rejected"])
+                cmd.extend(["--add-label", "stage:development"])
+                log(f"Rejected {agent.bead}: {agent.spawned_stage} → stage:development", "↩️")
+            elif status == "closed":
+                log(f"Closed {agent.bead}: {agent.spawned_stage} complete", "✅")
+            elif status == "blocked":
+                log(f"Blocked {agent.bead}: parked for conductor", "⊘")
+            elif status == "open":
+                next_stage = NEXT_STAGE.get(agent.spawned_stage)
+                if next_stage:
+                    cmd.extend(["--add-label", next_stage])
+                    log(f"Advancing {agent.bead}: {agent.spawned_stage} → {next_stage}", "⏩")
 
         if len(cmd) > 3:
             try:

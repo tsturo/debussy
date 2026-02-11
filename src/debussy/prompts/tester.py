@@ -17,14 +17,15 @@ Base branch: {base}
 7. Commit and push the tests
 
 If ALL TESTS PASS:
-  bd update {bead_id} --remove-label stage:testing --add-label stage:merging --status open
+  bd update {bead_id} --status open
   Exit
 
 If TESTS FAIL:
   bd comment {bead_id} "Tests failed: [details]"
-  bd update {bead_id} --remove-label stage:testing --add-label stage:development --status open
+  bd update {bead_id} --status open --add-label rejected
   Exit
 
+FORBIDDEN: Any --add-label stage:* or --remove-label stage:*
 IMPORTANT: Always write tests before approving. No untested code passes."""
 
 
@@ -38,10 +39,12 @@ Base branch: {base}
 4. Run full test suite, verify feature works
 
 If PASS:
-  bd update {bead_id} --remove-label stage:acceptance --status closed
+  bd update {bead_id} --status closed
   Exit
 
 If FAIL:
   bd comment {bead_id} "Acceptance failed: [details]"
-  bd update {bead_id} --remove-label stage:acceptance --add-label stage:development --status open
-  Exit"""
+  bd update {bead_id} --status open --add-label rejected
+  Exit
+
+FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""

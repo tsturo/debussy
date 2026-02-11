@@ -54,7 +54,9 @@ Investigators research in parallel and document findings. A consolidation step (
 | `open` (no stage label) | Backlog/parked |
 | `in_progress` | Agent is working |
 | `closed` | Pipeline complete |
-| `blocked` | Waiting for deps |
+| `blocked` | Waiting for deps / agent stuck |
+
+**Stage transitions are owned by the watcher.** Agents only set status and optionally add the `rejected` label for failures. The watcher reads the bead state after the agent finishes and moves the stage label accordingly.
 
 **Watcher spawns agents based on stage labels:**
 
@@ -68,10 +70,33 @@ Investigators research in parallel and document findings. A consolidation step (
 | `stage:merging` | integrator |
 | `stage:acceptance` | tester |
 
-**Agent workflow:** claim with `--status in_progress` → work → set next stage label + `--status open` (or `--status closed` for final stage)
-
 **Parallelization:**
 - Total agents capped by `max_total_agents` (default 6)
+
+---
+
+## Stage Transition Ownership
+
+**The watcher owns ALL stage transitions.** Agents NEVER use `--add-label stage:*` or `--remove-label stage:*`.
+
+### Agent signals (what agents set)
+
+| Signal | Command | When |
+|--------|---------|------|
+| Claim | `--status in_progress` | Starting work |
+| Success | `--status open` | Work complete (non-terminal) |
+| Done | `--status closed` | Terminal (acceptance pass, investigation) |
+| Rejected | `--status open --add-label rejected` | Failed review/test, needs rework |
+| Blocked | `--status blocked` | Can't proceed, needs conductor |
+
+### Watcher response (what watcher does when agent finishes)
+
+| Bead state | Watcher action |
+|------------|----------------|
+| status=open, no rejected | Remove stage label, add NEXT_STAGE |
+| status=open, rejected | Remove stage + rejected labels, add stage:development |
+| status=closed | Remove stage label (done) |
+| status=blocked | Remove stage label (parked for conductor) |
 
 ---
 
@@ -88,32 +113,34 @@ Investigators research in parallel and document findings. A consolidation step (
 - **Does not write code**
 - **Never merges to master** — user does that manually
 
-### @investigator
-- Researches codebase, documents findings as bead comments
-- Does NOT create developer tasks (consolidation step handles that)
-- Finishes with `--remove-label stage:investigating --status closed`
-
 ### @developer
 - Implements features and fixes bugs
-- Finishes with `--remove-label stage:development --add-label stage:reviewing --status open`
-
-### @tester
-- Tests code
-- Pass: `--remove-label stage:testing --add-label stage:merging --status open`
-- Fail: `--remove-label stage:testing --add-label stage:development --status open`
+- Success: `--status open` (watcher advances to stage:reviewing)
+- Blocked: `--status blocked` (watcher parks for conductor)
 
 ### @reviewer
 - Reviews code for quality and security
-- Approve: `--remove-label stage:reviewing --add-label stage:testing --status open`
-- Reject: `--remove-label stage:reviewing --add-label stage:development --status open`
+- Approve: `--status open` (watcher advances to stage:testing)
+- Reject: `--status open --add-label rejected` (watcher sends to stage:development)
 
-### @investigator (consolidation)
-- Handles `stage:consolidating`: synthesizes investigation findings into .md file for conductor
+### @tester
+- Tests code
+- Pass: `--status open` (watcher advances to stage:merging)
+- Fail: `--status open --add-label rejected` (watcher sends to stage:development)
+- Acceptance pass: `--status closed` (watcher removes stage label, done)
+- Acceptance fail: `--status open --add-label rejected` (watcher sends to stage:development)
 
 ### @integrator
-- Merges feature branches to conductor's base branch (`stage:merging`)
-- Finishes with `--remove-label stage:merging --add-label stage:acceptance --status open`
+- Merges feature branches to conductor's base branch
+- Success: `--status open` (watcher advances to stage:acceptance)
+- Conflict: `--status open --add-label rejected` (watcher sends to stage:development)
 - **Never merges to master**
+
+### @investigator
+- Researches codebase, documents findings as bead comments
+- Does NOT create developer tasks
+- Success: `--status closed` (watcher removes stage label)
+- Also handles `stage:consolidating`: synthesizes findings into .md file
 
 ---
 
@@ -140,49 +167,6 @@ bd update bd-002 --add-label stage:investigating
 bd update bd-003 --add-label stage:consolidating
 ```
 The consolidation bead stays blocked until all investigation beads finish.
-
-### Stage Transitions
-
-Investigator:
-```bash
-bd comment <bead-id> "Finding: [details]"
-bd update <bead-id> --remove-label stage:investigating --status closed
-```
-
-Investigator (consolidation):
-```bash
-# Write findings to .debussy/investigations/<bead-id>.md
-bd comment <bead-id> "Investigation complete — see .debussy/investigations/<bead-id>.md"
-bd update <bead-id> --remove-label stage:consolidating --status closed
-```
-
-Developer:
-```bash
-bd update <bead-id> --remove-label stage:development --add-label stage:reviewing --status open
-```
-
-Reviewer:
-```bash
-bd update <bead-id> --remove-label stage:reviewing --add-label stage:testing --status open     # approved
-bd update <bead-id> --remove-label stage:reviewing --add-label stage:development --status open  # changes needed
-```
-
-Tester:
-```bash
-bd update <bead-id> --remove-label stage:testing --add-label stage:merging --status open   # pass
-bd update <bead-id> --remove-label stage:testing --add-label stage:development --status open  # fail
-```
-
-Integrator:
-```bash
-bd update <bead-id> --remove-label stage:merging --add-label stage:acceptance --status open
-```
-
-Tester (acceptance):
-```bash
-bd update <bead-id> --remove-label stage:acceptance --status closed        # pass
-bd update <bead-id> --remove-label stage:acceptance --add-label stage:development --status open  # fail
-```
 
 ---
 
@@ -216,10 +200,10 @@ Merging to master is NEVER done by agents — only by the user manually.
 
 ```
 src/debussy/
-  watcher.py      # Spawns agents based on stage labels
+  watcher.py      # Spawns agents, owns stage transitions
   cli.py          # CLI commands
   config.py       # Configuration
-  prompts.py      # Agent prompt templates
+  prompts/        # Agent prompt templates (per-agent files)
 .claude/
   subagents/      # Agent role definitions
   hooks/          # Validation hooks

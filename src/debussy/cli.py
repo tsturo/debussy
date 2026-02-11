@@ -91,32 +91,25 @@ def cmd_watch(args):
     Watcher().run()
 
 
-def _get_beads_by_label(label: str) -> list[dict]:
-    try:
-        result = subprocess.run(
-            ["bd", "list", "--status", "open", "--label", label, "--json"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode != 0 or not result.stdout.strip():
-            return []
-        data = json.loads(result.stdout)
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
-
-
-def _get_beads_by_status(status: str) -> list[dict]:
-    try:
-        result = subprocess.run(
-            ["bd", "list", "--status", status, "--json"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode != 0 or not result.stdout.strip():
-            return []
-        data = json.loads(result.stdout)
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+def _get_all_beads() -> list[dict]:
+    beads = {}
+    for status in ("open", "in_progress", "closed", "blocked"):
+        try:
+            result = subprocess.run(
+                ["bd", "list", "--status", status, "--json"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                continue
+            data = json.loads(result.stdout)
+            if isinstance(data, list):
+                for bead in data:
+                    bead_id = bead.get("id")
+                    if bead_id:
+                        beads[bead_id] = bead
+        except Exception:
+            continue
+    return list(beads.values())
 
 
 def _get_running_agents() -> dict:
@@ -168,55 +161,61 @@ def _print_section(label: str, items: list, show_comments: bool = False):
     print()
 
 
+def _format_bead(bead: dict, running: dict) -> tuple[str, str, str]:
+    bead_id = bead.get("id", "")
+    title = bead.get("title", "")
+    status = bead.get("status", "")
+    labels = bead.get("labels", [])
+    stages = [l for l in labels if l.startswith("stage:")]
+
+    agent_str = ""
+    if bead_id in running:
+        agent_str = f" ← {running[bead_id]['agent']} 🔄"
+
+    if status == "closed":
+        return "done", f"{bead_id} {title}", bead_id
+
+    if status == "blocked":
+        return "blocked", f"[blocked] {bead_id} {title}", bead_id
+
+    if status == "in_progress":
+        stage_info = f" {stages[0]}" if stages else ""
+        return "active", f"[in_progress{stage_info}] {bead_id} {title}{agent_str}", bead_id
+
+    if stages:
+        stage = stages[0]
+        role = STAGE_TO_ROLE.get(stage, "?")
+        return "active", f"[{stage} → {role}] {bead_id} {title}{agent_str}", bead_id
+
+    return "backlog", f"[open] {bead_id} {title}", bead_id
+
+
 def cmd_status(args):
     print("\n=== DEBUSSY STATUS ===\n")
 
     running = _get_running_agents()
+    all_beads = _get_all_beads()
 
     active = []
-    for bead in _get_beads_by_status("in_progress"):
-        bead_id = bead.get("id", "")
-        title = bead.get("title", "")
-        if bead_id in running:
-            agent = running[bead_id]["agent"]
-            active.append((f"[in_progress] {bead_id} {title} ← {agent} 🔄", bead_id))
-        else:
-            active.append((f"[in_progress] {bead_id} {title}", bead_id))
-
-    for stage, role_label in STAGE_TO_ROLE.items():
-        for bead in _get_beads_by_label(stage):
-            bead_id = bead.get("id", "")
-            title = bead.get("title", "")
-            if bead_id in running:
-                agent = running[bead_id]["agent"]
-                active.append((f"[{stage}] {bead_id} {title} ← {agent} 🔄", bead_id))
-            else:
-                active.append((f"[{stage} → {role_label}] {bead_id} {title}", bead_id))
-    _print_section("▶ ACTIVE", active, show_comments=True)
-
     backlog = []
-    for bead in _get_beads_by_status("open"):
-        bead_id = bead.get("id", "")
-        title = bead.get("title", "")
-        labels = bead.get("labels", [])
-        if any(l.startswith("stage:") for l in labels):
-            continue
-        backlog.append((f"[open] {bead_id} {title}", bead_id))
-    _print_section("◻ BACKLOG", backlog)
-
     blocked = []
-    for bead in _get_beads_by_status("blocked"):
-        bead_id = bead.get("id", "")
-        title = bead.get("title", "")
-        blocked.append((f"[blocked] {bead_id} {title}", bead_id))
+    done = []
+
+    buckets = {
+        "active": active,
+        "backlog": backlog,
+        "blocked": blocked,
+        "done": done,
+    }
+
+    for bead in all_beads:
+        bucket, line, bead_id = _format_bead(bead, running)
+        buckets[bucket].append((line, bead_id))
+
+    _print_section("▶ ACTIVE", active, show_comments=True)
+    _print_section("◻ BACKLOG", backlog)
     if blocked:
         _print_section("⊘ BLOCKED", blocked)
-
-    done = []
-    for bead in _get_beads_by_status("closed"):
-        bead_id = bead.get("id", "")
-        title = bead.get("title", "")
-        done.append((f"{bead_id} {title}", bead_id))
     _print_section("✓ DONE", done)
 
 
@@ -430,17 +429,29 @@ def cmd_pause(args):
 def cmd_debug(args):
     print("=== DEBUSSY DEBUG ===\n")
 
-    print("Checking pipeline stages...")
+    all_beads = _get_all_beads()
+
+    by_status = {}
+    by_stage = {}
+    for bead in all_beads:
+        status = bead.get("status", "unknown")
+        by_status.setdefault(status, []).append(bead)
+        for label in bead.get("labels", []):
+            if label.startswith("stage:"):
+                by_stage.setdefault(label, []).append(bead)
+
+    print("By status:")
+    for status in ("open", "in_progress", "closed", "blocked"):
+        beads = by_status.get(status, [])
+        print(f"  {status}: {len(beads)}")
+    print()
+
+    print("By stage label:")
     for stage in STAGE_TO_ROLE:
-        beads = _get_beads_by_label(stage)
-        print(f"  {stage}: {len(beads)} tasks")
+        beads = by_stage.get(stage, [])
+        print(f"  {stage}: {len(beads)}")
         for bead in beads[:3]:
             print(f"    → {bead.get('id')} {bead.get('title', '')}")
-
-    print()
-    for status in ("open", "in_progress", "closed", "blocked"):
-        beads = _get_beads_by_status(status)
-        print(f"  {status}: {len(beads)} tasks")
     print()
 
     print("Checking .debussy directory...")

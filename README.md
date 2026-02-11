@@ -83,22 +83,24 @@ Agents are named after composers (e.g., `developer-beethoven`, `tester-chopin`).
 |-------|------|
 | **conductor** | Creates tasks. Never writes code. |
 | **investigator** | Researches codebase, documents findings. Also handles consolidation. |
-| **developer** | Implements on feature branch, transitions → `stage:reviewing` |
-| **reviewer** | Reviews code, transitions → `stage:testing` (or `stage:development` for changes) |
-| **tester** | Tests code, transitions → `stage:merging` (or `stage:development` on fail) |
+| **developer** | Implements on feature branch |
+| **reviewer** | Reviews code for quality and security |
+| **tester** | Tests code, runs acceptance tests |
 | **integrator** | Merges feature branches to conductor's base branch |
 
 ### Agent Workflow
 
-1. Watcher finds bead with `status: open` + stage label
+**The watcher owns all stage transitions.** Agents only set status:
+
+1. Watcher finds bead with `status: open` + stage label → spawns agent
 2. Agent claims: `bd update <id> --status in_progress`
 3. Agent works
-4. Agent transitions: `bd update <id> --remove-label stage:X --add-label stage:Y --status open`
-
-If blocked or issues found, agents:
-1. Add comment: `bd comment <id> "Blocked: [reason]"`
-2. Remove stage label + set open: `bd update <id> --remove-label stage:X --status open`
-3. Conductor re-releases the task when ready
+4. Agent signals result:
+   - Success: `bd update <id> --status open`
+   - Rejection: `bd update <id> --status open --add-label rejected`
+   - Terminal: `bd update <id> --status closed`
+   - Blocked: `bd update <id> --status blocked`
+5. Watcher detects completion → moves stage label automatically
 
 ---
 

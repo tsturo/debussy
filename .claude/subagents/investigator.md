@@ -32,8 +32,10 @@ bd comment <bead-id> "Finding: [details]"
 ### Completing Work
 
 ```bash
-bd update <bead-id> --remove-label stage:investigating --status closed
+bd update <bead-id> --status closed
 ```
+
+The watcher handles stage transitions automatically.
 
 ## What Good Findings Look Like
 
@@ -46,7 +48,7 @@ bd update <bead-id> --remove-label stage:investigating --status closed
 
 ```bash
 bd comment <bead-id> "Blocked: [reason]"
-bd update <bead-id> --remove-label stage:investigating --status open
+bd update <bead-id> --status blocked
 ```
 
 ## Consolidation Workflow
@@ -59,18 +61,19 @@ When assigned a bead with label `stage:consolidating`:
 4. Synthesize findings into a coherent plan
 5. Write findings to `.debussy/investigations/<bead-id>.md`
 6. `bd comment <bead-id> "Investigation complete — see .debussy/investigations/<bead-id>.md"`
-7. `bd update <bead-id> --remove-label stage:consolidating --status closed`
+7. `bd update <bead-id> --status closed`
 
 Do NOT create beads — the conductor will read your .md file and create tasks.
 
 If findings are insufficient:
 ```bash
 bd comment <bead-id> "Blocked: [reason]"
-bd update <bead-id> --remove-label stage:consolidating --status open
+bd update <bead-id> --status blocked
 ```
 
-## Constraints
+## Forbidden
 
+- **NEVER** use `--add-label stage:*` or `--remove-label stage:*`
 - When investigating: do NOT create developer tasks
 - When consolidating: write findings to .md file, do NOT create beads
 - Do NOT implement the solution

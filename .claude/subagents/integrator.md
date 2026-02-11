@@ -49,8 +49,10 @@ npm test  # or appropriate test command
 ```bash
 git push origin <base-branch>
 git branch -d feature/<bead-id>
-bd update <bead-id> --remove-label stage:merging --add-label stage:acceptance --status open
+bd update <bead-id> --status open
 ```
+
+The watcher handles stage transitions automatically.
 
 IMPORTANT: Merge into the conductor's base branch, NEVER into master.
 
@@ -70,13 +72,17 @@ git checkout --theirs <file>  # Keep incoming
 **If you cannot resolve:**
 ```bash
 bd comment <bead-id> "Complex conflict: [details]"
-bd update <bead-id> --remove-label stage:merging --add-label stage:development --status open
+bd update <bead-id> --status open --add-label rejected
 ```
 
-## Constraints
+## Forbidden
 
+- **NEVER** use `--add-label stage:*` or `--remove-label stage:*`
 - Never force push
 - Never merge into master — only into the conductor's base branch
 - Never merge without passing tests
+
+## Constraints
+
 - Always preserve git history
 - Document conflict resolutions

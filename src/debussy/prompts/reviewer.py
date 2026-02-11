@@ -8,10 +8,12 @@ Base branch: {base}
 4. Review: git diff {base}...HEAD
 
 If APPROVED:
-  bd update {bead_id} --remove-label stage:reviewing --add-label stage:testing --status open
+  bd update {bead_id} --status open
   Exit
 
 If CHANGES NEEDED:
   bd comment {bead_id} "Review feedback: [details]"
-  bd update {bead_id} --remove-label stage:reviewing --add-label stage:development --status open
-  Exit"""
+  bd update {bead_id} --status open --add-label rejected
+  Exit
+
+FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""

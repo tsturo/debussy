@@ -8,20 +8,20 @@ Base branch: {base}
 4. git checkout -b feature/{bead_id} (or checkout existing branch)
 5. Implement the task
 6. Commit and push changes
-7. bd update {bead_id} --remove-label stage:development --add-label stage:reviewing --status open
+7. bd update {bead_id} --status open
 8. Exit
 
 IMPORTANT: Branch feature/{bead_id} off {base}, NOT master.
 
 FORBIDDEN:
-  ✗ bd update {bead_id} --status closed
-  ✗ bd close {bead_id}
+  - bd update {bead_id} --status closed
+  - Any --add-label stage:* or --remove-label stage:*
 
-When you finish: bd update {bead_id} --remove-label stage:development --add-label stage:reviewing --status open
+When you finish: bd update {bead_id} --status open
 
 IF BLOCKED or requirements unclear:
   bd comment {bead_id} "Blocked: [reason or question]"
-  bd update {bead_id} --remove-label stage:development --status open
+  bd update {bead_id} --status blocked
   Exit
 
 IF YOU FIND AN UNRELATED BUG:

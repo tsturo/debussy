@@ -11,12 +11,14 @@ Base branch: {base}
 7. git push origin {base}
 8. git branch -d feature/{bead_id}
 9. git push origin --delete feature/{bead_id}
-10. bd update {bead_id} --remove-label stage:merging --add-label stage:acceptance --status open
+10. bd update {bead_id} --status open
 11. Exit
 
 IMPORTANT: Merge into {base}, NEVER into master.
 
 IF MERGE CONFLICTS cannot be resolved:
   bd comment {bead_id} "Merge conflict: [details]"
-  bd update {bead_id} --remove-label stage:merging --add-label stage:development --status open
-  Exit"""
+  bd update {bead_id} --status open --add-label rejected
+  Exit
+
+FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""

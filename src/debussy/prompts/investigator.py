@@ -11,7 +11,7 @@ def _investigating_prompt(bead_id: str) -> str:
 2. bd update {bead_id} --status in_progress
 3. Research the codebase, understand the problem
 4. Document findings as bead comments: bd comment {bead_id} "Finding: [details]"
-5. bd update {bead_id} --remove-label stage:investigating --status closed
+5. bd update {bead_id} --status closed
 6. Exit
 
 IMPORTANT: Do NOT create developer tasks. Only document findings as comments.
@@ -19,8 +19,10 @@ A consolidation step will review all findings and create dev tasks.
 
 IF BLOCKED or need more info:
   bd comment {bead_id} "Blocked: [reason]"
-  bd update {bead_id} --remove-label stage:investigating --status open
-  Exit"""
+  bd update {bead_id} --status blocked
+  Exit
+
+FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""
 
 
 def _consolidating_prompt(bead_id: str) -> str:
@@ -33,7 +35,7 @@ def _consolidating_prompt(bead_id: str) -> str:
 5. Synthesize findings into a coherent plan
 6. Write findings to .debussy/investigations/{bead_id}.md
 7. bd comment {bead_id} "Investigation complete — see .debussy/investigations/{bead_id}.md"
-8. bd update {bead_id} --remove-label stage:consolidating --status closed
+8. bd update {bead_id} --status closed
 9. Exit
 
 The .md file should contain:
@@ -45,5 +47,7 @@ Do NOT create beads — the conductor will read your .md file and create tasks.
 
 IF BLOCKED or findings are insufficient:
   bd comment {bead_id} "Blocked: [reason]"
-  bd update {bead_id} --remove-label stage:consolidating --status open
-  Exit"""
+  bd update {bead_id} --status blocked
+  Exit
+
+FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""

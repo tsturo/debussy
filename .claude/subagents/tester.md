@@ -30,14 +30,16 @@ git checkout feature/<bead-id>
 
 **If tests pass:**
 ```bash
-bd update <bead-id> --remove-label stage:testing --add-label stage:merging --status open
+bd update <bead-id> --status open
 ```
 
 **If tests fail:**
 ```bash
 bd comment <bead-id> "Tests failed: [details]"
-bd update <bead-id> --remove-label stage:testing --add-label stage:development --status open
+bd update <bead-id> --status open --add-label rejected
 ```
+
+The watcher handles stage transitions automatically.
 
 ## Acceptance Testing (post-merge)
 
@@ -50,14 +52,18 @@ git checkout <base-branch> && git pull origin <base-branch>
 
 **If acceptance passes:**
 ```bash
-bd update <bead-id> --remove-label stage:acceptance --status closed
+bd update <bead-id> --status closed
 ```
 
 **If acceptance fails:**
 ```bash
 bd comment <bead-id> "Acceptance failed: [details]"
-bd update <bead-id> --remove-label stage:acceptance --add-label stage:development --status open
+bd update <bead-id> --status open --add-label rejected
 ```
+
+## Forbidden
+
+- **NEVER** use `--add-label stage:*` or `--remove-label stage:*`
 
 ## What to Test
 

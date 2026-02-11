@@ -4,18 +4,18 @@ import os
 import sys
 
 ALLOWED_LABELS = {
-    "developer": {"stage:reviewing"},
-    "reviewer": {"stage:testing", "stage:development"},
-    "tester": {"stage:merging", "stage:development"},
+    "developer": set(),
+    "reviewer": {"rejected"},
+    "tester": {"rejected"},
     "investigator": set(),
-    "integrator": {"stage:acceptance", "stage:development"},
+    "integrator": {"rejected"},
 }
 
 ALLOWED_STATUSES = {
-    "developer": {"in_progress", "open"},
+    "developer": {"in_progress", "open", "blocked"},
     "reviewer": {"in_progress", "open"},
     "tester": {"in_progress", "open", "closed"},
-    "investigator": {"in_progress", "open", "closed"},
+    "investigator": {"in_progress", "closed", "blocked"},
     "integrator": {"in_progress", "open"},
 }
 
@@ -28,33 +28,31 @@ def _extract_flag_values(words, flag):
     return values
 
 
-def _validate_create(command, role):
+def _validate_labels(command, role):
     words = command.split()
-    labels = _extract_flag_values(words, "--add-label")
-    for label in labels:
+    for label in _extract_flag_values(words, "--add-label"):
         if label.startswith("stage:"):
-            print(f"Cannot create bead with stage label '{label}'", file=sys.stderr)
+            print(f"Agents cannot set stage labels. The watcher manages stage transitions.", file=sys.stderr)
+            sys.exit(2)
+        allowed = ALLOWED_LABELS.get(role, set())
+        if label not in allowed:
+            print(f"Invalid: {role} cannot add label '{label}'", file=sys.stderr)
+            sys.exit(2)
+    for label in _extract_flag_values(words, "--remove-label"):
+        if label.startswith("stage:"):
+            print(f"Agents cannot remove stage labels. The watcher manages stage transitions.", file=sys.stderr)
             sys.exit(2)
 
 
-def _validate_update(command, role):
+def _validate_statuses(command, role):
     words = command.split()
-
-    statuses = _extract_flag_values(words, "--status")
-    allowed_st = ALLOWED_STATUSES.get(role)
-    if allowed_st:
-        for status in statuses:
-            if status not in allowed_st:
-                print(f"Invalid: {role} cannot set status to '{status}'. Allowed: {' '.join(sorted(allowed_st))}", file=sys.stderr)
-                sys.exit(2)
-
-    labels = _extract_flag_values(words, "--add-label")
-    allowed_lb = ALLOWED_LABELS.get(role)
-    if allowed_lb is not None:
-        for label in labels:
-            if label.startswith("stage:") and label not in allowed_lb:
-                print(f"Invalid: {role} cannot add label '{label}'. Allowed: {' '.join(sorted(allowed_lb))}", file=sys.stderr)
-                sys.exit(2)
+    allowed = ALLOWED_STATUSES.get(role)
+    if not allowed:
+        return
+    for status in _extract_flag_values(words, "--status"):
+        if status not in allowed:
+            print(f"Invalid: {role} cannot set status to '{status}'. Allowed: {' '.join(sorted(allowed))}", file=sys.stderr)
+            sys.exit(2)
 
 
 def main():
@@ -70,11 +68,12 @@ def main():
         sys.exit(2)
 
     if "bd create" in command:
-        _validate_create(command, role)
+        _validate_labels(command, role)
         return
 
     if "bd update" in command:
-        _validate_update(command, role)
+        _validate_labels(command, role)
+        _validate_statuses(command, role)
         return
 
 if __name__ == "__main__":
