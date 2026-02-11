@@ -341,8 +341,9 @@ class Watcher:
             cmd.extend(["--status", "open"])
             log(f"Agent left {agent.bead} as in_progress, resetting to open for retry", "⚠️")
         else:
-            if agent.spawned_stage in labels:
-                cmd.extend(["--remove-label", agent.spawned_stage])
+            for label in labels:
+                if label.startswith("stage:"):
+                    cmd.extend(["--remove-label", label])
 
             if has_rejected:
                 cmd.extend(["--remove-label", "rejected"])
