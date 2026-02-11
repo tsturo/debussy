@@ -18,7 +18,7 @@ CONFIG_DIR = Path(".debussy")
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 DEFAULTS = {
-    "max_total_agents": 6,
+    "max_total_agents": 8,
     "use_tmux_windows": True,
 }
 

@@ -71,7 +71,7 @@ Investigators research in parallel and document findings. A consolidation step (
 | `stage:acceptance` | tester |
 
 **Parallelization:**
-- Total agents capped by `max_total_agents` (default 6)
+- Total agents capped by `max_total_agents` (default 8)
 
 ---
 

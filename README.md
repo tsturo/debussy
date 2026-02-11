@@ -70,7 +70,7 @@ stage:investigating (parallel) → stage:consolidating → .md file → conducto
 
 Investigators research in parallel and document findings as comments. A consolidation bead (blocked by investigation beads) waits for all to finish, then the investigator synthesizes findings into an `.md` file.
 
-**Total agents** capped at 6 (configurable).
+**Total agents** capped at 8 (configurable).
 **Blocked beads** skipped automatically.
 
 ---
@@ -130,7 +130,7 @@ dbs config use_tmux_windows true    # Spawn agents as tmux windows
 dbs config base_branch feature/foo  # Set conductor's base branch
 ```
 
-Defaults: 6 total agents, tmux windows on.
+Defaults: 8 total agents, tmux windows on.
 
 ### tmux Windows Mode
 
