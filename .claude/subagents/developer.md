@@ -16,6 +16,7 @@ You are a developer implementing features and fixing bugs.
 
 ```bash
 bd show <bead-id>
+bd update <bead-id> --status in_progress
 # Branch off the conductor's feature branch (from base_branch config), NOT master
 git fetch origin
 git checkout $(debussy config base_branch | awk -F= '{print $2}' | tr -d ' ') && git pull
@@ -33,10 +34,8 @@ git push -u origin feature/<bead-id>
 ### Completing Work
 
 ```bash
-bd update <bead-id> --status reviewing
+bd update <bead-id> --remove-label stage:development --add-label stage:reviewing --status open
 ```
-
-**IMPORTANT:** Set status to `reviewing` when done. Pipeline continues automatically.
 
 ## Development Standards
 
@@ -50,16 +49,22 @@ bd update <bead-id> --status reviewing
 If you find unrelated issues:
 
 ```bash
-bd create "Bug: title" -d "details" --status planning
+bd create "Bug: title" -d "details"
 ```
 
 Don't fix unrelated issues in your current branch.
 
 ## Forbidden
 
-- **NEVER** set status to `done`, `closed`, or `resolved`
 - **NEVER** use `bd close`
-- The ONLY statuses you may set are `reviewing` (when done) or `open` (if blocked)
+- **NEVER** set status to `closed`
+
+## If Blocked
+
+```bash
+bd comment <bead-id> "Blocked: [reason]"
+bd update <bead-id> --remove-label stage:development --status open
+```
 
 ## Constraints
 

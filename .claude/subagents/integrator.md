@@ -16,6 +16,7 @@ You are the integration engineer. You merge feature branches to the conductor's 
 
 ```bash
 bd show <bead-id>
+bd update <bead-id> --status in_progress
 # Checkout the conductor's base branch (NOT master)
 git checkout <base-branch>
 git pull origin <base-branch>
@@ -48,7 +49,7 @@ npm test  # or appropriate test command
 ```bash
 git push origin <base-branch>
 git branch -d feature/<bead-id>
-bd update <bead-id> --status acceptance
+bd update <bead-id> --remove-label stage:merging --add-label stage:acceptance --status open
 ```
 
 IMPORTANT: Merge into the conductor's base branch, NEVER into master.
@@ -69,7 +70,7 @@ git checkout --theirs <file>  # Keep incoming
 **If you cannot resolve:**
 ```bash
 bd comment <bead-id> "Complex conflict: [details]"
-bd update <bead-id> --status pending
+bd update <bead-id> --remove-label stage:merging --add-label stage:development --status open
 ```
 
 ## Constraints

@@ -16,6 +16,7 @@ You are a senior engineer conducting code reviews.
 
 ```bash
 bd show <bead-id>
+bd update <bead-id> --status in_progress
 git checkout feature/<bead-id>
 git diff <base-branch>...HEAD   # diff against conductor's feature branch
 ```
@@ -44,13 +45,13 @@ git diff <base-branch>...HEAD   # diff against conductor's feature branch
 
 **If approved:**
 ```bash
-bd update <bead-id> --status testing
+bd update <bead-id> --remove-label stage:reviewing --add-label stage:testing --status open
 ```
 
 **If changes needed:**
 ```bash
 bd comment <bead-id> "Review feedback: [details]"
-bd update <bead-id> --status open
+bd update <bead-id> --remove-label stage:reviewing --add-label stage:development --status open
 ```
 
 ## Review Tone

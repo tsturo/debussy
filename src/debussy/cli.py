@@ -9,8 +9,8 @@ from datetime import datetime
 from pathlib import Path
 
 from .config import (
-    CLAUDE_STARTUP_DELAY, COMMENT_TRUNCATE_LEN, PIPELINE_STATUSES,
-    SESSION_NAME, STATUS_TO_ROLE, YOLO_MODE, get_config, log, parse_value,
+    CLAUDE_STARTUP_DELAY, COMMENT_TRUNCATE_LEN,
+    SESSION_NAME, STAGE_TO_ROLE, YOLO_MODE, get_config, log, parse_value,
     set_config,
 )
 from .prompts import CONDUCTOR_PROMPT
@@ -91,11 +91,32 @@ def cmd_watch(args):
     Watcher().run()
 
 
-def _get_tasks_by_status(status: str) -> list[str]:
-    result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
-    if not result.stdout.strip():
+def _get_beads_by_label(label: str) -> list[dict]:
+    try:
+        result = subprocess.run(
+            ["bd", "list", "--status", "open", "--label", label, "--json"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+        data = json.loads(result.stdout)
+        return data if isinstance(data, list) else []
+    except Exception:
         return []
-    return [t for t in result.stdout.strip().split('\n') if t.strip()]
+
+
+def _get_beads_by_status(status: str) -> list[dict]:
+    try:
+        result = subprocess.run(
+            ["bd", "list", "--status", status, "--json"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+        data = json.loads(result.stdout)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
 
 
 def _get_running_agents() -> dict:
@@ -153,32 +174,49 @@ def cmd_status(args):
     running = _get_running_agents()
 
     active = []
-    for status, role_label in STATUS_TO_ROLE.items():
-        for t in _get_tasks_by_status(status):
-            bead_id = t.split()[0] if t else ""
+    for bead in _get_beads_by_status("in_progress"):
+        bead_id = bead.get("id", "")
+        title = bead.get("title", "")
+        if bead_id in running:
+            agent = running[bead_id]["agent"]
+            active.append((f"[in_progress] {bead_id} {title} ← {agent} 🔄", bead_id))
+        else:
+            active.append((f"[in_progress] {bead_id} {title}", bead_id))
+
+    for stage, role_label in STAGE_TO_ROLE.items():
+        for bead in _get_beads_by_label(stage):
+            bead_id = bead.get("id", "")
+            title = bead.get("title", "")
             if bead_id in running:
                 agent = running[bead_id]["agent"]
-                active.append((f"[{status}] {t} ← {agent} 🔄", bead_id))
+                active.append((f"[{stage}] {bead_id} {title} ← {agent} 🔄", bead_id))
             else:
-                active.append((f"[{status} → {role_label}] {t}", bead_id))
+                active.append((f"[{stage} → {role_label}] {bead_id} {title}", bead_id))
     _print_section("▶ ACTIVE", active, show_comments=True)
 
     backlog = []
-    for status in ("open", "planning"):
-        for t in _get_tasks_by_status(status):
-            bead_id = t.split()[0] if t else ""
-            backlog.append((f"[{status}] {t}", bead_id))
+    for bead in _get_beads_by_status("open"):
+        bead_id = bead.get("id", "")
+        title = bead.get("title", "")
+        labels = bead.get("labels", [])
+        if any(l.startswith("stage:") for l in labels):
+            continue
+        backlog.append((f"[open] {bead_id} {title}", bead_id))
     _print_section("◻ BACKLOG", backlog)
 
-    result = subprocess.run(["bd", "blocked"], capture_output=True, text=True)
-    if result.stdout.strip():
-        print(result.stdout.strip())
-        print()
+    blocked = []
+    for bead in _get_beads_by_status("blocked"):
+        bead_id = bead.get("id", "")
+        title = bead.get("title", "")
+        blocked.append((f"[blocked] {bead_id} {title}", bead_id))
+    if blocked:
+        _print_section("⊘ BLOCKED", blocked)
 
     done = []
-    for t in _get_tasks_by_status("done"):
-        bead_id = t.split()[0] if t else ""
-        done.append((t, bead_id))
+    for bead in _get_beads_by_status("closed"):
+        bead_id = bead.get("id", "")
+        title = bead.get("title", "")
+        done.append((f"{bead_id} {title}", bead_id))
     _print_section("✓ DONE", done)
 
 
@@ -234,17 +272,6 @@ def cmd_config(args):
             print(f"  {k} = {v}")
 
 
-def _configure_beads_statuses():
-    result = subprocess.run(
-        ["bd", "config", "set", "status.custom", PIPELINE_STATUSES],
-        capture_output=True
-    )
-    if result.returncode == 0:
-        log("Configured pipeline statuses", "✓")
-    else:
-        log("Failed to configure statuses", "✗")
-
-
 def cmd_init(args):
     if not Path(".beads").exists():
         result = subprocess.run(["bd", "init"], capture_output=True)
@@ -252,8 +279,6 @@ def cmd_init(args):
             log("Failed to init beads", "✗")
             return 1
         log("Initialized beads", "✓")
-
-    _configure_beads_statuses()
 
 
 def _backup_beads() -> Path | None:
@@ -314,11 +339,6 @@ def cmd_clear(args):
         return 1
     log("Initialized fresh beads", "✓")
 
-    _configure_beads_statuses()
-
-
-AGENT_OWNED_STATUSES = {"development", "investigating", "consolidating", "reviewing", "testing", "merging"}
-
 
 def _stop_watcher():
     subprocess.run(
@@ -338,29 +358,29 @@ def _kill_agent(agent: dict, agent_name: str):
 def _get_bead_status(bead_id: str) -> str | None:
     try:
         result = subprocess.run(
-            ["bd", "show", bead_id],
+            ["bd", "show", bead_id, "--json"],
             capture_output=True, text=True, timeout=5,
         )
-        for line in result.stdout.split('\n'):
-            if line.strip().startswith("Status:"):
-                return line.split(":", 1)[1].strip()
+        data = json.loads(result.stdout)
+        if isinstance(data, list) and data:
+            return data[0].get("status")
     except Exception:
         pass
     return None
 
 
-def _reset_bead_to_planning(bead_id: str):
+def _reset_bead_to_open(bead_id: str):
     status = _get_bead_status(bead_id)
-    if status and status in AGENT_OWNED_STATUSES:
+    if status and status == "in_progress":
         subprocess.run(
             ["bd", "comment", bead_id, "Paused by debussy pause"],
             capture_output=True, timeout=5,
         )
         subprocess.run(
-            ["bd", "update", bead_id, "--status", "planning"],
+            ["bd", "update", bead_id, "--status", "open"],
             capture_output=True, timeout=5,
         )
-        log(f"Reset {bead_id} ({status} → planning)", "⏸")
+        log(f"Reset {bead_id} ({status} → open)", "⏸")
 
 
 def _delete_orphan_branches(paused_beads: set[str]):
@@ -402,7 +422,7 @@ def cmd_pause(args):
         agent_name = agent.get("agent", "")
         _kill_agent(agent, agent_name)
         log(f"Killed {agent_name}", "🛑")
-        _reset_bead_to_planning(bead_id)
+        _reset_bead_to_open(bead_id)
         paused_beads.add(bead_id)
 
     _delete_orphan_branches(paused_beads)
@@ -419,22 +439,17 @@ def cmd_pause(args):
 def cmd_debug(args):
     print("=== DEBUSSY DEBUG ===\n")
 
-    print("Checking custom statuses...")
-    result = subprocess.run(["bd", "config", "get", "status.custom"], capture_output=True, text=True)
-    if result.stdout.strip():
-        print(f"  Custom statuses: {result.stdout.strip()}")
-    else:
-        print("  ⚠️  No custom statuses configured! Run: dbs init")
-    print()
+    print("Checking pipeline stages...")
+    for stage in STAGE_TO_ROLE:
+        beads = _get_beads_by_label(stage)
+        print(f"  {stage}: {len(beads)} tasks")
+        for bead in beads[:3]:
+            print(f"    → {bead.get('id')} {bead.get('title', '')}")
 
-    print("Checking pipeline statuses...")
-    for status in STATUS_TO_ROLE:
-        result = subprocess.run(["bd", "list", "--status", status], capture_output=True, text=True)
-        count = len([l for l in result.stdout.strip().split('\n') if l.strip()]) if result.stdout.strip() else 0
-        print(f"  {status}: {count} tasks")
-        if result.stdout.strip():
-            for line in result.stdout.strip().split('\n')[:3]:
-                print(f"    → {line}")
+    print()
+    for status in ("open", "in_progress", "closed", "blocked"):
+        beads = _get_beads_by_status(status)
+        print(f"  {status}: {len(beads)} tasks")
     print()
 
     print("Checking .debussy directory...")
@@ -447,5 +462,5 @@ def cmd_debug(args):
             else:
                 print(f"  {item.name}: {item.stat().st_size} bytes")
     else:
-        print("  ⚠️  .debussy directory doesn't exist")
+        print("  .debussy directory doesn't exist")
     print()

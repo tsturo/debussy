@@ -33,9 +33,9 @@ debussy config base_branch feature/<name>  # Register base branch
 debussy status            # See progress
 debussy config            # View current config
 debussy config max_total_agents 6    # Set max parallel agents
-bd create "title" -d "description" --status planning
-bd update <id> --status development     # Release for development
-bd update <id> --status investigating   # Release for investigation
+bd create "title" -d "description"
+bd update <id> --add-label stage:development     # Release for development
+bd update <id> --add-label stage:investigating   # Release for investigation
 bd list / bd show <id>
 ```
 
@@ -70,29 +70,29 @@ Merging to master is done ONLY by the user manually. NEVER merge to master.
 Break down requirements into small, actionable tasks:
 
 ```bash
-bd create "Create User model" -d "Add User model with email and password fields, bcrypt hashing" --status planning
-bd create "Add login endpoint" -d "POST /api/auth/login — validate credentials, return JWT" --status planning
-bd create "Create LoginForm" -d "Login form component with email/password fields and validation" --status planning
+bd create "Create User model" -d "Add User model with email and password fields, bcrypt hashing"
+bd create "Add login endpoint" -d "POST /api/auth/login — validate credentials, return JWT"
+bd create "Create LoginForm" -d "Login form component with email/password fields and validation"
 ```
 
 ### 3. Release Phase
 When done planning, release tasks:
 
 ```bash
-bd update <id> --status development     # development task
-bd update <id> --status investigating   # investigation/research task
+bd update <id> --add-label stage:development     # development task
+bd update <id> --add-label stage:investigating   # investigation/research task
 ```
 
 ## Pipelines
 
 ```
-Development:   planning → development → developer → reviewing → testing → merging → acceptance → done
-Investigation: planning → investigating (parallel) → consolidating → dev tasks created → done
+Development: open → stage:development → stage:reviewing → stage:testing → stage:merging → stage:acceptance → closed
+Investigation: open → stage:investigating (parallel) → stage:consolidating → dev tasks created → closed
 ```
 
 Investigators research and document findings as comments. A consolidation step synthesizes findings and creates developer tasks.
 
-Watcher spawns agents automatically. Tasks in `planning` are ignored until you release them.
+Watcher spawns agents automatically. Tasks without a stage label are backlog until you release them.
 
 Total agent limit is configurable via `debussy config max_total_agents N`.
 
@@ -100,9 +100,9 @@ Total agent limit is configurable via `debussy config max_total_agents N`.
 
 If an investigation or task is stuck:
 ```bash
-bd update <id> --status done           # skip stuck investigation
-bd update <id> --status investigating  # retry investigation
-bd update <id> --status development    # retry development task
+bd update <id> --status closed                       # skip stuck investigation
+bd update <id> --add-label stage:investigating       # retry investigation
+bd update <id> --add-label stage:development         # retry development task
 ```
 
 Monitor with `debussy status` and intervene when tasks stall.

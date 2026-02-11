@@ -22,17 +22,15 @@ DEFAULTS = {
     "use_tmux_windows": True,
 }
 
-STATUS_TO_ROLE = {
-    "development": "developer",
-    "investigating": "investigator",
-    "consolidating": "investigator",
-    "reviewing": "reviewer",
-    "testing": "tester",
-    "merging": "integrator",
-    "acceptance": "tester",
+STAGE_TO_ROLE = {
+    "stage:development": "developer",
+    "stage:investigating": "investigator",
+    "stage:consolidating": "investigator",
+    "stage:reviewing": "reviewer",
+    "stage:testing": "tester",
+    "stage:merging": "integrator",
+    "stage:acceptance": "tester",
 }
-
-PIPELINE_STATUSES = "development,investigating,consolidating,testing,reviewing,merging,acceptance,done"
 
 
 def log(msg: str, icon: str = "•"):

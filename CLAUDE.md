@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project uses Beads (`bd`) for task tracking. The watcher automatically spawns agents based on bead status.
+This project uses Beads (`bd`) for task tracking. The watcher automatically spawns agents based on **stage labels** on beads.
 
 Role-specific instructions are in `.claude/subagents/`.
 
@@ -40,25 +40,35 @@ Role-specific instructions are in `.claude/subagents/`.
 Two pipelines depending on task type:
 
 ```
-Development:   planning → development → developer → reviewing → reviewer → testing → tester → merging → integrator → acceptance → tester → done
-Investigation: planning → investigating (parallel) → consolidating (investigator) → .md file → conductor creates dev tasks → done
+Development:   open → stage:development → stage:reviewing → stage:testing → stage:merging → stage:acceptance → closed
+Investigation: open → stage:investigating (parallel) → stage:consolidating (investigator) → .md file → conductor creates dev tasks → closed
 ```
 
 Investigators research in parallel and document findings. A consolidation step (investigator) synthesizes findings into an .md file. Conductor then creates developer tasks.
 
-**Watcher spawns agents based on status:**
+**Status model:**
 
-| Status | Agent Spawned |
-|--------|---------------|
-| planning | none (conductor is planning) |
-| open | none (parked, waiting for conductor) |
-| development | developer |
-| investigating | investigator |
-| consolidating | investigator |
-| reviewing | reviewer |
-| testing | tester |
-| merging | integrator |
-| acceptance | tester |
+| bd status | Meaning |
+|-----------|---------|
+| `open` + stage label | Ready for agent |
+| `open` (no stage label) | Backlog/parked |
+| `in_progress` | Agent is working |
+| `closed` | Pipeline complete |
+| `blocked` | Waiting for deps |
+
+**Watcher spawns agents based on stage labels:**
+
+| Stage Label | Agent Spawned |
+|-------------|---------------|
+| `stage:development` | developer |
+| `stage:investigating` | investigator |
+| `stage:consolidating` | investigator |
+| `stage:reviewing` | reviewer |
+| `stage:testing` | tester |
+| `stage:merging` | integrator |
+| `stage:acceptance` | tester |
+
+**Agent workflow:** claim with `--status in_progress` → work → set next stage label + `--status open` (or `--status closed` for final stage)
 
 **Parallelization:**
 - Total agents capped by `max_total_agents` (default 6)
@@ -70,10 +80,10 @@ Investigators research in parallel and document findings. A consolidation step (
 ### @conductor
 - Entry point — user talks to conductor
 - **First step**: creates a feature branch and registers it: `debussy config base_branch feature/<name>`
-- Creates tasks with `bd create "title" --status planning`
-- Releases dev tasks: `bd update <id> --status development`
-- Releases investigation tasks: `bd update <id> --status investigating`
-- Creates all tasks as `planning` first, then releases with `bd update`
+- Creates tasks with `bd create "title" -d "description"`
+- Releases dev tasks: `bd update <id> --add-label stage:development`
+- Releases investigation tasks: `bd update <id> --add-label stage:investigating`
+- Creates all tasks first (backlog), then releases with `--add-label`
 - Monitors progress with `debussy status`
 - **Does not write code**
 - **Never merges to master** — user does that manually
@@ -81,26 +91,28 @@ Investigators research in parallel and document findings. A consolidation step (
 ### @investigator
 - Researches codebase, documents findings as bead comments
 - Does NOT create developer tasks (consolidation step handles that)
-- Sets `--status done` when investigation complete
+- Finishes with `--remove-label stage:investigating --status closed`
 
 ### @developer
 - Implements features and fixes bugs
-- Sets `--status testing` when done
+- Finishes with `--remove-label stage:development --add-label stage:reviewing --status open`
 
 ### @tester
 - Tests code
-- Sets `--status reviewing` if pass, `--status open` if fail
+- Pass: `--remove-label stage:testing --add-label stage:merging --status open`
+- Fail: `--remove-label stage:testing --add-label stage:development --status open`
 
 ### @reviewer
 - Reviews code for quality and security
-- Sets `--status merging` if approved, `--status open` if changes needed
+- Approve: `--remove-label stage:reviewing --add-label stage:testing --status open`
+- Reject: `--remove-label stage:reviewing --add-label stage:development --status open`
 
-### @investigator
-- Also handles `consolidating` status: synthesizes investigation findings into .md file for conductor
+### @investigator (consolidation)
+- Handles `stage:consolidating`: synthesizes investigation findings into .md file for conductor
 
 ### @integrator
-- Merges feature branches to conductor's base branch (status `merging`)
-- Sets `--status acceptance` after merge
+- Merges feature branches to conductor's base branch (`stage:merging`)
+- Finishes with `--remove-label stage:merging --add-label stage:acceptance --status open`
 - **Never merges to master**
 
 ---
@@ -109,67 +121,67 @@ Investigators research in parallel and document findings. A consolidation step (
 
 ### Creating Tasks
 ```bash
-bd create "Implement feature X" -d "Description of what to do" --status planning
+bd create "Implement feature X" -d "Description of what to do"
 ```
 
 ### Releasing Tasks (conductor only)
 ```bash
-bd update <bead-id> --status development     # development task
-bd update <bead-id> --status investigating   # investigation task
+bd update <bead-id> --add-label stage:development     # development task
+bd update <bead-id> --add-label stage:investigating   # investigation task
 ```
 
 ### Parallel Investigation (conductor only)
 ```bash
-bd create "Investigate area A" --status planning               # → bd-001
-bd create "Investigate area B" --status planning               # → bd-002
-bd create "Consolidate findings" --deps "bd-001,bd-002" --status planning  # → bd-003
-bd update bd-001 --status investigating
-bd update bd-002 --status investigating
-bd update bd-003 --status consolidating
+bd create "Investigate area A" -d "Research details"                                   # → bd-001
+bd create "Investigate area B" -d "Research details"                                   # → bd-002
+bd create "Consolidate findings" -d "Synthesize results" --deps "bd-001,bd-002"        # → bd-003
+bd update bd-001 --add-label stage:investigating
+bd update bd-002 --add-label stage:investigating
+bd update bd-003 --add-label stage:consolidating
 ```
 The consolidation bead stays blocked until all investigation beads finish.
 
-### Status Transitions
+### Stage Transitions
 
 Investigator:
 ```bash
-bd comment <bead-id> "Finding: [details]"          # document findings
-bd update <bead-id> --status done                  # complete investigation
+bd comment <bead-id> "Finding: [details]"
+bd update <bead-id> --remove-label stage:investigating --status closed
 ```
 
 Investigator (consolidation):
 ```bash
 # Write findings to .debussy/investigations/<bead-id>.md
 bd comment <bead-id> "Investigation complete — see .debussy/investigations/<bead-id>.md"
-bd update <bead-id> --status done                  # complete consolidation
+bd update <bead-id> --remove-label stage:consolidating --status closed
 ```
 
 Developer:
 ```bash
-bd update <bead-id> --status reviewing
+bd update <bead-id> --remove-label stage:development --add-label stage:reviewing --status open
 ```
 
 Reviewer:
 ```bash
-bd update <bead-id> --status testing     # approved
-bd update <bead-id> --status open     # changes needed
+bd update <bead-id> --remove-label stage:reviewing --add-label stage:testing --status open     # approved
+bd update <bead-id> --remove-label stage:reviewing --add-label stage:development --status open  # changes needed
 ```
 
 Tester:
 ```bash
-bd update <bead-id> --status merging   # pass
-bd update <bead-id> --status open     # fail (add comment first)
+bd update <bead-id> --remove-label stage:testing --add-label stage:merging --status open   # pass
+bd update <bead-id> --remove-label stage:testing --add-label stage:development --status open  # fail
 ```
 
 Integrator:
 ```bash
-bd update <bead-id> --status acceptance
+bd update <bead-id> --remove-label stage:merging --add-label stage:acceptance --status open
 ```
 
 Tester (acceptance):
 ```bash
-bd update <bead-id> --status done        # pass
-bd update <bead-id> --status open     # fail
+bd update <bead-id> --remove-label stage:acceptance --status closed        # pass
+bd update <bead-id> --remove-label stage:acceptance --add-label stage:development --status open  # fail
 ```
 
 ---
@@ -204,11 +216,13 @@ Merging to master is NEVER done by agents — only by the user manually.
 
 ```
 src/debussy/
-  watcher.py      # Spawns agents based on status
+  watcher.py      # Spawns agents based on stage labels
   cli.py          # CLI commands
   config.py       # Configuration
+  prompts.py      # Agent prompt templates
 .claude/
   subagents/      # Agent role definitions
+  hooks/          # Validation hooks
 .beads/           # Beads database
 ```
 
@@ -221,10 +235,9 @@ debussy start              # Start system (tmux)
 debussy watch              # Run watcher
 debussy status             # Show status
 debussy config base_branch feature/<name>  # Set conductor's base branch
-bd create "title" --status planning
-bd update <id> --status development     # Release task for development
-bd update <id> --status investigating   # Release task for investigation
-bd update <id> --status <status>
+bd create "title" -d "description"
+bd update <id> --add-label stage:development     # Release task for development
+bd update <id> --add-label stage:investigating   # Release task for investigation
 bd show <id>
 bd list
 ```

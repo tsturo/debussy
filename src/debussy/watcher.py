@@ -13,7 +13,7 @@ os.environ.pop("ANTHROPIC_API_KEY", None)
 
 from .config import (
     AGENT_TIMEOUT, CLAUDE_STARTUP_DELAY, POLL_INTERVAL, YOLO_MODE, SESSION_NAME,
-    HEARTBEAT_TICKS, STATUS_TO_ROLE, atomic_write,
+    HEARTBEAT_TICKS, STAGE_TO_ROLE, atomic_write,
     get_config, log,
 )
 from .prompts import get_prompt
@@ -63,7 +63,8 @@ class AgentInfo:
     bead: str
     role: str
     name: str
-    spawned_status: str = ""
+    spawned_stage: str = ""
+    claimed: bool = False
     tmux: bool = False
     proc: subprocess.Popen | None = None
     log_path: str = ""
@@ -78,10 +79,12 @@ class AgentInfo:
         return self.proc is not None and self.proc.poll() is None
 
     def is_done(self) -> bool:
-        if not self.spawned_status:
-            return False
         current = _get_bead_status(self.bead)
-        return current is not None and current != self.spawned_status
+        if current is None:
+            return False
+        if current == "in_progress" and not self.claimed:
+            self.claimed = True
+        return self.claimed and current != "in_progress"
 
     def stop(self):
         if self.tmux:
@@ -144,30 +147,7 @@ class Watcher:
     def has_running_role(self, role: str) -> bool:
         return any(a.role == role for a in self._alive_agents())
 
-    def is_blocked(self, bead_id: str) -> bool:
-        try:
-            result = subprocess.run(
-                ["bd", "show", bead_id],
-                capture_output=True, text=True, timeout=5
-            )
-            return "Blocked by" in result.stdout
-        except Exception:
-            return False
-
-    def extract_bead_id(self, line: str) -> str | None:
-        parts = line.split()
-        if len(parts) < 2:
-            return None
-        candidate = parts[1]
-        if candidate.startswith("["):
-            return parts[0] if not parts[0].startswith(("○", "●", "◐", "✓", "✗")) else None
-        return candidate
-
-    def is_epic_or_feature(self, line: str) -> bool:
-        lower = line.lower()
-        return "[epic]" in lower or "[feature]" in lower
-
-    def spawn_agent(self, role: str, bead_id: str, status: str):
+    def spawn_agent(self, role: str, bead_id: str, stage: str):
         key = f"{role}:{bead_id}"
 
         if key in self.running and self.running[key].is_alive(self._cached_windows):
@@ -176,17 +156,17 @@ class Watcher:
         agent_name = self.get_agent_name(role)
         log(f"Spawning {agent_name} for {bead_id}", "🚀")
 
-        prompt = get_prompt(role, bead_id, status)
+        prompt = get_prompt(role, bead_id, stage)
 
         cfg = get_config()
         use_tmux = cfg.get("use_tmux_windows", False) and os.environ.get("TMUX") is not None
 
         if use_tmux:
-            self._spawn_tmux(key, agent_name, bead_id, role, prompt, status)
+            self._spawn_tmux(key, agent_name, bead_id, role, prompt, stage)
         else:
             self._spawn_background(key, agent_name, bead_id, role, prompt)
 
-    def _spawn_tmux(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str, status: str):
+    def _spawn_tmux(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str, stage: str):
         claude_cmd = "claude"
         if YOLO_MODE:
             claude_cmd += " --dangerously-skip-permissions"
@@ -213,7 +193,7 @@ class Watcher:
 
             self.running[key] = AgentInfo(
                 bead=bead_id, role=role, name=agent_name,
-                spawned_status=status, tmux=True,
+                spawned_stage=stage, tmux=True,
             )
             if self._cached_windows is not None:
                 self._cached_windows.add(agent_name)
@@ -250,24 +230,22 @@ class Watcher:
             log(f"Failed to spawn {role}: {e}", "✗")
 
     def check_pipeline(self):
-        for status, role in STATUS_TO_ROLE.items():
+        for stage, role in STAGE_TO_ROLE.items():
             try:
                 result = subprocess.run(
-                    ["bd", "list", "--status", status],
-                    capture_output=True, text=True, timeout=10
+                    ["bd", "list", "--status", "open", "--label", stage, "--json"],
+                    capture_output=True, text=True, timeout=10,
                 )
                 if result.returncode != 0 or not result.stdout.strip():
                     continue
 
-                for line in result.stdout.strip().split('\n'):
-                    if not line.strip():
-                        continue
+                beads = json.loads(result.stdout)
+                if not isinstance(beads, list):
+                    continue
 
-                    bead_id = self.extract_bead_id(line)
+                for bead in beads:
+                    bead_id = bead.get("id")
                     if not bead_id:
-                        continue
-
-                    if self.is_epic_or_feature(line):
                         continue
 
                     if self.is_bead_running(bead_id):
@@ -276,7 +254,7 @@ class Watcher:
                     if self.failures.get(bead_id, 0) >= MAX_RETRIES:
                         continue
 
-                    if self.is_blocked(bead_id):
+                    if bead.get("status") == "blocked":
                         continue
 
                     if role == "integrator" and self.has_running_role("integrator"):
@@ -292,12 +270,12 @@ class Watcher:
                         continue
 
                     self.queued.discard(bead_id)
-                    self.spawn_agent(role, bead_id, status)
+                    self.spawn_agent(role, bead_id, stage)
 
             except subprocess.TimeoutExpired:
-                log(f"Timeout checking {status}", "⚠️")
+                log(f"Timeout checking {stage}", "⚠️")
             except Exception as e:
-                log(f"Error checking {status}: {e}", "⚠️")
+                log(f"Error checking {stage}: {e}", "⚠️")
 
     def _check_timeouts(self):
         now = time.time()
@@ -316,7 +294,7 @@ class Watcher:
                     capture_output=True, timeout=5,
                 )
                 subprocess.run(
-                    ["bd", "update", agent.bead, "--status", "planning"],
+                    ["bd", "update", agent.bead, "--status", "open"],
                     capture_output=True, timeout=5,
                 )
             except Exception:

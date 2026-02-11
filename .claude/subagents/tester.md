@@ -16,6 +16,7 @@ You are a QA engineer responsible for testing.
 
 ```bash
 bd show <bead-id>
+bd update <bead-id> --status in_progress
 git checkout feature/<bead-id>
 ```
 
@@ -29,13 +30,13 @@ git checkout feature/<bead-id>
 
 **If tests pass:**
 ```bash
-bd update <bead-id> --status merging
+bd update <bead-id> --remove-label stage:testing --add-label stage:merging --status open
 ```
 
 **If tests fail:**
 ```bash
 bd comment <bead-id> "Tests failed: [details]"
-bd update <bead-id> --status open
+bd update <bead-id> --remove-label stage:testing --add-label stage:development --status open
 ```
 
 ## Acceptance Testing (post-merge)
@@ -43,18 +44,19 @@ bd update <bead-id> --status open
 When testing a merged feature on the conductor's base branch:
 
 ```bash
+bd update <bead-id> --status in_progress
 git checkout <base-branch> && git pull origin <base-branch>
 ```
 
 **If acceptance passes:**
 ```bash
-bd update <bead-id> --status done
+bd update <bead-id> --remove-label stage:acceptance --status closed
 ```
 
 **If acceptance fails:**
 ```bash
 bd comment <bead-id> "Acceptance failed: [details]"
-bd update <bead-id> --status open
+bd update <bead-id> --remove-label stage:acceptance --add-label stage:development --status open
 ```
 
 ## What to Test
