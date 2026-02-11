@@ -32,16 +32,6 @@ STAGE_TO_ROLE = {
     "stage:development": "developer",
 }
 
-STAGE_ORDER = {
-    "stage:development": 0,
-    "stage:investigating": 0,
-    "stage:consolidating": 0,
-    "stage:reviewing": 1,
-    "stage:testing": 2,
-    "stage:merging": 3,
-    "stage:acceptance": 4,
-}
-
 NEXT_STAGE = {
     "stage:development": "stage:reviewing",
     "stage:reviewing": "stage:testing",
