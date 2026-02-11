@@ -15,7 +15,7 @@ pipx install git+https://github.com/tsturo/debussy.git
 
 # Run
 cd your-project
-dbs init
+bd init
 dbs start
 ```
 
@@ -23,39 +23,49 @@ dbs start
 
 ## How It Works
 
-The **watcher** polls bead statuses every 5 seconds and spawns Claude agents.
+The **watcher** polls beads every 5 seconds and spawns Claude agents based on **stage labels**.
 
-The **conductor** (you talk to it directly) creates tasks as `planning`, then releases them by changing the status. The watcher only spawns agents for specific statuses — `planning` and `open` are ignored.
+The **conductor** (you talk to it directly) creates tasks, then releases them by adding a stage label. The watcher spawns agents for beads with `status: open` and a `stage:*` label — beads without a stage label are backlog.
+
+### Status Model
+
+| bd status | Meaning |
+|-----------|---------|
+| `open` + stage label | Ready for agent |
+| `open` (no stage label) | Backlog/parked |
+| `in_progress` | Agent is working |
+| `closed` | Pipeline complete |
+| `blocked` | Waiting for deps |
 
 ### Development Pipeline
 
-| Status | Agent | Next Status |
-|--------|-------|-------------|
-| `development` | developer | `reviewing` |
-| `reviewing` | reviewer | `testing` |
-| `testing` | tester | `merging` |
-| `merging` | integrator | `acceptance` |
-| `acceptance` | tester | `done` |
+| Stage Label | Agent | Next Stage |
+|-------------|-------|------------|
+| `stage:development` | developer | `stage:reviewing` |
+| `stage:reviewing` | reviewer | `stage:testing` |
+| `stage:testing` | tester | `stage:merging` |
+| `stage:merging` | integrator | `stage:acceptance` |
+| `stage:acceptance` | tester | `closed` |
 
 ```
-planning → development → reviewing → testing → merging → acceptance → done
-               ↓             ↓          ↓          ↓           ↓
-           developer      reviewer    tester   integrator    tester
-               ↑             │          │          │
-               └─────────────┴──────────┴──────────┘  (on failure → open with comment)
+open → stage:development → stage:reviewing → stage:testing → stage:merging → stage:acceptance → closed
+              ↓                  ↓                ↓               ↓                ↓
+          developer           reviewer          tester        integrator         tester
+              ↑                  │                │               │
+              └──────────────────┴────────────────┴───────────────┘  (on failure → stage:development)
 ```
 
 ### Investigation Pipeline
 
-| Status | Agent | Next Status |
-|--------|-------|-------------|
-| `investigating` | investigator | `done` |
-| `consolidating` | investigator | `done` |
+| Stage Label | Agent | Result |
+|-------------|-------|--------|
+| `stage:investigating` | investigator | `closed` |
+| `stage:consolidating` | investigator | `closed` |
 
 ```
-investigating (parallel) → consolidating → .md file → conductor creates dev tasks
-       ↓                         ↓
-  investigator              investigator
+stage:investigating (parallel) → stage:consolidating → .md file → conductor creates dev tasks
+          ↓                              ↓
+     investigator                   investigator
 ```
 
 Investigators research in parallel and document findings as comments. A consolidation bead (blocked by investigation beads) waits for all to finish, then the investigator synthesizes findings into an `.md` file.
@@ -73,16 +83,21 @@ Agents are named after composers (e.g., `developer-beethoven`, `tester-chopin`).
 |-------|------|
 | **conductor** | Creates tasks. Never writes code. |
 | **investigator** | Researches codebase, documents findings. Also handles consolidation. |
-| **developer** | Implements on feature branch, sets status → `reviewing` |
-| **reviewer** | Reviews code, sets status → `testing` (or `open` for changes) |
-| **tester** | Tests code, sets status → `merging` (or `open` on fail) |
+| **developer** | Implements on feature branch, transitions → `stage:reviewing` |
+| **reviewer** | Reviews code, transitions → `stage:testing` (or `stage:development` for changes) |
+| **tester** | Tests code, transitions → `stage:merging` (or `stage:development` on fail) |
 | **integrator** | Merges feature branches to conductor's base branch |
 
-### Agent Communication
+### Agent Workflow
+
+1. Watcher finds bead with `status: open` + stage label
+2. Agent claims: `bd update <id> --status in_progress`
+3. Agent works
+4. Agent transitions: `bd update <id> --remove-label stage:X --add-label stage:Y --status open`
 
 If blocked or issues found, agents:
 1. Add comment: `bd comment <id> "Blocked: [reason]"`
-2. Return to open: `bd update <id> --status open`
+2. Remove stage label + set open: `bd update <id> --remove-label stage:X --status open`
 3. Conductor re-releases the task when ready
 
 ---
@@ -92,14 +107,13 @@ If blocked or issues found, agents:
 ```bash
 dbs start [requirement]  # Start tmux session
 dbs watch                # Run watcher only
-dbs status               # Show pipeline status (with comments, running agents)
+dbs status               # Show pipeline status
 dbs config [key] [value] # View/set config
-dbs init                 # Initialize beads with pipeline statuses
 dbs backup               # Backup beads database
 dbs clear [-f]           # Clear all beads (with backup)
 dbs upgrade              # Upgrade to latest version
 dbs restart [-u]         # Restart session (-u to upgrade first)
-dbs pause                # Stop watcher, kill agents, reset beads to planning
+dbs pause                # Stop watcher, kill agents, reset beads to open
 dbs debug                # Troubleshoot pipeline detection
 ```
 
@@ -131,19 +145,19 @@ When `use_tmux_windows` is enabled, agents spawn as separate tmux windows instea
 
 ### Development Tasks
 ```bash
-bd create "Implement feature X" --status planning
-bd update <bead-id> --status development
+bd create "Implement feature X" -d "Description of what to do"
+bd update <bead-id> --add-label stage:development
 ```
-Conductor creates tasks as `planning`, then releases them with `bd update`. Watcher detects `development` status → spawns developer → pipeline begins.
+Conductor creates tasks (backlog), then releases them with `--add-label`. Watcher detects `stage:development` label → spawns developer → pipeline begins.
 
 ### Parallel Investigation
 ```bash
-bd create "Investigate area A" --status planning
-bd create "Investigate area B" --status planning
-bd create "Consolidate findings" --deps "bd-001,bd-002" --status planning
-bd update bd-001 --status investigating
-bd update bd-002 --status investigating
-bd update bd-003 --status consolidating
+bd create "Investigate area A" -d "Research details"
+bd create "Investigate area B" -d "Research details"
+bd create "Consolidate findings" -d "Synthesize results" --deps "bd-001,bd-002"
+bd update bd-001 --add-label stage:investigating
+bd update bd-002 --add-label stage:investigating
+bd update bd-003 --add-label stage:consolidating
 ```
 Investigators work in parallel. Consolidation bead stays blocked until all finish, then investigator synthesizes findings.
 
@@ -184,7 +198,7 @@ Agents never merge to master — only the user does that manually.
 
 ```bash
 cd your-project
-dbs init
+bd init
 
 # Optional: Copy agent configs
 git clone https://github.com/tsturo/debussy.git /tmp/debussy

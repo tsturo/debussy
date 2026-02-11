@@ -38,9 +38,6 @@ def main():
     p.add_argument("value", nargs="?", help="Value to set")
     p.set_defaults(func=cli.cmd_config)
 
-    p = subparsers.add_parser("init", help="Initialize beads with pipeline statuses")
-    p.set_defaults(func=cli.cmd_init)
-
     p = subparsers.add_parser("clear", help="Clear all beads and config")
     p.add_argument("-f", "--force", action="store_true", help="Skip confirmation")
     p.set_defaults(func=cli.cmd_clear)
@@ -48,7 +45,7 @@ def main():
     p = subparsers.add_parser("backup", help="Backup beads database")
     p.set_defaults(func=cli.cmd_backup)
 
-    p = subparsers.add_parser("pause", help="Pause pipeline, reset agent beads to planning")
+    p = subparsers.add_parser("pause", help="Pause pipeline, reset agent beads to open")
     p.add_argument("--restart", action="store_true", help="Restart after pausing")
     p.set_defaults(func=cli.cmd_pause)
 
@@ -62,7 +59,7 @@ def main():
         print("\nExamples:")
         print("  debussy start              # Start system")
         print("  debussy status             # Show status")
-        print('  bd create "task" --status planning  # Create task')
+        print('  bd create "task" -d "details"  # Create task')
         return 1
 
     return args.func(args) or 0

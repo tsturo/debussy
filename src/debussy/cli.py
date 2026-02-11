@@ -272,15 +272,6 @@ def cmd_config(args):
             print(f"  {k} = {v}")
 
 
-def cmd_init(args):
-    if not Path(".beads").exists():
-        result = subprocess.run(["bd", "init"], capture_output=True)
-        if result.returncode != 0:
-            log("Failed to init beads", "✗")
-            return 1
-        log("Initialized beads", "✓")
-
-
 def _backup_beads() -> Path | None:
     beads_dir = Path(".beads")
     if not beads_dir.exists():
