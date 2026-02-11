@@ -47,12 +47,12 @@ def _tmux_windows() -> set[str]:
 def _get_bead_status(bead_id: str) -> str | None:
     try:
         result = subprocess.run(
-            ["bd", "show", bead_id],
+            ["bd", "show", bead_id, "--json"],
             capture_output=True, text=True, timeout=5,
         )
-        for line in result.stdout.split('\n'):
-            if line.strip().startswith("Status:"):
-                return line.split(":", 1)[1].strip()
+        data = json.loads(result.stdout)
+        if isinstance(data, list) and data:
+            return data[0].get("status")
     except Exception:
         pass
     return None
