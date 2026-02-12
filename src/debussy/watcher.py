@@ -33,7 +33,7 @@ def _record_event(bead_id: str, event: str, **kwargs):
 
 MIN_AGENT_RUNTIME = 30
 MAX_RETRIES = 3
-MAX_REJECTIONS = 3
+MAX_REJECTIONS = 5
 
 COMPOSERS = [
     "bach", "mozart", "beethoven", "chopin", "liszt", "brahms", "wagner",
