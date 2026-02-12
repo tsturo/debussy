@@ -196,6 +196,11 @@ def _format_bead(bead: dict, running: dict, all_beads_by_id: dict) -> tuple[str,
         dep_info = _dep_summary(bead, all_beads_by_id)
         return "blocked", f"[blocked] {bead_id} {title}{dep_info}", bead_id
 
+    dep_info = _dep_summary(bead, all_beads_by_id)
+    if dep_info:
+        stage_info = f" {stages[0]}" if stages else ""
+        return "blocked", f"[waiting{stage_info}] {bead_id} {title}{dep_info}", bead_id
+
     if status == "in_progress":
         stage_info = f" {stages[0]}" if stages else ""
         return "active", f"[in_progress{stage_info}] {bead_id} {title}{agent_str}", bead_id
