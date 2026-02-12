@@ -17,6 +17,24 @@ from .prompts import CONDUCTOR_PROMPT
 from .worktree import remove_worktree, remove_all_worktrees
 
 
+def _preflight_check() -> bool:
+    result = subprocess.run(
+        ["git", "rev-parse", "--is-inside-work-tree"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        log("Not a git repository", "✗")
+        return False
+    result = subprocess.run(
+        ["git", "remote"], capture_output=True, text=True,
+    )
+    if "origin" not in result.stdout.split():
+        log("No 'origin' remote configured. Debussy requires a git remote.", "✗")
+        log("Add one with: git remote add origin <url>", "")
+        return False
+    return True
+
+
 def _run_tmux(*args, check=True):
     return subprocess.run(["tmux", *args], capture_output=True, check=check)
 
@@ -70,6 +88,8 @@ def _send_conductor_prompt(requirement: str | None):
 
 
 def cmd_start(args):
+    if not _preflight_check():
+        return 1
     _create_tmux_layout()
     _send_conductor_prompt(getattr(args, "requirement", None))
     _label_panes()
@@ -88,6 +108,8 @@ def cmd_start(args):
 
 
 def cmd_watch(args):
+    if not _preflight_check():
+        return 1
     from .watcher import Watcher
     Watcher().run()
 

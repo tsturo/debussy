@@ -19,6 +19,8 @@ bd init
 dbs start
 ```
 
+**Prerequisites:** Your project must be a git repository with an `origin` remote configured. Debussy uses `origin` for fetching, pushing, and branch tracking.
+
 ---
 
 ## How It Works
