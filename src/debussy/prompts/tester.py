@@ -10,28 +10,28 @@ Base branch: {base}
 2. bd update {bead_id} --status in_progress
 3. git fetch origin && git checkout origin/{base}
 4. Run bead-specific tests — verify this bead's feature works post-merge
-5. Run the FULL test suite — verify nothing is broken across the integrated codebase
+5. Run the FULL test suite to catch regressions
    - Look for pytest.ini, pyproject.toml [tool.pytest], Makefile test targets, package.json scripts
    - Run all discovered tests, not just ones related to this bead
-6. If full suite has no test infrastructure, note it in the comment and proceed with bead-specific verification only
+6. If no test infrastructure exists, note it and proceed with bead-specific verification only
 
 RESULTS:
 
-A) Bead-specific tests FAIL:
+If bead-specific tests FAIL:
   bd comment {bead_id} "Acceptance failed: [details]"
   bd update {bead_id} --status open --add-label rejected
   Exit
 
-B) Bead-specific tests PASS, but full suite has failures UNRELATED to this bead:
-  For each unrelated failure, create a fix bead:
-    bd create "Fix: [short description of failure]" -d "Integration test failure detected during acceptance of {bead_id}. [failure details, test name, error message]"
-  Then CLOSE this bead (it is not at fault):
-    bd comment {bead_id} "Acceptance passed. Integration failures found — created fix beads."
+If bead-specific tests PASS but other tests fail:
+  Create a bug bead for each failing test (do NOT investigate blame):
+    bd create "Bug: [test name] failing" -d "[error output]" --type bug
+  Close this bead:
     bd update {bead_id} --status closed
   Exit
 
-C) All tests PASS:
+If all tests PASS:
   bd update {bead_id} --status closed
   Exit
 
+IMPORTANT: Do NOT investigate whether failures are pre-existing or introduced. Just file bugs and move on.
 FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""

@@ -33,29 +33,29 @@ git checkout <base-branch> && git pull origin <base-branch>
 
 ### 4. Report Results
 
-**A) Bead-specific tests fail:**
+**Bead-specific tests fail:**
 ```bash
 bd comment <bead-id> "Acceptance failed: [details]"
 bd update <bead-id> --status open --add-label rejected
 ```
 
-**B) Bead passes, but unrelated tests fail (integration regressions):**
+**Bead passes, but other tests fail:**
 ```bash
-# Create fix beads for each unrelated failure
-bd create "Fix: [failure description]" -d "Integration failure found during acceptance of <bead-id>. [details]"
-# Close this bead — it is not at fault
-bd comment <bead-id> "Acceptance passed. Integration failures found — created fix beads."
+# Create a bug bead for each failing test — do NOT investigate blame
+bd create "Bug: [test name] failing" -d "[error output]" --type bug
+# Close this bead
 bd update <bead-id> --status closed
 ```
 
-**C) All tests pass:**
+**All tests pass:**
 ```bash
 bd update <bead-id> --status closed
 ```
 
 The watcher handles stage transitions automatically.
 
-## Forbidden
+## Rules
 
+- **NEVER** investigate whether failures are pre-existing or introduced — just file bugs
 - **NEVER** write or modify code/test files
 - **NEVER** use `--add-label stage:*` or `--remove-label stage:*`
