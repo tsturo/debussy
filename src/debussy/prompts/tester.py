@@ -27,7 +27,9 @@ A) Failure caused by this bead (test covers files this bead changed):
   Exit
 
 B) Failure NOT caused by this bead (test covers unrelated code):
-  Create a bug bead for each unrelated failure:
+  For each unrelated failure, check if a bug already exists:
+    bd search "[test name]" --type bug --status open
+  If no existing bug found, create one:
     bd create "Bug: [test name] failing" -d "[error output]" --type bug
   Close this bead:
     bd update {bead_id} --status closed
