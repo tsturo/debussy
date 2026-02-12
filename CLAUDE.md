@@ -40,7 +40,7 @@ Role-specific instructions are in `.claude/subagents/`.
 Two pipelines depending on task type:
 
 ```
-Development:   open → stage:development → stage:reviewing → stage:testing → stage:merging → stage:acceptance → closed
+Development:   open → stage:development → stage:reviewing → stage:merging → stage:acceptance → closed
 Investigation: open → stage:investigating (parallel) → stage:consolidating (investigator) → .md file → conductor creates dev tasks → closed
 ```
 
@@ -66,7 +66,6 @@ Investigators research in parallel and document findings. A consolidation step (
 | `stage:investigating` | investigator |
 | `stage:consolidating` | investigator |
 | `stage:reviewing` | reviewer |
-| `stage:testing` | tester |
 | `stage:merging` | integrator |
 | `stage:acceptance` | tester |
 
@@ -119,14 +118,12 @@ Investigators research in parallel and document findings. A consolidation step (
 - Blocked: `--status blocked` (watcher parks for conductor)
 
 ### @reviewer
-- Reviews code for quality and security
-- Approve: `--status open` (watcher advances to stage:testing)
+- Reviews code quality, security, and runs tests to verify behavior
+- Approve: `--status open` (watcher advances to stage:merging)
 - Reject: `--status open --add-label rejected` (watcher sends to stage:development)
 
 ### @tester
-- Tests code
-- Pass: `--status open` (watcher advances to stage:merging)
-- Fail: `--status open --add-label rejected` (watcher sends to stage:development)
+- Acceptance testing only (post-merge)
 - Acceptance pass: `--status closed` (watcher removes stage label, done)
 - Acceptance fail: `--status open --add-label rejected` (watcher sends to stage:development)
 

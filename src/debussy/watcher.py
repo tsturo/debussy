@@ -368,6 +368,7 @@ class Watcher:
                     else:
                         log(f"Released {bead_id}: deps resolved → stage:development", "🔓")
                         _record_event(bead_id, "release", stage="stage:development")
+                    self._verify_single_stage(bead_id)
                 except Exception:
                     pass
 
@@ -477,6 +478,8 @@ class Watcher:
 
         if status == "in_progress":
             cmd.extend(["--status", "open"])
+            for label in stage_labels[1:]:
+                cmd.extend(["--remove-label", label])
             log(f"Agent left {agent.bead} as in_progress, resetting to open for retry", "⚠️")
         elif not had_spawned_stage:
             if has_rejected:
@@ -534,6 +537,23 @@ class Watcher:
                 subprocess.run(cmd, capture_output=True, timeout=5)
             except Exception:
                 pass
+            self._verify_single_stage(agent.bead)
+
+    def _verify_single_stage(self, bead_id: str):
+        bead = _get_bead_json(bead_id)
+        if not bead:
+            return
+        stages = [l for l in bead.get("labels", []) if l.startswith("stage:")]
+        if len(stages) <= 1:
+            return
+        cmd = ["bd", "update", bead_id]
+        for label in stages[1:]:
+            cmd.extend(["--remove-label", label])
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=5)
+            log(f"Fixed {bead_id}: removed {len(stages)-1} extra stage label(s), kept {stages[0]}", "🔧")
+        except Exception:
+            pass
 
     def cleanup_finished(self):
         cleaned = False

@@ -21,10 +21,12 @@ TASK DESIGN — THIS IS CRITICAL:
 Multiple agents work in parallel. Each task is handled by ONE developer, then reviewed,
 tested, and merged independently. Tasks MUST be designed for parallel execution:
 
-- SMALL: One focused change, completable in a single session. If you'd describe it with
-  "and" — split it into two tasks.
+- SMALL: Hard rule: 1 bead = 1 file or 1 component, 1 behavior. Max 1-2 files.
+  If you'd describe it with "and" — split it into two tasks. If it needs 3+ files, split it.
+  A task that takes more than one agent session to complete is TOO BIG — split proactively.
 - ISOLATED: Each task touches its own files. Two tasks modifying the same file will cause
-  merge conflicts. Split by file/module boundary, not by feature.
+  merge conflicts. Split by file/module boundary, not by feature. If two tasks MUST touch
+  the same file, use --deps to serialize them.
 - TESTABLE: Each task must have clear, verifiable success criteria. Include expected behavior
   that can be validated with unit tests. "It works" is not testable.
   "Endpoint returns 200 with valid JWT" is testable. If a task is hard to test automatically,
@@ -36,13 +38,15 @@ tested, and merged independently. Tasks MUST be designed for parallel execution:
 BAD:  "Build user authentication" (too big, touches everything)
 BAD:  "Create models and API endpoints" (two tasks disguised as one)
 BAD:  "Implement panel UI" (vague, what files? what behavior?)
+BAD:  "Add privacy features" (4 features in one — split into 4 tasks)
 GOOD: "Create User model in src/models/user.ts with email, passwordHash, createdAt fields"
 GOOD: "Add POST /api/auth/login endpoint — validate credentials, return JWT"
 GOOD: "Create LoginForm component in src/components/LoginForm.tsx with email/password fields"
 
-INCLUDE TEST CRITERIA in task descriptions — the developer writes unit tests, the tester verifies
-and adds integration tests. Example:
-  bd create "Add login endpoint" -d "POST /api/auth/login. Returns 200+JWT for valid creds, 401 for invalid. Developer: write unit tests for both cases."
+INCLUDE TEST CRITERIA in task descriptions — the developer MUST write all tests. There is no
+separate test-writing stage. The verifier only runs existing tests, it never writes new ones.
+If the developer ships without tests, the bead gets rejected. Example:
+  bd create "Add login endpoint" -d "POST /api/auth/login. Returns 200+JWT for valid creds, 401 for invalid. Tests: unit tests for both cases, test invalid token format."
 
 CREATING TASKS (ALWAYS include -d with specific details):
 bd create "Create User model" -d "Add src/models/user.ts with fields: email, passwordHash, createdAt. Use bcrypt for hashing."
@@ -55,7 +59,7 @@ bd update bd-001 --add-label stage:development     # development task
 bd update bd-002 --add-label stage:investigating   # investigation/research task
 
 PIPELINES:
-Development: open → stage:development → stage:reviewing → stage:testing → stage:merging → stage:acceptance → closed
+Development: open → stage:development → stage:reviewing → stage:merging → stage:acceptance → closed
 Investigation: open → stage:investigating (parallel) → stage:consolidating → dev tasks created → closed
 
 Investigators document findings as comments. The consolidation step writes an .md file to .debussy/investigations/.
