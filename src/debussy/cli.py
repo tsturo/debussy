@@ -54,10 +54,12 @@ def _create_tmux_layout():
     _run_tmux("new-session", "-d", "-s", SESSION_NAME, "-n", "main")
 
     t = f"{SESSION_NAME}:main"
-    _run_tmux("split-window", "-h", "-p", "67", "-t", t)
+    _run_tmux("split-window", "-h", "-p", "33", "-t", t)
+    _run_tmux("split-window", "-h", "-p", "50", "-t", f"{t}.0")
     _run_tmux("split-window", "-v", "-p", "50", "-t", f"{t}.0")
-    _run_tmux("split-window", "-v", "-p", "35", "-t", f"{t}.2")
-    _run_tmux("split-window", "-h", "-p", "50", "-t", f"{t}.2")
+
+    _run_tmux("new-window", "-t", SESSION_NAME, "-n", "board")
+    _send_keys(f"{SESSION_NAME}:board", "watch -n 5 'debussy board'")
 
     Path(".debussy").mkdir(parents=True, exist_ok=True)
 
@@ -65,15 +67,15 @@ def _create_tmux_layout():
     _send_keys(f"{t}.0", claude_cmd)
     _send_keys(f"{t}.2", "watch -n 5 'debussy status'")
     _send_keys(f"{t}.3", "debussy watch")
-    _send_keys(f"{t}.4", "watch -n 5 'debussy board'")
 
 
 def _label_panes():
     t = f"{SESSION_NAME}:main"
-    for idx, title in enumerate(["conductor", "cmd", "status", "watcher", "board"]):
+    for idx, title in enumerate(["conductor", "cmd", "status", "watcher"]):
         _run_tmux("select-pane", "-t", f"{t}.{idx}", "-T", title)
     _run_tmux("set-option", "-t", SESSION_NAME, "pane-border-status", "top")
     _run_tmux("set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} ")
+    _run_tmux("select-window", "-t", f"{SESSION_NAME}:main")
     _run_tmux("select-pane", "-t", f"{t}.0")
 
 
@@ -100,11 +102,12 @@ def cmd_start(args):
     print("")
     print("Layout:")
     print("  ┌──────────┬──────────┬─────────┐")
-    print("  │conductor │  status  │ watcher │")
-    print("  ├──────────┤          │         │")
-    print("  │   cmd    ├──────────┴─────────┤")
-    print("  │          │       board        │")
-    print("  └──────────┴────────────────────┘")
+    print("  │conductor │          │         │")
+    print("  ├──────────┤  status  │ watcher │")
+    print("  │   cmd    │          │         │")
+    print("  └──────────┴──────────┴─────────┘")
+    print("")
+    print("  Window 2: board (auto-refresh)")
     print("")
 
     subprocess.run(["tmux", "attach-session", "-t", SESSION_NAME])
@@ -616,44 +619,44 @@ STAGE_SHORT = {
 }
 
 
-DEV_COLUMNS = ["backlog", "dev", "review", "merge", "accept", "done"]
-DEV_TITLES = {
-    "backlog": "Backlog", "dev": "Dev", "review": "Review",
-    "merge": "Merge", "accept": "Accept", "done": "Done",
+BOARD_COLUMNS = [
+    ("backlog", "Backlog"),
+    ("dev", "Dev"),
+    ("review", "Review"),
+    ("merge", "Merge"),
+    ("accept", "Accept"),
+    ("done", "Done"),
+]
+BOARD_INV_COLUMNS = [
+    ("investigating", "Investigating"),
+    ("consolidating", "Consolidating"),
+]
+BOARD_STAGE_MAP = {
+    "stage:development": "dev",
+    "stage:reviewing": "review",
+    "stage:merging": "merge",
+    "stage:acceptance": "accept",
+    "stage:investigating": "investigating",
+    "stage:consolidating": "consolidating",
 }
-INV_COLUMNS = ["investigating", "consolidating"]
-INV_TITLES = {"investigating": "Investigating", "consolidating": "Consolidating"}
-MAX_CARDS = 8
 DONE_LIMIT = 5
-MIN_COL_WIDTH = 12
+MAX_ROW_BEADS = 10
 
 
 def _categorize_bead(bead):
-    status = bead.get("status", "")
-    labels = bead.get("labels", [])
-    stages = [l for l in labels if l.startswith("stage:")]
-
-    if status == "closed":
+    if bead.get("status") == "closed":
         return "done"
-
-    stage_map = {
-        "stage:development": "dev",
-        "stage:reviewing": "review",
-        "stage:merging": "merge",
-        "stage:acceptance": "accept",
-        "stage:investigating": "investigating",
-        "stage:consolidating": "consolidating",
-    }
-    for s in stages:
-        if s in stage_map:
-            return stage_map[s]
-
+    for label in bead.get("labels", []):
+        if label in BOARD_STAGE_MAP:
+            return BOARD_STAGE_MAP[label]
     return "backlog"
 
 
 def _build_buckets(beads, running, all_beads_by_id):
-    dev = {col: [] for col in DEV_COLUMNS}
-    inv = {col: [] for col in INV_COLUMNS}
+    dev_keys = {k for k, _ in BOARD_COLUMNS}
+    inv_keys = {k for k, _ in BOARD_INV_COLUMNS}
+    dev = {k: [] for k in dev_keys}
+    inv = {k: [] for k in inv_keys}
 
     for bead in beads:
         col = _categorize_bead(bead)
@@ -670,10 +673,19 @@ def _build_buckets(beads, running, all_beads_by_id):
 
 def _sort_key(bead, running, all_beads_by_id):
     bead_id = bead.get("id", "")
-    status = bead.get("status", "")
     is_running = bead_id in running
-    is_blocked = status == "blocked" or bool(_waiting_on(bead, all_beads_by_id))
+    is_blocked = bead.get("status") == "blocked" or bool(_waiting_on(bead, all_beads_by_id))
     return (not is_running, not is_blocked, bead_id)
+
+
+def _bead_marker(bead, running, all_beads_by_id):
+    bead_id = bead.get("id", "")
+    if bead_id in running:
+        agent = running[bead_id].get("agent", "")
+        return f" \U0001f504 {agent}"
+    if bead.get("status") == "blocked" or _waiting_on(bead, all_beads_by_id):
+        return " \u2298"
+    return ""
 
 
 def _board_truncate(text, width):
@@ -682,143 +694,46 @@ def _board_truncate(text, width):
     return text[:width - 2] + ".."
 
 
-def _render_card(bead, running, all_beads_by_id, width):
-    bead_id = bead.get("id", "")
-    title = bead.get("title", "")
-    status = bead.get("status", "")
-    is_blocked = status == "blocked" or bool(_waiting_on(bead, all_beads_by_id))
+def _render_vertical(columns, buckets, running, all_beads_by_id, term_width):
+    label_width = max(len(title) for _, title in columns) + 5
+    content_width = term_width - label_width - 3
 
-    lines = [_board_truncate(bead_id, width).ljust(width)]
-    lines.append(_board_truncate(title, width).ljust(width))
+    top = "\u250c" + "\u2500" * (label_width) + "\u252c" + "\u2500" * (content_width) + "\u2510"
+    sep = "\u251c" + "\u2500" * (label_width) + "\u253c" + "\u2500" * (content_width) + "\u2524"
+    bot = "\u2514" + "\u2500" * (label_width) + "\u2534" + "\u2500" * (content_width) + "\u2518"
 
-    if bead_id in running:
-        agent = running[bead_id].get("agent", "")
-        lines.append(_board_truncate(f"\U0001f504 {agent}", width).ljust(width))
-    elif is_blocked:
-        lines.append(_board_truncate("\u2298 blocked", width).ljust(width))
-    return lines
+    lines = [top]
+    for i, (key, title) in enumerate(columns):
+        beads_list = buckets.get(key, [])
+        count = len(beads_list)
+        label = f"{title} ({count})" if count else title
+        label_cell = label.ljust(label_width)
 
-
-def _compute_col_widths(term_width, num_cols):
-    available = term_width - num_cols - 1
-    base = max(available // num_cols, MIN_COL_WIDTH)
-    widths = [base] * num_cols
-    remainder = available - base * num_cols
-    for i in range(max(remainder, 0)):
-        widths[i] += 1
-    return widths
-
-
-def _render_hline(widths, left, mid, right):
-    parts = ["\u2500" * w for w in widths]
-    return left + mid.join(parts) + right
-
-
-def _render_header(columns, titles, counts, widths):
-    lines = []
-    lines.append(_render_hline(widths, "\u250c", "\u252c", "\u2510"))
-    cells = []
-    for col, w in zip(columns, widths):
-        name = titles[col]
-        c = counts.get(col, 0)
-        label = f"{name} ({c})" if c else name
-        cells.append(_board_truncate(label, w).ljust(w))
-    lines.append("\u2502" + "\u2502".join(cells) + "\u2502")
-    lines.append(_render_hline(widths, "\u251c", "\u253c", "\u2524"))
-    return lines
-
-
-def _render_footer(widths):
-    return _render_hline(widths, "\u2514", "\u2534", "\u2518")
-
-
-def _render_card_rows(columns, buckets, titles, running, all_beads_by_id, widths, max_cards, done_limit):
-    col_cards = []
-    for col, w in zip(columns, widths):
-        inner = w - 1
-        beads_list = buckets.get(col, [])
-        limit = done_limit if col == "done" else max_cards
+        limit = DONE_LIMIT if key == "done" else MAX_ROW_BEADS
         shown = beads_list[:limit]
-        overflow = len(beads_list) - len(shown)
-        cards = []
-        for bead in shown:
-            card_lines = _render_card(bead, running, all_beads_by_id, inner)
-            cards.extend(card_lines)
-            cards.append(" " * inner)
-        if overflow > 0:
-            cards.append(_board_truncate(f"+{overflow} more", inner).ljust(inner))
-            cards.append(" " * inner)
-        if cards and cards[-1].strip() == "":
-            cards.pop()
-        col_cards.append(cards)
+        overflow = count - len(shown)
 
-    max_height = max((len(c) for c in col_cards), default=0)
-    lines = []
-    for row in range(max_height):
-        cells = []
-        for col_idx, w in enumerate(widths):
-            inner = w - 1
-            card_list = col_cards[col_idx]
-            if row < len(card_list):
-                cell = card_list[row]
-            else:
-                cell = " " * inner
-            cells.append(cell + " ")
-        lines.append("\u2502" + "\u2502".join(cells) + "\u2502")
-    return lines
-
-
-def _render_board(dev_buckets, inv_buckets, running, all_beads_by_id, term_width):
-    lines = []
-
-    dev_widths = _compute_col_widths(term_width, len(DEV_COLUMNS))
-    dev_counts = {col: len(dev_buckets.get(col, [])) for col in DEV_COLUMNS}
-    lines.extend(_render_header(DEV_COLUMNS, DEV_TITLES, dev_counts, dev_widths))
-    lines.extend(_render_card_rows(
-        DEV_COLUMNS, dev_buckets, DEV_TITLES,
-        running, all_beads_by_id, dev_widths, MAX_CARDS, DONE_LIMIT,
-    ))
-    lines.append(_render_footer(dev_widths))
-
-    has_inv = any(inv_buckets.get(col) for col in INV_COLUMNS)
-    if has_inv:
-        lines.append("")
-        inv_widths = _compute_col_widths(term_width, len(INV_COLUMNS))
-        inv_counts = {col: len(inv_buckets.get(col, [])) for col in INV_COLUMNS}
-        lines.extend(_render_header(INV_COLUMNS, INV_TITLES, inv_counts, inv_widths))
-        lines.extend(_render_card_rows(
-            INV_COLUMNS, inv_buckets, INV_TITLES,
-            running, all_beads_by_id, inv_widths, MAX_CARDS, MAX_CARDS,
-        ))
-        lines.append(_render_footer(inv_widths))
-
-    return "\n".join(lines)
-
-
-def _render_compact(dev_buckets, inv_buckets, running, all_beads_by_id):
-    lines = []
-    all_cols = [(DEV_COLUMNS, DEV_TITLES, dev_buckets),
-                (INV_COLUMNS, INV_TITLES, inv_buckets)]
-    for columns, titles, buckets in all_cols:
-        for col in columns:
-            beads_list = buckets.get(col, [])
-            if not beads_list:
-                continue
-            lines.append(f"{titles[col]} ({len(beads_list)})")
-            limit = DONE_LIMIT if col == "done" else MAX_CARDS
-            for bead in beads_list[:limit]:
+        if not shown:
+            content_lines = [" " * content_width]
+        else:
+            content_lines = []
+            for bead in shown:
                 bead_id = bead.get("id", "")
-                title = bead.get("title", "")
-                marker = ""
-                if bead_id in running:
-                    marker = " \U0001f504"
-                elif bead.get("status") == "blocked" or _waiting_on(bead, all_beads_by_id):
-                    marker = " \u2298"
-                lines.append(f"  {bead_id} {title}{marker}")
-            overflow = len(beads_list) - limit
+                bead_title = bead.get("title", "")
+                marker = _bead_marker(bead, running, all_beads_by_id)
+                entry = f"{bead_id} {bead_title}{marker}"
+                content_lines.append(_board_truncate(entry, content_width).ljust(content_width))
             if overflow > 0:
-                lines.append(f"  +{overflow} more")
-            lines.append("")
+                content_lines.append(f"+{overflow} more".ljust(content_width))
+
+        for j, cl in enumerate(content_lines):
+            lbl = label_cell if j == 0 else " " * label_width
+            lines.append(f"\u2502{lbl}\u2502{cl}\u2502")
+
+        if i < len(columns) - 1:
+            lines.append(sep)
+
+    lines.append(bot)
     return "\n".join(lines)
 
 
@@ -828,13 +743,14 @@ def cmd_board(args):
     all_beads_by_id = {b.get("id"): b for b in all_beads if b.get("id")}
 
     dev_buckets, inv_buckets = _build_buckets(all_beads, running, all_beads_by_id)
-
     term_width = shutil.get_terminal_size().columns
 
-    if term_width < 79:
-        print(_render_compact(dev_buckets, inv_buckets, running, all_beads_by_id))
-    else:
-        print(_render_board(dev_buckets, inv_buckets, running, all_beads_by_id, term_width))
+    print(_render_vertical(BOARD_COLUMNS, dev_buckets, running, all_beads_by_id, term_width))
+
+    has_inv = any(inv_buckets.get(k) for k, _ in BOARD_INV_COLUMNS)
+    if has_inv:
+        print()
+        print(_render_vertical(BOARD_INV_COLUMNS, inv_buckets, running, all_beads_by_id, term_width))
 
 
 def _fmt_duration(seconds: float) -> str:
