@@ -34,6 +34,7 @@ def _record_event(bead_id: str, event: str, **kwargs):
 MIN_AGENT_RUNTIME = 30
 MAX_RETRIES = 3
 MAX_REJECTIONS = 5
+REJECTION_COOLDOWN = 60
 
 COMPOSERS = [
     "bach", "mozart", "beethoven", "chopin", "liszt", "brahms", "wagner",
@@ -75,6 +76,17 @@ def _get_bead_json(bead_id: str) -> dict | None:
 def _get_bead_status(bead_id: str) -> str | None:
     bead = _get_bead_json(bead_id)
     return bead.get("status") if bead else None
+
+
+def _branch_has_commits(bead_id: str, base: str) -> bool:
+    try:
+        result = subprocess.run(
+            ["git", "rev-list", "--count", f"{base}..origin/feature/{bead_id}"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.returncode == 0 and int(result.stdout.strip()) > 0
+    except Exception:
+        return True
 
 
 def _has_unresolved_deps(bead: dict) -> bool:
@@ -137,9 +149,25 @@ class Watcher:
         self.used_names: set[str] = set()
         self.failures: dict[str, int] = {}
         self.rejections: dict[str, int] = {}
+        self.cooldowns: dict[str, float] = {}
         self.should_exit = False
         self.state_file = Path(".debussy/watcher_state.json")
+        self._rejections_file = Path(".debussy/rejections.json")
         self._cached_windows: set[str] | None = None
+        self._load_rejections()
+
+    def _load_rejections(self):
+        try:
+            if self._rejections_file.exists():
+                self.rejections = json.loads(self._rejections_file.read_text())
+        except Exception:
+            pass
+
+    def _save_rejections(self):
+        try:
+            atomic_write(self._rejections_file, json.dumps(self.rejections))
+        except Exception:
+            pass
 
     def _refresh_tmux_cache(self):
         has_tmux = any(a.tmux for a in self.running.values())
@@ -284,8 +312,11 @@ class Watcher:
             stage_labels = [l for l in labels if l.startswith("stage:")]
             if not stage_labels:
                 continue
+            full_bead = _get_bead_json(bead_id)
+            real_labels = full_bead.get("labels", []) if full_bead else labels
+            real_stages = [l for l in real_labels if l.startswith("stage:")]
             cmd = ["bd", "update", bead_id, "--status", "open"]
-            for label in stage_labels[1:]:
+            for label in real_stages[1:]:
                 cmd.extend(["--remove-label", label])
             try:
                 subprocess.run(cmd, capture_output=True, timeout=5)
@@ -362,6 +393,10 @@ class Watcher:
                         continue
 
                     if self.is_bead_running(bead_id):
+                        continue
+
+                    cooldown_until = self.cooldowns.get(bead_id, 0)
+                    if cooldown_until and time.time() - cooldown_until < REJECTION_COOLDOWN:
                         continue
 
                     if self.failures.get(bead_id, 0) >= MAX_RETRIES:
@@ -468,10 +503,13 @@ class Watcher:
                         pass
                 else:
                     cmd.extend(["--add-label", "stage:development"])
-                    log(f"Rejected {agent.bead} ({count}/{MAX_REJECTIONS}): {agent.spawned_stage} → stage:development", "↩️")
+                    self.cooldowns[agent.bead] = time.time()
+                    log(f"Rejected {agent.bead} ({count}/{MAX_REJECTIONS}): {agent.spawned_stage} → stage:development (cooldown {REJECTION_COOLDOWN}s)", "↩️")
+                self._save_rejections()
                 _record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": "stage:development"})
             elif status == "closed":
                 self.rejections.pop(agent.bead, None)
+                self._save_rejections()
                 log(f"Closed {agent.bead}: {agent.spawned_stage} complete", "✅")
                 _record_event(agent.bead, "close", stage=agent.spawned_stage)
             elif status == "blocked":
@@ -479,6 +517,13 @@ class Watcher:
                 _record_event(agent.bead, "block", stage=agent.spawned_stage)
             elif status == "open":
                 next_stage = NEXT_STAGE.get(agent.spawned_stage)
+                if next_stage and agent.spawned_stage == "stage:development":
+                    base = get_config().get("base_branch", "master")
+                    if not _branch_has_commits(agent.bead, base):
+                        cmd.extend(["--add-label", "stage:development"])
+                        log(f"No commits on feature/{agent.bead} — keeping in development", "⚠️")
+                        _record_event(agent.bead, "empty_branch", stage=agent.spawned_stage)
+                        next_stage = None
                 if next_stage:
                     cmd.extend(["--add-label", next_stage])
                     log(f"Advancing {agent.bead}: {agent.spawned_stage} → {next_stage}", "⏩")
