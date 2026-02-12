@@ -33,6 +33,7 @@ def _record_event(bead_id: str, event: str, **kwargs):
 
 MIN_AGENT_RUNTIME = 30
 MAX_RETRIES = 3
+MAX_REJECTIONS = 3
 
 COMPOSERS = [
     "bach", "mozart", "beethoven", "chopin", "liszt", "brahms", "wagner",
@@ -135,6 +136,7 @@ class Watcher:
         self.queued: set[str] = set()
         self.used_names: set[str] = set()
         self.failures: dict[str, int] = {}
+        self.rejections: dict[str, int] = {}
         self.should_exit = False
         self.state_file = Path(".debussy/watcher_state.json")
         self._cached_windows: set[str] | None = None
@@ -451,10 +453,25 @@ class Watcher:
 
             if has_rejected:
                 cmd.extend(["--remove-label", "rejected"])
-                cmd.extend(["--add-label", "stage:development"])
-                log(f"Rejected {agent.bead}: {agent.spawned_stage} → stage:development", "↩️")
+                self.rejections[agent.bead] = self.rejections.get(agent.bead, 0) + 1
+                count = self.rejections[agent.bead]
+                if count >= MAX_REJECTIONS:
+                    cmd.extend(["--status", "blocked"])
+                    log(f"Blocked {agent.bead}: rejected {count} times, needs conductor", "🚫")
+                    _record_event(agent.bead, "loop_blocked", stage=agent.spawned_stage, rejections=count)
+                    try:
+                        subprocess.run(
+                            ["bd", "comment", agent.bead, f"Blocked after {count} rejection loops — needs conductor intervention"],
+                            capture_output=True, timeout=5,
+                        )
+                    except Exception:
+                        pass
+                else:
+                    cmd.extend(["--add-label", "stage:development"])
+                    log(f"Rejected {agent.bead} ({count}/{MAX_REJECTIONS}): {agent.spawned_stage} → stage:development", "↩️")
                 _record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": "stage:development"})
             elif status == "closed":
+                self.rejections.pop(agent.bead, None)
                 log(f"Closed {agent.bead}: {agent.spawned_stage} complete", "✅")
                 _record_event(agent.bead, "close", stage=agent.spawned_stage)
             elif status == "blocked":
