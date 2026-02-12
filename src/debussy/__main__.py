@@ -49,6 +49,9 @@ def main():
     p.add_argument("--restart", action="store_true", help="Restart after pausing")
     p.set_defaults(func=cli.cmd_pause)
 
+    p = subparsers.add_parser("board", help="Show kanban board")
+    p.set_defaults(func=cli.cmd_board)
+
     p = subparsers.add_parser("debug", help="Debug watcher pipeline")
     p.set_defaults(func=cli.cmd_debug)
 

@@ -613,6 +613,227 @@ STAGE_SHORT = {
 }
 
 
+DEV_COLUMNS = ["backlog", "dev", "review", "merge", "accept", "done"]
+DEV_TITLES = {
+    "backlog": "Backlog", "dev": "Dev", "review": "Review",
+    "merge": "Merge", "accept": "Accept", "done": "Done",
+}
+INV_COLUMNS = ["investigating", "consolidating"]
+INV_TITLES = {"investigating": "Investigating", "consolidating": "Consolidating"}
+MAX_CARDS = 8
+DONE_LIMIT = 5
+MIN_COL_WIDTH = 12
+
+
+def _categorize_bead(bead):
+    status = bead.get("status", "")
+    labels = bead.get("labels", [])
+    stages = [l for l in labels if l.startswith("stage:")]
+
+    if status == "closed":
+        return "done"
+
+    stage_map = {
+        "stage:development": "dev",
+        "stage:reviewing": "review",
+        "stage:merging": "merge",
+        "stage:acceptance": "accept",
+        "stage:investigating": "investigating",
+        "stage:consolidating": "consolidating",
+    }
+    for s in stages:
+        if s in stage_map:
+            return stage_map[s]
+
+    return "backlog"
+
+
+def _build_buckets(beads, running, all_beads_by_id):
+    dev = {col: [] for col in DEV_COLUMNS}
+    inv = {col: [] for col in INV_COLUMNS}
+
+    for bead in beads:
+        col = _categorize_bead(bead)
+        if col in dev:
+            dev[col].append(bead)
+        elif col in inv:
+            inv[col].append(bead)
+
+    for bucket in list(dev.values()) + list(inv.values()):
+        bucket.sort(key=lambda b: _sort_key(b, running, all_beads_by_id))
+
+    return dev, inv
+
+
+def _sort_key(bead, running, all_beads_by_id):
+    bead_id = bead.get("id", "")
+    status = bead.get("status", "")
+    is_running = bead_id in running
+    is_blocked = status == "blocked" or bool(_waiting_on(bead, all_beads_by_id))
+    return (not is_running, not is_blocked, bead_id)
+
+
+def _board_truncate(text, width):
+    if len(text) <= width:
+        return text
+    return text[:width - 2] + ".."
+
+
+def _render_card(bead, running, all_beads_by_id, width):
+    bead_id = bead.get("id", "")
+    title = bead.get("title", "")
+    status = bead.get("status", "")
+    is_blocked = status == "blocked" or bool(_waiting_on(bead, all_beads_by_id))
+
+    lines = [_board_truncate(bead_id, width).ljust(width)]
+    lines.append(_board_truncate(title, width).ljust(width))
+
+    if bead_id in running:
+        agent = running[bead_id].get("agent", "")
+        lines.append(_board_truncate(f"\U0001f504 {agent}", width).ljust(width))
+    elif is_blocked:
+        lines.append(_board_truncate("\u2298 blocked", width).ljust(width))
+    return lines
+
+
+def _compute_col_widths(term_width, num_cols):
+    available = term_width - num_cols - 1
+    base = max(available // num_cols, MIN_COL_WIDTH)
+    widths = [base] * num_cols
+    remainder = available - base * num_cols
+    for i in range(max(remainder, 0)):
+        widths[i] += 1
+    return widths
+
+
+def _render_hline(widths, left, mid, right):
+    parts = ["\u2500" * w for w in widths]
+    return left + mid.join(parts) + right
+
+
+def _render_header(columns, titles, counts, widths):
+    lines = []
+    lines.append(_render_hline(widths, "\u250c", "\u252c", "\u2510"))
+    cells = []
+    for col, w in zip(columns, widths):
+        name = titles[col]
+        c = counts.get(col, 0)
+        label = f"{name} ({c})" if c else name
+        cells.append(_board_truncate(label, w).ljust(w))
+    lines.append("\u2502" + "\u2502".join(cells) + "\u2502")
+    lines.append(_render_hline(widths, "\u251c", "\u253c", "\u2524"))
+    return lines
+
+
+def _render_footer(widths):
+    return _render_hline(widths, "\u2514", "\u2534", "\u2518")
+
+
+def _render_card_rows(columns, buckets, titles, running, all_beads_by_id, widths, max_cards, done_limit):
+    col_cards = []
+    for col, w in zip(columns, widths):
+        inner = w - 1
+        beads_list = buckets.get(col, [])
+        limit = done_limit if col == "done" else max_cards
+        shown = beads_list[:limit]
+        overflow = len(beads_list) - len(shown)
+        cards = []
+        for bead in shown:
+            card_lines = _render_card(bead, running, all_beads_by_id, inner)
+            cards.extend(card_lines)
+            cards.append(" " * inner)
+        if overflow > 0:
+            cards.append(_board_truncate(f"+{overflow} more", inner).ljust(inner))
+            cards.append(" " * inner)
+        if cards and cards[-1].strip() == "":
+            cards.pop()
+        col_cards.append(cards)
+
+    max_height = max((len(c) for c in col_cards), default=0)
+    lines = []
+    for row in range(max_height):
+        cells = []
+        for col_idx, w in enumerate(widths):
+            inner = w - 1
+            card_list = col_cards[col_idx]
+            if row < len(card_list):
+                cell = card_list[row]
+            else:
+                cell = " " * inner
+            cells.append(cell + " ")
+        lines.append("\u2502" + "\u2502".join(cells) + "\u2502")
+    return lines
+
+
+def _render_board(dev_buckets, inv_buckets, running, all_beads_by_id, term_width):
+    lines = []
+
+    dev_widths = _compute_col_widths(term_width, len(DEV_COLUMNS))
+    dev_counts = {col: len(dev_buckets.get(col, [])) for col in DEV_COLUMNS}
+    lines.extend(_render_header(DEV_COLUMNS, DEV_TITLES, dev_counts, dev_widths))
+    lines.extend(_render_card_rows(
+        DEV_COLUMNS, dev_buckets, DEV_TITLES,
+        running, all_beads_by_id, dev_widths, MAX_CARDS, DONE_LIMIT,
+    ))
+    lines.append(_render_footer(dev_widths))
+
+    has_inv = any(inv_buckets.get(col) for col in INV_COLUMNS)
+    if has_inv:
+        lines.append("")
+        inv_widths = _compute_col_widths(term_width, len(INV_COLUMNS))
+        inv_counts = {col: len(inv_buckets.get(col, [])) for col in INV_COLUMNS}
+        lines.extend(_render_header(INV_COLUMNS, INV_TITLES, inv_counts, inv_widths))
+        lines.extend(_render_card_rows(
+            INV_COLUMNS, inv_buckets, INV_TITLES,
+            running, all_beads_by_id, inv_widths, MAX_CARDS, MAX_CARDS,
+        ))
+        lines.append(_render_footer(inv_widths))
+
+    return "\n".join(lines)
+
+
+def _render_compact(dev_buckets, inv_buckets, running, all_beads_by_id):
+    lines = []
+    all_cols = [(DEV_COLUMNS, DEV_TITLES, dev_buckets),
+                (INV_COLUMNS, INV_TITLES, inv_buckets)]
+    for columns, titles, buckets in all_cols:
+        for col in columns:
+            beads_list = buckets.get(col, [])
+            if not beads_list:
+                continue
+            lines.append(f"{titles[col]} ({len(beads_list)})")
+            limit = DONE_LIMIT if col == "done" else MAX_CARDS
+            for bead in beads_list[:limit]:
+                bead_id = bead.get("id", "")
+                title = bead.get("title", "")
+                marker = ""
+                if bead_id in running:
+                    marker = " \U0001f504"
+                elif bead.get("status") == "blocked" or _waiting_on(bead, all_beads_by_id):
+                    marker = " \u2298"
+                lines.append(f"  {bead_id} {title}{marker}")
+            overflow = len(beads_list) - limit
+            if overflow > 0:
+                lines.append(f"  +{overflow} more")
+            lines.append("")
+    return "\n".join(lines)
+
+
+def cmd_board(args):
+    all_beads = _get_all_beads()
+    running = _get_running_agents()
+    all_beads_by_id = {b.get("id"): b for b in all_beads if b.get("id")}
+
+    dev_buckets, inv_buckets = _build_buckets(all_beads, running, all_beads_by_id)
+
+    term_width = shutil.get_terminal_size().columns
+
+    if term_width < 79:
+        print(_render_compact(dev_buckets, inv_buckets, running, all_beads_by_id))
+    else:
+        print(_render_board(dev_buckets, inv_buckets, running, all_beads_by_id, term_width))
+
+
 def _fmt_duration(seconds: float) -> str:
     if seconds < 60:
         return f"{int(seconds)}s"
