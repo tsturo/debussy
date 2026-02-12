@@ -324,7 +324,7 @@ def cmd_upgrade(args):
     log(f"Current version: {__version__}", "📦")
     log("Upgrading debussy...", "⬆️")
     result = subprocess.run([
-        "pipx", "runpip", "debussy", "install", "--upgrade",
+        "pipx", "install", "--force",
         "git+https://github.com/tsturo/debussy.git"
     ])
     if result.returncode == 0:
