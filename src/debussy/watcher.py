@@ -17,6 +17,7 @@ from .config import (
     get_config, log,
 )
 from .prompts import get_prompt
+from .worktree import cleanup_stale_worktrees, create_worktree, remove_worktree
 
 EVENTS_FILE = Path(".debussy/pipeline_events.jsonl")
 
@@ -112,6 +113,7 @@ class AgentInfo:
     log_path: str = ""
     log_handle: object = field(default=None, repr=False)
     started_at: float = field(default_factory=time.time)
+    worktree_path: str = ""
 
     def is_alive(self, tmux_windows: set[str] | None = None) -> bool:
         if self.tmux:
@@ -155,6 +157,7 @@ class Watcher:
         self._rejections_file = Path(".debussy/rejections.json")
         self._cached_windows: set[str] | None = None
         self._load_rejections()
+        cleanup_stale_worktrees()
 
     def _load_rejections(self):
         try:
@@ -184,6 +187,7 @@ class Watcher:
                 "role": agent.role,
                 "log": agent.log_path,
                 "tmux": agent.tmux,
+                "worktree_path": agent.worktree_path,
             }
         atomic_write(self.state_file, json.dumps(state))
 
@@ -206,6 +210,29 @@ class Watcher:
     def has_running_role(self, role: str) -> bool:
         return any(a.role == role for a in self._alive_agents())
 
+    def _create_agent_worktree(self, role: str, bead_id: str, agent_name: str) -> str:
+        if role == "investigator":
+            return ""
+        cfg = get_config()
+        base = cfg.get("base_branch", "master")
+        try:
+            subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=30)
+        except Exception:
+            pass
+        try:
+            if role == "developer":
+                wt = create_worktree(agent_name, f"feature/{bead_id}", start_point=f"origin/{base}", new_branch=True)
+            elif role == "reviewer":
+                wt = create_worktree(agent_name, f"origin/feature/{bead_id}", detach=True)
+            elif role in ("integrator", "tester"):
+                wt = create_worktree(agent_name, f"origin/{base}", detach=True)
+            else:
+                return ""
+            return str(wt)
+        except Exception as e:
+            log(f"Failed to create worktree for {agent_name}: {e}", "⚠️")
+            return ""
+
     def spawn_agent(self, role: str, bead_id: str, stage: str):
         key = f"{role}:{bead_id}"
 
@@ -216,22 +243,25 @@ class Watcher:
         log(f"Spawning {agent_name} for {bead_id}", "🚀")
         _record_event(bead_id, "spawn", stage=stage, agent=agent_name)
 
+        worktree_path = self._create_agent_worktree(role, bead_id, agent_name)
+
         prompt = get_prompt(role, bead_id, stage)
 
         cfg = get_config()
         use_tmux = cfg.get("use_tmux_windows", False) and os.environ.get("TMUX") is not None
 
         if use_tmux:
-            self._spawn_tmux(key, agent_name, bead_id, role, prompt, stage)
+            self._spawn_tmux(key, agent_name, bead_id, role, prompt, stage, worktree_path)
         else:
-            self._spawn_background(key, agent_name, bead_id, role, prompt)
+            self._spawn_background(key, agent_name, bead_id, role, prompt, worktree_path)
 
-    def _spawn_tmux(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str, stage: str):
+    def _spawn_tmux(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str, stage: str, worktree_path: str = ""):
         claude_cmd = "claude"
         if YOLO_MODE:
             claude_cmd += " --dangerously-skip-permissions"
 
-        shell_cmd = f"export DEBUSSY_ROLE={role} DEBUSSY_BEAD={bead_id}; {claude_cmd}"
+        cd_prefix = f"cd '{worktree_path}' && " if worktree_path else ""
+        shell_cmd = f"{cd_prefix}export DEBUSSY_ROLE={role} DEBUSSY_BEAD={bead_id}; {claude_cmd}"
 
         try:
             subprocess.run([
@@ -253,7 +283,7 @@ class Watcher:
 
             self.running[key] = AgentInfo(
                 bead=bead_id, role=role, name=agent_name,
-                spawned_stage=stage, tmux=True,
+                spawned_stage=stage, tmux=True, worktree_path=worktree_path,
             )
             if self._cached_windows is not None:
                 self._cached_windows.add(agent_name)
@@ -261,7 +291,7 @@ class Watcher:
         except Exception as e:
             log(f"Failed to spawn tmux window: {e}", "✗")
 
-    def _spawn_background(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str):
+    def _spawn_background(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str, worktree_path: str = ""):
         cmd = ["claude"]
         if YOLO_MODE:
             cmd.append("--dangerously-skip-permissions")
@@ -275,15 +305,17 @@ class Watcher:
             env = os.environ.copy()
             env["DEBUSSY_ROLE"] = role
             env["DEBUSSY_BEAD"] = bead_id
+            cwd = worktree_path if worktree_path else os.getcwd()
             log_handle = open(log_file, "wb", buffering=0)
             proc = subprocess.Popen(
-                cmd, cwd=os.getcwd(), env=env,
+                cmd, cwd=cwd, env=env,
                 stdout=log_handle, stderr=subprocess.STDOUT,
                 bufsize=0
             )
             self.running[key] = AgentInfo(
                 bead=bead_id, role=role, name=agent_name,
                 proc=proc, log_path=str(log_file), log_handle=log_handle,
+                worktree_path=worktree_path,
             )
             self.save_state()
         except Exception as e:
@@ -458,6 +490,11 @@ class Watcher:
 
     def _remove_agent(self, key: str, agent: AgentInfo):
         agent.cleanup()
+        if agent.worktree_path:
+            try:
+                remove_worktree(agent.name)
+            except Exception as e:
+                log(f"Failed to remove worktree for {agent.name}: {e}", "⚠️")
         self.used_names.discard(agent.name)
         del self.running[key]
 

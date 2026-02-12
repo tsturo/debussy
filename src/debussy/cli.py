@@ -14,6 +14,7 @@ from .config import (
     set_config,
 )
 from .prompts import CONDUCTOR_PROMPT
+from .worktree import remove_worktree, remove_all_worktrees
 
 
 def _run_tmux(*args, check=True):
@@ -414,6 +415,12 @@ def cmd_clear(args):
         shutil.rmtree(beads_dir)
         log("Removed .beads", "🗑")
 
+    try:
+        remove_all_worktrees()
+        log("Removed all worktrees", "🧹")
+    except Exception:
+        pass
+
     if debussy_dir.exists():
         for item in debussy_dir.iterdir():
             if item.name != "backups":
@@ -512,6 +519,12 @@ def cmd_pause(args):
         agent_name = agent.get("agent", "")
         _kill_agent(agent, agent_name)
         log(f"Killed {agent_name}", "🛑")
+        if agent.get("worktree_path"):
+            try:
+                remove_worktree(agent_name)
+                log(f"Removed worktree for {agent_name}", "🧹")
+            except Exception:
+                pass
         _reset_bead_to_open(bead_id)
         paused_beads.add(bead_id)
 

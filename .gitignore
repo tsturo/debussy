@@ -19,6 +19,9 @@ Thumbs.db
 # Debussy runtime config
 .debussy/
 
+# Debussy agent worktrees
+.debussy-worktrees/
+
 # Temporary files
 *.tmp
 *.temp

@@ -8,7 +8,7 @@ Base branch: {base}
 
 1. bd show {bead_id}
 2. bd update {bead_id} --status in_progress
-3. git checkout {base} && git pull origin {base}
+3. git fetch origin && git checkout origin/{base}
 4. Run the test suite relevant to this bead's changes — verify feature works post-merge
 
 If PASS:

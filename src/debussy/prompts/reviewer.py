@@ -4,8 +4,8 @@ Base branch: {base}
 
 1. bd show {bead_id} — read the task description carefully
 2. bd update {bead_id} --status in_progress
-3. git checkout feature/{bead_id}
-4. Review: git diff {base}...HEAD
+3. git fetch origin
+4. Review: git diff origin/{base}...HEAD
 
 REVIEW:
 - Code quality, correctness, security
