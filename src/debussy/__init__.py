@@ -2,5 +2,5 @@
 
 from .watcher import Watcher
 
-__version__ = "0.4.17"
+__version__ = "0.5.1"
 __all__ = ["Watcher"]
