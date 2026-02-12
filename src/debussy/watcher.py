@@ -277,38 +277,50 @@ class Watcher:
             except Exception:
                 pass
 
-    def _unblock_ready(self):
-        try:
-            result = subprocess.run(
-                ["bd", "list", "--status", "blocked", "--json"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                return
-            beads = json.loads(result.stdout)
-            if not isinstance(beads, list):
-                return
-        except Exception:
-            return
-
-        for bead in beads:
-            bead_id = bead.get("id")
-            if not bead_id:
-                continue
-            labels = bead.get("labels", [])
-            if not any(l.startswith("stage:") for l in labels):
-                continue
-            full_bead = _get_bead_json(bead_id)
-            if not full_bead or _has_unresolved_deps(full_bead):
-                continue
+    def _release_ready(self):
+        for status in ("blocked", "open"):
             try:
-                subprocess.run(
-                    ["bd", "update", bead_id, "--status", "open"],
-                    capture_output=True, timeout=5,
+                result = subprocess.run(
+                    ["bd", "list", "--status", status, "--json"],
+                    capture_output=True, text=True, timeout=10,
                 )
-                log(f"Unblocked {bead_id}: deps resolved", "🔓")
+                if result.returncode != 0 or not result.stdout.strip():
+                    continue
+                beads = json.loads(result.stdout)
+                if not isinstance(beads, list):
+                    continue
             except Exception:
-                pass
+                continue
+
+            for bead in beads:
+                bead_id = bead.get("id")
+                if not bead_id or bead.get("dependency_count", 0) == 0:
+                    continue
+                full_bead = _get_bead_json(bead_id)
+                if not full_bead or _has_unresolved_deps(full_bead):
+                    continue
+
+                labels = full_bead.get("labels", [])
+                has_stage = any(l.startswith("stage:") for l in labels)
+                cmd = ["bd", "update", bead_id]
+
+                if status == "blocked":
+                    cmd.extend(["--status", "open"])
+
+                if not has_stage:
+                    cmd.extend(["--add-label", "stage:development"])
+
+                if len(cmd) <= 3:
+                    continue
+
+                try:
+                    subprocess.run(cmd, capture_output=True, timeout=5)
+                    if has_stage:
+                        log(f"Unblocked {bead_id}: deps resolved", "🔓")
+                    else:
+                        log(f"Released {bead_id}: deps resolved → stage:development", "🔓")
+                except Exception:
+                    pass
 
     def check_pipeline(self):
         for stage, role in STAGE_TO_ROLE.items():
@@ -496,7 +508,7 @@ class Watcher:
                 self._check_timeouts()
                 self.cleanup_finished()
                 self._reset_orphaned()
-                self._unblock_ready()
+                self._release_ready()
                 self.check_pipeline()
                 self.save_state()
 
