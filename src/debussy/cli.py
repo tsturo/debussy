@@ -213,6 +213,30 @@ def _format_bead(bead: dict, running: dict, all_beads_by_id: dict) -> tuple[str,
     return "backlog", f"[open] {bead_id} {title}", bead_id
 
 
+def _get_branches() -> list[str]:
+    try:
+        result = subprocess.run(
+            ["git", "branch", "--list", "feature/*"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode != 0:
+            return []
+        current = subprocess.run(
+            ["git", "branch", "--show-current"],
+            capture_output=True, text=True, timeout=5,
+        )
+        current_branch = current.stdout.strip()
+        branches = []
+        for line in result.stdout.strip().split("\n"):
+            branch = line.strip().lstrip("* ")
+            if branch:
+                marker = " *" if branch == current_branch else ""
+                branches.append(f"{branch}{marker}")
+        return branches
+    except Exception:
+        return []
+
+
 def cmd_status(args):
     print("\n=== DEBUSSY STATUS ===\n")
 
@@ -241,6 +265,13 @@ def cmd_status(args):
     if blocked:
         _print_section("⊘ BLOCKED", blocked)
     _print_section("✓ DONE", done)
+
+    branches = _get_branches()
+    if branches:
+        print(f"⎇ BRANCHES ({len(branches)})")
+        for branch in branches:
+            print(f"   {branch}")
+        print()
 
 
 def cmd_upgrade(args):
