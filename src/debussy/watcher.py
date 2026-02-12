@@ -18,6 +18,19 @@ from .config import (
 )
 from .prompts import get_prompt
 
+EVENTS_FILE = Path(".debussy/pipeline_events.jsonl")
+
+
+def _record_event(bead_id: str, event: str, **kwargs):
+    entry = {"ts": time.time(), "bead": bead_id, "event": event, **kwargs}
+    try:
+        EVENTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(EVENTS_FILE, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception:
+        pass
+
+
 MIN_AGENT_RUNTIME = 30
 MAX_RETRIES = 3
 
@@ -171,6 +184,7 @@ class Watcher:
 
         agent_name = self.get_agent_name(role)
         log(f"Spawning {agent_name} for {bead_id}", "🚀")
+        _record_event(bead_id, "spawn", stage=stage, agent=agent_name)
 
         prompt = get_prompt(role, bead_id, stage)
 
@@ -317,8 +331,10 @@ class Watcher:
                     subprocess.run(cmd, capture_output=True, timeout=5)
                     if has_stage:
                         log(f"Unblocked {bead_id}: deps resolved", "🔓")
+                        _record_event(bead_id, "unblock")
                     else:
                         log(f"Released {bead_id}: deps resolved → stage:development", "🔓")
+                        _record_event(bead_id, "release", stage="stage:development")
                 except Exception:
                     pass
 
@@ -387,6 +403,7 @@ class Watcher:
             if elapsed < timeout:
                 continue
             log(f"{agent.name} timed out after {int(elapsed)}s on {agent.bead}", "⏰")
+            _record_event(agent.bead, "timeout", stage=agent.spawned_stage, agent=agent.name)
             agent.stop()
             try:
                 subprocess.run(
@@ -436,15 +453,19 @@ class Watcher:
                 cmd.extend(["--remove-label", "rejected"])
                 cmd.extend(["--add-label", "stage:development"])
                 log(f"Rejected {agent.bead}: {agent.spawned_stage} → stage:development", "↩️")
+                _record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": "stage:development"})
             elif status == "closed":
                 log(f"Closed {agent.bead}: {agent.spawned_stage} complete", "✅")
+                _record_event(agent.bead, "close", stage=agent.spawned_stage)
             elif status == "blocked":
                 log(f"Blocked {agent.bead}: parked for conductor", "⊘")
+                _record_event(agent.bead, "block", stage=agent.spawned_stage)
             elif status == "open":
                 next_stage = NEXT_STAGE.get(agent.spawned_stage)
                 if next_stage:
                     cmd.extend(["--add-label", next_stage])
                     log(f"Advancing {agent.bead}: {agent.spawned_stage} → {next_stage}", "⏩")
+                    _record_event(agent.bead, "advance", **{"from": agent.spawned_stage, "to": next_stage})
 
         if len(cmd) > 3:
             try:

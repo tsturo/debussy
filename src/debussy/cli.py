@@ -566,3 +566,116 @@ def cmd_debug(args):
     else:
         print("  .debussy directory doesn't exist")
     print()
+
+
+STAGE_SHORT = {
+    "stage:development": "dev",
+    "stage:reviewing": "rev",
+    "stage:testing": "test",
+    "stage:merging": "merge",
+    "stage:acceptance": "accept",
+    "stage:investigating": "inv",
+    "stage:consolidating": "cons",
+}
+
+
+def _fmt_duration(seconds: float) -> str:
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    if seconds < 3600:
+        return f"{int(seconds / 60)}m"
+    return f"{seconds / 3600:.1f}h"
+
+
+def cmd_metrics(args):
+    events_file = Path(".debussy/pipeline_events.jsonl")
+    if not events_file.exists():
+        print("No pipeline events recorded yet.")
+        return
+
+    events = []
+    with open(events_file) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    events.append(json.loads(line))
+                except Exception:
+                    continue
+
+    if not events:
+        print("No pipeline events recorded yet.")
+        return
+
+    print("\n=== PIPELINE METRICS ===\n")
+
+    bead_events: dict[str, list] = {}
+    for e in events:
+        bead_events.setdefault(e["bead"], []).append(e)
+
+    stage_durations: dict[str, list[float]] = {}
+    total_rejections = 0
+    total_timeouts = 0
+
+    print("Per-bead:")
+    for bead_id, bevents in bead_events.items():
+        bevents.sort(key=lambda e: e["ts"])
+        stages = []
+        stage_counts: dict[str, int] = {}
+        current_stage = None
+        stage_start = None
+
+        for e in bevents:
+            if e["event"] == "spawn":
+                current_stage = e.get("stage")
+                stage_start = e["ts"]
+            elif e["event"] == "advance":
+                if stage_start and current_stage:
+                    dur = e["ts"] - stage_start
+                    short = STAGE_SHORT.get(current_stage, current_stage)
+                    count = stage_counts.get(current_stage, 0) + 1
+                    stage_counts[current_stage] = count
+                    count_str = f"{count}x " if count > 1 else ""
+                    stages.append(f"{short}({count_str}{_fmt_duration(dur)})")
+                    stage_durations.setdefault(current_stage, []).append(dur)
+                current_stage = e.get("to")
+                stage_start = e["ts"]
+            elif e["event"] == "reject":
+                total_rejections += 1
+                if stage_start and current_stage:
+                    dur = e["ts"] - stage_start
+                    short = STAGE_SHORT.get(current_stage, current_stage)
+                    stages.append(f"{short}({_fmt_duration(dur)}!)")
+                    stage_durations.setdefault(current_stage, []).append(dur)
+                current_stage = e.get("to")
+                stage_start = e["ts"]
+            elif e["event"] == "timeout":
+                total_timeouts += 1
+            elif e["event"] == "close":
+                if stage_start and current_stage:
+                    dur = e["ts"] - stage_start
+                    short = STAGE_SHORT.get(current_stage, current_stage)
+                    count = stage_counts.get(current_stage, 0) + 1
+                    count_str = f"{count}x " if count > 1 else ""
+                    stages.append(f"{short}({count_str}{_fmt_duration(dur)})")
+                    stage_durations.setdefault(current_stage, []).append(dur)
+                stages.append("done")
+
+        total = bevents[-1]["ts"] - bevents[0]["ts"] if len(bevents) > 1 else 0
+        trail = " → ".join(stages) if stages else "started"
+        print(f"  {bead_id}  {trail}  [{_fmt_duration(total)}]")
+
+    print()
+    if stage_durations:
+        print("Stage averages:")
+        for stage in ("stage:development", "stage:reviewing", "stage:testing",
+                       "stage:merging", "stage:acceptance"):
+            durs = stage_durations.get(stage, [])
+            if durs:
+                avg = sum(durs) / len(durs)
+                print(f"  {STAGE_SHORT.get(stage, stage):8s} avg {_fmt_duration(avg):>5s}  ({len(durs)} passes)")
+        print()
+
+    if total_rejections or total_timeouts:
+        print(f"Issues: {total_rejections} rejections, {total_timeouts} timeouts")
+        print()

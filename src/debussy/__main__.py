@@ -52,6 +52,9 @@ def main():
     p = subparsers.add_parser("debug", help="Debug watcher pipeline")
     p.set_defaults(func=cli.cmd_debug)
 
+    p = subparsers.add_parser("metrics", help="Show pipeline metrics")
+    p.set_defaults(func=cli.cmd_metrics)
+
     args = parser.parse_args()
 
     if not args.command:
