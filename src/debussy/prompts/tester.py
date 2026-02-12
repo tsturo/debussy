@@ -17,21 +17,24 @@ Base branch: {base}
 
 RESULTS:
 
-If bead-specific tests FAIL:
+If tests fail, check quickly: does the failing test touch files changed by this bead?
+  git diff --name-only origin/{base}...origin/feature/{bead_id}
+Compare with the failing test's imports/files. Keep it simple — no deep forensics.
+
+A) Failure caused by this bead (test covers files this bead changed):
   bd comment {bead_id} "Acceptance failed: [details]"
   bd update {bead_id} --status open --add-label rejected
   Exit
 
-If bead-specific tests PASS but other tests fail:
-  Create a bug bead for each failing test (do NOT investigate blame):
+B) Failure NOT caused by this bead (test covers unrelated code):
+  Create a bug bead for each unrelated failure:
     bd create "Bug: [test name] failing" -d "[error output]" --type bug
   Close this bead:
     bd update {bead_id} --status closed
   Exit
 
-If all tests PASS:
+C) All tests PASS:
   bd update {bead_id} --status closed
   Exit
 
-IMPORTANT: Do NOT investigate whether failures are pre-existing or introduced. Just file bugs and move on.
 FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""
