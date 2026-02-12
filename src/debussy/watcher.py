@@ -188,6 +188,7 @@ class Watcher:
                 "log": agent.log_path,
                 "tmux": agent.tmux,
                 "worktree_path": agent.worktree_path,
+                "started_at": agent.started_at,
             }
         atomic_write(self.state_file, json.dumps(state))
 

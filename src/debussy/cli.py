@@ -58,20 +58,17 @@ def _create_tmux_layout():
     _run_tmux("split-window", "-h", "-p", "50", "-t", f"{t}.0")
     _run_tmux("split-window", "-v", "-p", "50", "-t", f"{t}.0")
 
-    _run_tmux("new-window", "-t", SESSION_NAME, "-n", "board")
-    _send_keys(f"{SESSION_NAME}:board", "watch -n 5 'debussy board'")
-
     Path(".debussy").mkdir(parents=True, exist_ok=True)
 
     claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
     _send_keys(f"{t}.0", claude_cmd)
-    _send_keys(f"{t}.2", "watch -n 5 'debussy status'")
+    _send_keys(f"{t}.2", "watch -n 5 'debussy board'")
     _send_keys(f"{t}.3", "debussy watch")
 
 
 def _label_panes():
     t = f"{SESSION_NAME}:main"
-    for idx, title in enumerate(["conductor", "cmd", "status", "watcher"]):
+    for idx, title in enumerate(["conductor", "cmd", "board", "watcher"]):
         _run_tmux("select-pane", "-t", f"{t}.{idx}", "-T", title)
     _run_tmux("set-option", "-t", SESSION_NAME, "pane-border-status", "top")
     _run_tmux("set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} ")
@@ -103,11 +100,9 @@ def cmd_start(args):
     print("Layout:")
     print("  ┌──────────┬──────────┬─────────┐")
     print("  │conductor │          │         │")
-    print("  ├──────────┤  status  │ watcher │")
+    print("  ├──────────┤  board   │ watcher │")
     print("  │   cmd    │          │         │")
     print("  └──────────┴──────────┴─────────┘")
-    print("")
-    print("  Window 2: board (auto-refresh)")
     print("")
 
     subprocess.run(["tmux", "attach-session", "-t", SESSION_NAME])
@@ -311,41 +306,37 @@ def _get_branches() -> list[str]:
         return []
 
 
-def cmd_status(args):
-    print("\n=== DEBUSSY STATUS ===\n")
+def _print_runtime_info(running):
+    now = time.time()
+    cfg = get_config()
+    base = cfg.get("base_branch", "not set")
+    max_agents = cfg.get("max_total_agents", 8)
 
-    running = _get_running_agents()
-    all_beads = _get_all_beads()
-    all_beads_by_id = {b.get("id"): b for b in all_beads if b.get("id")}
+    print(f"  base: {base}  agents: {len(running)}/{max_agents}")
+    print()
 
-    active = []
-    backlog = []
-    blocked = []
-    done = []
-
-    buckets = {
-        "active": active,
-        "backlog": backlog,
-        "blocked": blocked,
-        "done": done,
-    }
-
-    for bead in all_beads:
-        bucket, line, bead_id = _format_bead(bead, running, all_beads_by_id)
-        buckets[bucket].append((line, bead_id))
-
-    _print_section("▶ ACTIVE", active, show_comments=True)
-    _print_section("◻ BACKLOG", backlog)
-    if blocked:
-        _print_blocked_tree(blocked, all_beads_by_id)
-    _print_section("✓ DONE", done)
+    if running:
+        print("Agents:")
+        for bead_id, info in running.items():
+            agent = info.get("agent", "?")
+            role = info.get("role", "?")
+            started = info.get("started_at")
+            dur = _fmt_duration(now - started) if started else "?"
+            print(f"  {agent} ({role}) → {bead_id}  [{dur}]")
+        print()
 
     branches = _get_branches()
     if branches:
-        print(f"⎇ BRANCHES ({len(branches)})")
+        print(f"Branches ({len(branches)}):")
         for branch in branches:
-            print(f"   {branch}")
+            print(f"  {branch}")
         print()
+
+
+def cmd_status(args):
+    print("\n=== DEBUSSY STATUS ===\n")
+    running = _get_running_agents()
+    _print_runtime_info(running)
 
 
 def cmd_upgrade(args):
@@ -751,6 +742,9 @@ def cmd_board(args):
     if has_inv:
         print()
         print(_render_vertical(BOARD_INV_COLUMNS, inv_buckets, running, all_beads_by_id, term_width))
+
+    print()
+    _print_runtime_info(running)
 
 
 def _fmt_duration(seconds: float) -> str:
