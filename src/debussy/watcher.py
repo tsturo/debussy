@@ -266,7 +266,8 @@ class Watcher:
             labels = bead.get("labels", [])
             if not any(l.startswith("stage:") for l in labels):
                 continue
-            if _has_unresolved_deps(bead):
+            full_bead = _get_bead_json(bead_id)
+            if not full_bead or _has_unresolved_deps(full_bead):
                 continue
             try:
                 subprocess.run(
