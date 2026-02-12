@@ -336,6 +336,8 @@ class Watcher:
                 if not isinstance(beads, list):
                     continue
 
+                beads.sort(key=lambda b: b.get("issue_type") != "bug")
+
                 for bead in beads:
                     bead_id = bead.get("id")
                     if not bead_id:
