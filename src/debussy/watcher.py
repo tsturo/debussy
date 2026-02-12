@@ -266,14 +266,17 @@ class Watcher:
                 if len(stages) <= 1:
                     continue
                 bead_id = bead.get("id")
-                cmd = ["bd", "update", bead_id]
+                log(f"Stripping extra stages from {bead_id}: kept {stages[0]}, removing {stages[1:]}", "⚠️")
                 for stage in stages[1:]:
-                    cmd.extend(["--remove-label", stage])
-                log(f"Stripped extra stages from {bead_id}: kept {stages[0]}, removed {stages[1:]}", "⚠️")
-                try:
-                    subprocess.run(cmd, capture_output=True, timeout=5)
-                except Exception:
-                    pass
+                    try:
+                        result = subprocess.run(
+                            ["bd", "update", bead_id, "--remove-label", stage],
+                            capture_output=True, text=True, timeout=5,
+                        )
+                        if result.returncode != 0:
+                            log(f"Failed to remove {stage} from {bead_id}: {result.stderr.strip()}", "✗")
+                    except Exception as e:
+                        log(f"Error removing {stage} from {bead_id}: {e}", "✗")
 
     def _reset_orphaned(self):
         try:
