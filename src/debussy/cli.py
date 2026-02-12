@@ -54,9 +54,10 @@ def _create_tmux_layout():
     _run_tmux("new-session", "-d", "-s", SESSION_NAME, "-n", "main")
 
     t = f"{SESSION_NAME}:main"
-    _run_tmux("split-window", "-h", "-p", "33", "-t", t)
-    _run_tmux("split-window", "-h", "-p", "50", "-t", f"{t}.0")
+    _run_tmux("split-window", "-h", "-p", "67", "-t", t)
     _run_tmux("split-window", "-v", "-p", "50", "-t", f"{t}.0")
+    _run_tmux("split-window", "-v", "-p", "35", "-t", f"{t}.2")
+    _run_tmux("split-window", "-h", "-p", "50", "-t", f"{t}.2")
 
     Path(".debussy").mkdir(parents=True, exist_ok=True)
 
@@ -64,11 +65,12 @@ def _create_tmux_layout():
     _send_keys(f"{t}.0", claude_cmd)
     _send_keys(f"{t}.2", "watch -n 5 'debussy status'")
     _send_keys(f"{t}.3", "debussy watch")
+    _send_keys(f"{t}.4", "watch -n 5 'debussy board'")
 
 
 def _label_panes():
     t = f"{SESSION_NAME}:main"
-    for idx, title in enumerate(["conductor", "cmd", "status", "watcher"]):
+    for idx, title in enumerate(["conductor", "cmd", "status", "watcher", "board"]):
         _run_tmux("select-pane", "-t", f"{t}.{idx}", "-T", title)
     _run_tmux("set-option", "-t", SESSION_NAME, "pane-border-status", "top")
     _run_tmux("set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} ")
@@ -98,10 +100,11 @@ def cmd_start(args):
     print("")
     print("Layout:")
     print("  ┌──────────┬──────────┬─────────┐")
-    print("  │conductor │          │         │")
-    print("  ├──────────┤  status  │ watcher │")
-    print("  │   cmd    │          │         │")
-    print("  └──────────┴──────────┴─────────┘")
+    print("  │conductor │  status  │ watcher │")
+    print("  ├──────────┤          │         │")
+    print("  │   cmd    ├──────────┴─────────┤")
+    print("  │          │       board        │")
+    print("  └──────────┴────────────────────┘")
     print("")
 
     subprocess.run(["tmux", "attach-session", "-t", SESSION_NAME])
