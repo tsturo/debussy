@@ -161,7 +161,24 @@ def _print_section(label: str, items: list, show_comments: bool = False):
     print()
 
 
-def _format_bead(bead: dict, running: dict) -> tuple[str, str, str]:
+def _dep_summary(bead: dict, all_beads_by_id: dict) -> str:
+    deps = bead.get("dependencies", [])
+    if not deps:
+        return ""
+    waiting = []
+    for dep in deps:
+        dep_id = dep.get("depends_on_id") or dep.get("id")
+        if not dep_id:
+            continue
+        status = dep.get("status") or all_beads_by_id.get(dep_id, {}).get("status")
+        if status != "closed":
+            waiting.append(dep_id)
+    if not waiting:
+        return ""
+    return f" (waiting: {', '.join(waiting)})"
+
+
+def _format_bead(bead: dict, running: dict, all_beads_by_id: dict) -> tuple[str, str, str]:
     bead_id = bead.get("id", "")
     title = bead.get("title", "")
     status = bead.get("status", "")
@@ -176,7 +193,8 @@ def _format_bead(bead: dict, running: dict) -> tuple[str, str, str]:
         return "done", f"{bead_id} {title}", bead_id
 
     if status == "blocked":
-        return "blocked", f"[blocked] {bead_id} {title}", bead_id
+        dep_info = _dep_summary(bead, all_beads_by_id)
+        return "blocked", f"[blocked] {bead_id} {title}{dep_info}", bead_id
 
     if status == "in_progress":
         stage_info = f" {stages[0]}" if stages else ""
@@ -195,6 +213,7 @@ def cmd_status(args):
 
     running = _get_running_agents()
     all_beads = _get_all_beads()
+    all_beads_by_id = {b.get("id"): b for b in all_beads if b.get("id")}
 
     active = []
     backlog = []
@@ -209,7 +228,7 @@ def cmd_status(args):
     }
 
     for bead in all_beads:
-        bucket, line, bead_id = _format_bead(bead, running)
+        bucket, line, bead_id = _format_bead(bead, running, all_beads_by_id)
         buckets[bucket].append((line, bead_id))
 
     _print_section("▶ ACTIVE", active, show_comments=True)

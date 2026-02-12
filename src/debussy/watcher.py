@@ -65,11 +65,11 @@ def _get_bead_status(bead_id: str) -> str | None:
 
 def _has_unresolved_deps(bead: dict) -> bool:
     for dep in bead.get("dependencies", []):
-        dep_id = dep.get("depends_on_id")
+        dep_id = dep.get("depends_on_id") or dep.get("id")
         if not dep_id:
             continue
-        dep_status = _get_bead_status(dep_id)
-        if dep_status != "closed":
+        status = dep.get("status") or _get_bead_status(dep_id)
+        if status != "closed":
             return True
     return False
 
