@@ -161,6 +161,51 @@ def _print_section(label: str, items: list, show_comments: bool = False):
     print()
 
 
+def _waiting_on(bead: dict, all_beads_by_id: dict) -> list[str]:
+    waiting = []
+    for dep in bead.get("dependencies", []):
+        dep_id = dep.get("depends_on_id") or dep.get("id")
+        dep_status = dep.get("status") or all_beads_by_id.get(dep_id, {}).get("status")
+        if dep_id and dep_status != "closed":
+            waiting.append(dep_id)
+    return waiting
+
+
+def _print_blocked_tree(blocked: list, all_beads_by_id: dict):
+    blocked_ids = {bead_id for _, bead_id in blocked}
+    lines_by_id = {bead_id: line for line, bead_id in blocked}
+
+    children: dict[str, list[str]] = {}
+    roots = []
+    for _, bead_id in blocked:
+        bead = all_beads_by_id.get(bead_id, {})
+        blocked_parents = [d for d in _waiting_on(bead, all_beads_by_id) if d in blocked_ids]
+        if blocked_parents:
+            for parent in blocked_parents:
+                children.setdefault(parent, []).append(bead_id)
+        else:
+            roots.append(bead_id)
+
+    printed = set()
+
+    def _print_node(bead_id: str, indent: int):
+        if bead_id in printed:
+            return
+        printed.add(bead_id)
+        prefix = "   " + "  " * indent + ("└ " if indent > 0 else "")
+        print(f"{prefix}{lines_by_id.get(bead_id, bead_id)}")
+        for child in children.get(bead_id, []):
+            _print_node(child, indent + 1)
+
+    print(f"⊘ BLOCKED ({len(blocked)})")
+    for root in roots:
+        _print_node(root, 0)
+    for _, bead_id in blocked:
+        if bead_id not in printed:
+            _print_node(bead_id, 0)
+    print()
+
+
 def _dep_summary(bead: dict, all_beads_by_id: dict) -> str:
     deps = bead.get("dependencies", [])
     if not deps:
@@ -263,7 +308,7 @@ def cmd_status(args):
     _print_section("▶ ACTIVE", active, show_comments=True)
     _print_section("◻ BACKLOG", backlog)
     if blocked:
-        _print_section("⊘ BLOCKED", blocked)
+        _print_blocked_tree(blocked, all_beads_by_id)
     _print_section("✓ DONE", done)
 
     branches = _get_branches()
