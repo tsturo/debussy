@@ -20,12 +20,18 @@ bd update <bead-id> --status in_progress
 git checkout <base-branch> && git pull origin <base-branch>
 ```
 
-### 2. Run Tests
+### 2. Run Bead-Specific Tests
 
-- Run the test suite relevant to this bead's changes
+- Run tests relevant to this bead's changes
 - Verify the feature works post-merge
 
-### 3. Report Results
+### 3. Run Full Test Suite
+
+- Discover test infrastructure (pytest.ini, pyproject.toml, Makefile, package.json)
+- Run the entire test suite to catch integration regressions across all merged features
+- If no test infrastructure exists, note it and proceed with bead-specific verification only
+
+### 4. Report Results
 
 **If acceptance passes:**
 ```bash
