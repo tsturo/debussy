@@ -33,15 +33,24 @@ git checkout <base-branch> && git pull origin <base-branch>
 
 ### 4. Report Results
 
-**If acceptance passes:**
-```bash
-bd update <bead-id> --status closed
-```
-
-**If acceptance fails:**
+**A) Bead-specific tests fail:**
 ```bash
 bd comment <bead-id> "Acceptance failed: [details]"
 bd update <bead-id> --status open --add-label rejected
+```
+
+**B) Bead passes, but unrelated tests fail (integration regressions):**
+```bash
+# Create fix beads for each unrelated failure
+bd create "Fix: [failure description]" -d "Integration failure found during acceptance of <bead-id>. [details]"
+# Close this bead — it is not at fault
+bd comment <bead-id> "Acceptance passed. Integration failures found — created fix beads."
+bd update <bead-id> --status closed
+```
+
+**C) All tests pass:**
+```bash
+bd update <bead-id> --status closed
 ```
 
 The watcher handles stage transitions automatically.

@@ -15,13 +15,23 @@ Base branch: {base}
    - Run all discovered tests, not just ones related to this bead
 6. If full suite has no test infrastructure, note it in the comment and proceed with bead-specific verification only
 
-If ALL PASS:
-  bd update {bead_id} --status closed
+RESULTS:
+
+A) Bead-specific tests FAIL:
+  bd comment {bead_id} "Acceptance failed: [details]"
+  bd update {bead_id} --status open --add-label rejected
   Exit
 
-If ANY FAIL:
-  bd comment {bead_id} "Acceptance failed: [details — specify whether bead-specific or integration failure]"
-  bd update {bead_id} --status open --add-label rejected
+B) Bead-specific tests PASS, but full suite has failures UNRELATED to this bead:
+  For each unrelated failure, create a fix bead:
+    bd create "Fix: [short description of failure]" -d "Integration test failure detected during acceptance of {bead_id}. [failure details, test name, error message]"
+  Then CLOSE this bead (it is not at fault):
+    bd comment {bead_id} "Acceptance passed. Integration failures found — created fix beads."
+    bd update {bead_id} --status closed
+  Exit
+
+C) All tests PASS:
+  bd update {bead_id} --status closed
   Exit
 
 FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""
