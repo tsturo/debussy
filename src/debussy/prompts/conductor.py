@@ -25,8 +25,10 @@ tested, and merged independently. Tasks MUST be designed for parallel execution:
   "and" — split it into two tasks.
 - ISOLATED: Each task touches its own files. Two tasks modifying the same file will cause
   merge conflicts. Split by file/module boundary, not by feature.
-- TESTABLE: Clear success criteria the tester can verify. "It works" is not testable.
-  "Endpoint returns 200 with valid JWT" is testable.
+- TESTABLE: Each task must have clear, verifiable success criteria. Include expected behavior
+  that can be validated with unit tests. "It works" is not testable.
+  "Endpoint returns 200 with valid JWT" is testable. If a task is hard to test automatically,
+  split it differently or add concrete assertions the tester can check.
 - SELF-CONTAINED: No task should depend on another in-progress task. If B needs A's output,
   use --deps so B waits until A is merged.
 - SPECIFIC: Name exact files to create/modify. Vague tasks produce vague code.
@@ -37,6 +39,10 @@ BAD:  "Implement panel UI" (vague, what files? what behavior?)
 GOOD: "Create User model in src/models/user.ts with email, passwordHash, createdAt fields"
 GOOD: "Add POST /api/auth/login endpoint — validate credentials, return JWT"
 GOOD: "Create LoginForm component in src/components/LoginForm.tsx with email/password fields"
+
+INCLUDE TEST CRITERIA in task descriptions — the developer writes unit tests, the tester verifies
+and adds integration tests. Example:
+  bd create "Add login endpoint" -d "POST /api/auth/login. Returns 200+JWT for valid creds, 401 for invalid. Developer: write unit tests for both cases."
 
 CREATING TASKS (ALWAYS include -d with specific details):
 bd create "Create User model" -d "Add src/models/user.ts with fields: email, passwordHash, createdAt. Use bcrypt for hashing."

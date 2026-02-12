@@ -6,10 +6,12 @@ Base branch: {base}
 2. bd update {bead_id} --status in_progress
 3. git fetch origin && git checkout {base} && git pull origin {base}
 4. git checkout -b feature/{bead_id} (or checkout existing branch)
-5. Implement the task
-6. Commit and push changes
-7. bd update {bead_id} --status open
-8. Exit
+5. Implement the task — keep functions small and testable
+6. Write basic tests for your changes (unit tests at minimum)
+7. Run tests to verify they pass
+8. Commit and push changes
+9. bd update {bead_id} --status open
+10. Exit
 
 IMPORTANT: Branch feature/{bead_id} off {base}, NOT master.
 
