@@ -245,6 +245,38 @@ class Watcher:
         except Exception as e:
             log(f"Failed to spawn {role}: {e}", "✗")
 
+    def _reset_orphaned(self):
+        try:
+            result = subprocess.run(
+                ["bd", "list", "--status", "in_progress", "--json"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return
+            beads = json.loads(result.stdout)
+            if not isinstance(beads, list):
+                return
+        except Exception:
+            return
+
+        running_beads = {a.bead for a in self.running.values()}
+        for bead in beads:
+            bead_id = bead.get("id")
+            if not bead_id or bead_id in running_beads:
+                continue
+            labels = bead.get("labels", [])
+            stage_labels = [l for l in labels if l.startswith("stage:")]
+            if not stage_labels:
+                continue
+            cmd = ["bd", "update", bead_id, "--status", "open"]
+            for label in stage_labels[1:]:
+                cmd.extend(["--remove-label", label])
+            try:
+                subprocess.run(cmd, capture_output=True, timeout=5)
+                log(f"Reset orphaned {bead_id}: no agent running", "👻")
+            except Exception:
+                pass
+
     def _unblock_ready(self):
         try:
             result = subprocess.run(
@@ -463,6 +495,7 @@ class Watcher:
                 self._refresh_tmux_cache()
                 self._check_timeouts()
                 self.cleanup_finished()
+                self._reset_orphaned()
                 self._unblock_ready()
                 self.check_pipeline()
                 self.save_state()
