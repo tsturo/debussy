@@ -30,7 +30,7 @@ tested, and merged independently. Tasks MUST be designed for parallel execution:
 - TESTABLE: Each task must have clear, verifiable success criteria. Include expected behavior
   that can be validated with unit tests. "It works" is not testable.
   "Endpoint returns 200 with valid JWT" is testable. If a task is hard to test automatically,
-  split it differently or add concrete assertions the tester can check.
+  split it differently or add concrete assertions the reviewer can check.
 - SELF-CONTAINED: No task should depend on another in-progress task. If B needs A's output,
   use --deps so B waits until A is merged.
 - SPECIFIC: Name exact files to create/modify. Vague tasks produce vague code.
@@ -44,7 +44,7 @@ GOOD: "Add POST /api/auth/login endpoint — validate credentials, return JWT"
 GOOD: "Create LoginForm component in src/components/LoginForm.tsx with email/password fields"
 
 INCLUDE TEST CRITERIA in task descriptions — the developer MUST write all tests. There is no
-separate test-writing stage. The verifier only runs existing tests, it never writes new ones.
+separate test-writing stage. The reviewer only runs existing tests, it never writes new ones.
 If the developer ships without tests, the bead gets rejected. Example:
   bd create "Add login endpoint" -d "POST /api/auth/login. Returns 200+JWT for valid creds, 401 for invalid. Tests: unit tests for both cases, test invalid token format."
 

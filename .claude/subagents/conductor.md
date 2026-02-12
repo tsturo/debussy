@@ -88,7 +88,7 @@ bd update <id> --add-label stage:investigating   # investigation/research task
 ## Pipelines
 
 ```
-Development: open → stage:development → stage:reviewing → stage:testing → stage:merging → stage:acceptance → closed
+Development: open → stage:development → stage:reviewing → stage:merging → stage:acceptance → closed
 Investigation: open → stage:investigating (parallel) → stage:consolidating → dev tasks created → closed
 ```
 

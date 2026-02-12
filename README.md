@@ -42,17 +42,16 @@ The **conductor** (you talk to it directly) creates tasks, then releases them by
 | Stage Label | Agent | Next Stage |
 |-------------|-------|------------|
 | `stage:development` | developer | `stage:reviewing` |
-| `stage:reviewing` | reviewer | `stage:testing` |
-| `stage:testing` | tester | `stage:merging` |
+| `stage:reviewing` | reviewer | `stage:merging` |
 | `stage:merging` | integrator | `stage:acceptance` |
 | `stage:acceptance` | tester | `closed` |
 
 ```
-open → stage:development → stage:reviewing → stage:testing → stage:merging → stage:acceptance → closed
-              ↓                  ↓                ↓               ↓                ↓
-          developer           reviewer          tester        integrator         tester
-              ↑                  │                │               │
-              └──────────────────┴────────────────┴───────────────┘  (on failure → stage:development)
+open → stage:development → stage:reviewing → stage:merging → stage:acceptance → closed
+              ↓                  ↓                ↓                ↓
+          developer           reviewer        integrator         tester
+              ↑                  │                │
+              └──────────────────┴────────────────┘  (on failure → stage:development)
 ```
 
 ### Investigation Pipeline
@@ -77,15 +76,15 @@ Investigators research in parallel and document findings as comments. A consolid
 
 ## Agents
 
-Agents are named after composers (e.g., `developer-beethoven`, `tester-chopin`).
+Agents are named after composers (e.g., `developer-beethoven`, `reviewer-chopin`).
 
 | Agent | Does |
 |-------|------|
 | **conductor** | Creates tasks. Never writes code. |
 | **investigator** | Researches codebase, documents findings. Also handles consolidation. |
 | **developer** | Implements on feature branch |
-| **reviewer** | Reviews code for quality and security |
-| **tester** | Tests code, runs acceptance tests |
+| **reviewer** | Reviews code quality, security, and runs tests |
+| **tester** | Acceptance testing (post-merge) |
 | **integrator** | Merges feature branches to conductor's base branch |
 
 ### Agent Workflow

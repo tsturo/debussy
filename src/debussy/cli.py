@@ -571,7 +571,6 @@ def cmd_debug(args):
 STAGE_SHORT = {
     "stage:development": "dev",
     "stage:reviewing": "rev",
-    "stage:testing": "test",
     "stage:merging": "merge",
     "stage:acceptance": "accept",
     "stage:investigating": "inv",
@@ -668,7 +667,7 @@ def cmd_metrics(args):
     print()
     if stage_durations:
         print("Stage averages:")
-        for stage in ("stage:development", "stage:reviewing", "stage:testing",
+        for stage in ("stage:development", "stage:reviewing",
                        "stage:merging", "stage:acceptance"):
             durs = stage_durations.get(stage, [])
             if durs:

@@ -8,7 +8,7 @@ Base branch: {base}
 4. git checkout -b feature/{bead_id} (or checkout existing branch)
 5. VERIFY: run `git branch --show-current` — must show `feature/{bead_id}`. If not, fix before continuing.
 6. Implement the task — keep functions small and testable
-7. Write unit tests for your changes — this is MANDATORY, not optional. If the bead description includes test criteria, cover ALL of them. Beads without tests will be rejected by the verifier.
+7. Write unit tests for your changes — this is MANDATORY, not optional. If the bead description includes test criteria, cover ALL of them. Beads without tests will be rejected by the reviewer.
 8. Run tests to verify they pass
 9. SCOPE CHECK: run `git diff {base}...HEAD --stat` — every changed file must be relevant to the bead description. Do NOT modify or delete files/tests that belong to other beads.
 10. Commit and push changes
