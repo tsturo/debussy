@@ -245,6 +245,36 @@ class Watcher:
         except Exception as e:
             log(f"Failed to spawn {role}: {e}", "✗")
 
+    def _enforce_single_stage(self):
+        for status in ("open", "in_progress", "blocked"):
+            try:
+                result = subprocess.run(
+                    ["bd", "list", "--status", status, "--json"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if result.returncode != 0 or not result.stdout.strip():
+                    continue
+                beads = json.loads(result.stdout)
+                if not isinstance(beads, list):
+                    continue
+            except Exception:
+                continue
+
+            for bead in beads:
+                labels = bead.get("labels", [])
+                stages = [l for l in labels if l.startswith("stage:")]
+                if len(stages) <= 1:
+                    continue
+                bead_id = bead.get("id")
+                cmd = ["bd", "update", bead_id]
+                for stage in stages[1:]:
+                    cmd.extend(["--remove-label", stage])
+                log(f"Stripped extra stages from {bead_id}: kept {stages[0]}, removed {stages[1:]}", "⚠️")
+                try:
+                    subprocess.run(cmd, capture_output=True, timeout=5)
+                except Exception:
+                    pass
+
     def _reset_orphaned(self):
         try:
             result = subprocess.run(
@@ -510,6 +540,7 @@ class Watcher:
                 self._refresh_tmux_cache()
                 self._check_timeouts()
                 self.cleanup_finished()
+                self._enforce_single_stage()
                 self._reset_orphaned()
                 self._release_ready()
                 self.check_pipeline()
