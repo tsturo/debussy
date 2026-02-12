@@ -399,6 +399,7 @@ class Watcher:
                 )
             except Exception:
                 pass
+            self._remove_agent(key, agent)
 
     def _remove_agent(self, key: str, agent: AgentInfo):
         agent.cleanup()
