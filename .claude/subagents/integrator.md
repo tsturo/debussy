@@ -48,7 +48,7 @@ npm test  # or appropriate test command
 
 ```bash
 git push origin <base-branch>
-git branch -d feature/<bead-id>
+git push origin --delete feature/<bead-id>
 bd update <bead-id> --status open
 ```
 
