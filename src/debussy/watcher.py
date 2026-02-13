@@ -17,7 +17,7 @@ from .config import (
     get_config, log,
 )
 from .prompts import get_prompt
-from .worktree import cleanup_stale_worktrees, create_worktree, remove_worktree
+from .worktree import cleanup_orphaned_branches, cleanup_stale_worktrees, create_worktree, delete_branch, remove_worktree
 
 EVENTS_FILE = Path(".debussy/pipeline_events.jsonl")
 
@@ -158,6 +158,7 @@ class Watcher:
         self._cached_windows: set[str] | None = None
         self._load_rejections()
         cleanup_stale_worktrees()
+        cleanup_orphaned_branches()
 
     def _load_rejections(self):
         try:
@@ -551,6 +552,7 @@ class Watcher:
             elif status == "closed":
                 self.rejections.pop(agent.bead, None)
                 self._save_rejections()
+                delete_branch(f"feature/{agent.bead}")
                 log(f"Closed {agent.bead}: {agent.spawned_stage} complete", "✅")
                 _record_event(agent.bead, "close", stage=agent.spawned_stage)
             elif status == "blocked":

@@ -82,6 +82,30 @@ def remove_worktree(agent_name: str):
         subprocess.run(["git", "worktree", "prune"], capture_output=True, timeout=10)
 
 
+def cleanup_orphaned_branches():
+    subprocess.run(["git", "fetch", "--prune"], capture_output=True, timeout=30)
+    result = subprocess.run(
+        ["git", "branch", "--list", "feature/*"],
+        capture_output=True, text=True, timeout=10,
+    )
+    if result.returncode != 0:
+        return
+    for line in result.stdout.strip().splitlines():
+        branch = line.strip().lstrip("* ")
+        if not branch:
+            continue
+        remote_check = subprocess.run(
+            ["git", "rev-parse", "--verify", f"origin/{branch}"],
+            capture_output=True, timeout=5,
+        )
+        if remote_check.returncode != 0:
+            subprocess.run(
+                ["git", "branch", "-D", branch],
+                capture_output=True, timeout=10,
+            )
+            log(f"Deleted orphaned local branch: {branch}", "🧹")
+
+
 def cleanup_stale_worktrees():
     subprocess.run(["git", "worktree", "prune"], capture_output=True, timeout=10)
     repo = _repo_root()
@@ -106,6 +130,17 @@ def cleanup_stale_worktrees():
                     link.unlink()
             shutil.rmtree(child, ignore_errors=True)
             log(f"Cleaned stale worktree: {child.name}", "🧹")
+
+
+def delete_branch(branch: str):
+    subprocess.run(
+        ["git", "branch", "-D", branch],
+        capture_output=True, timeout=10,
+    )
+    subprocess.run(
+        ["git", "push", "origin", "--delete", branch],
+        capture_output=True, timeout=15,
+    )
 
 
 def remove_all_worktrees():
