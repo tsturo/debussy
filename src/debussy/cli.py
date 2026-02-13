@@ -656,8 +656,11 @@ def _build_buckets(beads, running, all_beads_by_id):
         elif col in inv:
             inv[col].append(bead)
 
-    for bucket in list(dev.values()) + list(inv.values()):
-        bucket.sort(key=lambda b: _sort_key(b, running, all_beads_by_id))
+    for key, bucket in list(dev.items()) + list(inv.items()):
+        if key == "done":
+            bucket.sort(key=lambda b: b.get("id", ""), reverse=True)
+        else:
+            bucket.sort(key=lambda b: _sort_key(b, running, all_beads_by_id))
 
     return dev, inv
 

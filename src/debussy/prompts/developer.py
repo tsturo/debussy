@@ -33,5 +33,5 @@ IF BLOCKED — dependencies missing, code you need doesn't exist yet, or require
   Exit immediately. Do NOT set status open with no commits.
 
 IF YOU FIND AN UNRELATED BUG:
-  bd create "Bug: [title]" -d "[details]"
+  bd create "Bug: [title]" -d "[details]" --add-label stage:development
   Continue with your task"""

@@ -30,7 +30,7 @@ B) Failure NOT caused by this bead (test covers unrelated code):
   For each unrelated failure, check if a bug already exists:
     bd search "[test name]" --type bug --status open
   If no existing bug found, create one:
-    bd create "Bug: [test name] failing" -d "[error output]" --type bug
+    bd create "Bug: [test name] failing" -d "[error output]" --type bug --add-label stage:development
   Close this bead:
     bd update {bead_id} --status closed
   Exit

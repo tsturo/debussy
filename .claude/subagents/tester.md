@@ -48,7 +48,7 @@ bd update <bead-id> --status open --add-label rejected
 **Failure NOT caused by this bead:**
 ```bash
 # Create a bug bead for each unrelated failure
-bd create "Bug: [test name] failing" -d "[error output]" --type bug
+bd create "Bug: [test name] failing" -d "[error output]" --type bug --add-label stage:development
 # Close this bead — it is not at fault
 bd update <bead-id> --status closed
 ```
