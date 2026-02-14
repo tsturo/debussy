@@ -42,7 +42,7 @@ The watcher handles stage transitions automatically.
 ## Development Standards
 
 - Follow existing patterns in the codebase
-- Write tests alongside implementation
+- Write tests when the bead description includes test criteria
 - Keep commits focused and atomic
 - Match existing code style
 
@@ -73,4 +73,4 @@ bd update <bead-id> --status blocked
 
 - Always branch off the conductor's feature branch, never master directly
 - Don't modify code outside your task scope
-- Don't skip tests
+- Don't skip tests when the bead requires them

@@ -13,8 +13,8 @@ REVIEW:
 - BRANCH: verify commits reference this bead, not another one
 
 VERIFY:
-- TESTS EXIST: the developer must have written tests. If the diff contains no test files, reject immediately.
-- Run the developer's tests and any existing tests for affected files
+- If the bead description includes test criteria, verify the developer wrote tests covering them. Reject if test criteria exist but tests are missing.
+- Run the developer's tests (if any) and any existing tests for affected files
 - Verify the feature works as described in the bead
 
 If APPROVED (code is good AND tests pass):
@@ -26,8 +26,8 @@ If CHANGES NEEDED:
   bd update {bead_id} --status open --add-label rejected
   Exit
 
-If NO TESTS in the diff:
-  bd comment {bead_id} "Rejected: developer did not write tests"
+If bead description has test criteria but NO TESTS in the diff:
+  bd comment {bead_id} "Rejected: bead requires tests but none were written"
   bd update {bead_id} --status open --add-label rejected
   Exit
 

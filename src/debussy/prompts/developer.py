@@ -7,7 +7,7 @@ Base branch: {base}
 3. git pull origin {base}
 4. VERIFY: run `git branch --show-current` — must show `feature/{bead_id}`. If not, STOP and set status blocked.
 5. Implement the task — keep functions small and testable
-6. Write unit tests for your changes — this is MANDATORY, not optional. If the bead description includes test criteria, cover ALL of them. Beads without tests will be rejected by the reviewer.
+6. If the bead description includes test criteria, write tests covering ALL of them. If no test criteria are specified, skip tests.
 7. Run tests to verify they pass
 8. SCOPE CHECK: run `git diff origin/{base}...HEAD --stat` — every changed file must be relevant to the bead description. Do NOT modify or delete files/tests that belong to other beads.
 9. Commit and push changes

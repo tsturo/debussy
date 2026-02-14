@@ -30,8 +30,8 @@ git diff <base-branch>...HEAD
 
 ### 3. Verify Tests and Behavior
 
-- The developer MUST have written tests — reject if no test files in the diff
-- Run the developer's tests and any existing tests for affected files
+- If the bead description includes test criteria, verify the developer wrote tests covering them
+- Run the developer's tests (if any) and any existing tests for affected files
 - Verify the feature works as described in the bead
 
 ### 4. Report Results
@@ -47,9 +47,9 @@ bd comment <bead-id> "Review feedback: [details]"
 bd update <bead-id> --status open --add-label rejected
 ```
 
-**If no tests written by developer:**
+**If bead requires tests but none written:**
 ```bash
-bd comment <bead-id> "Rejected: developer did not write tests"
+bd comment <bead-id> "Rejected: bead requires tests but none were written"
 bd update <bead-id> --status open --add-label rejected
 ```
 

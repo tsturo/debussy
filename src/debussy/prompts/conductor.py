@@ -43,10 +43,14 @@ GOOD: "Create User model in src/models/user.ts with email, passwordHash, created
 GOOD: "Add POST /api/auth/login endpoint — validate credentials, return JWT"
 GOOD: "Create LoginForm component in src/components/LoginForm.tsx with email/password fields"
 
-INCLUDE TEST CRITERIA in task descriptions — the developer MUST write all tests. There is no
-separate test-writing stage. The reviewer only runs existing tests, it never writes new ones.
-If the developer ships without tests, the bead gets rejected. Example:
+INCLUDE TEST CRITERIA only when the task warrants it. Not every task needs tests.
+Tasks that benefit from tests: new logic, algorithms, validation, API endpoints, data transformations.
+Tasks that typically don't: config changes, wiring/glue code, simple renames, UI markup, type definitions.
+When you include test criteria, the developer writes them. When you don't, no tests are expected.
+Example with tests:
   bd create "Add login endpoint" -d "POST /api/auth/login. Returns 200+JWT for valid creds, 401 for invalid. Tests: unit tests for both cases, test invalid token format."
+Example without tests:
+  bd create "Add database config" -d "Create src/config/database.ts with connection settings from env vars."
 
 CREATING TASKS (ALWAYS include -d with specific details):
 bd create "Create User model" -d "Add src/models/user.ts with fields: email, passwordHash, createdAt. Use bcrypt for hashing."

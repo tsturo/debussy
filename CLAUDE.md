@@ -118,7 +118,7 @@ Investigators research in parallel and document findings. A consolidation step (
 - Blocked: `--status blocked` (watcher parks for conductor)
 
 ### @reviewer
-- Reviews code quality, security, and runs tests to verify behavior
+- Reviews code quality, security, and runs tests if the bead specifies test criteria
 - Approve: `--status open` (watcher advances to stage:merging)
 - Reject: `--status open --add-label rejected` (watcher sends to stage:development)
 
