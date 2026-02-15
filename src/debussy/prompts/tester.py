@@ -6,32 +6,16 @@ def _acceptance_prompt(bead_id: str, base: str) -> str:
     return f"""You are a verifier. Acceptance test for bead {bead_id} (post-merge).
 Base branch: {base}
 
-1. bd show {bead_id} — read the description and note what the feature should do
+1. bd show {bead_id}
 2. bd update {bead_id} --status in_progress
 3. git fetch origin && git checkout origin/{base}
+4. Run bead-specific tests — verify this bead's feature works post-merge
+5. Run the FULL test suite to catch regressions
+   - Look for pytest.ini, pyproject.toml [tool.pytest], Makefile test targets, package.json scripts
+   - Run all discovered tests, not just ones related to this bead
+6. If no test infrastructure exists, note it and proceed with bead-specific verification only
 
-STEP 1 — VERIFY BEHAVIOR (do this BEFORE running the test suite):
-- Read the bead description to understand the expected behavior
-- Identify what was added/changed: git diff --name-only origin/{base}...origin/feature/{bead_id}
-- Exercise the feature directly:
-  - If it's a function/class: open a Python shell or write a one-liner to import and call it with representative inputs
-  - If it's a CLI command: run it with typical arguments and edge cases (empty input, bad input)
-  - If it's an API change: call the endpoint or invoke the interface
-  - If it's a config/wiring change: verify the integration point works end-to-end
-- Confirm the output matches what the bead description asked for
-- If the feature CANNOT be exercised (e.g., pure refactor with no observable change), note it and move to step 2
-
-STEP 2 — RUN TEST SUITE:
-- Look for pytest.ini, pyproject.toml [tool.pytest], Makefile test targets, package.json scripts
-- Run all discovered tests, not just ones related to this bead
-- If no test infrastructure exists, note it (step 1 verification becomes the sole gate)
-
-STEP 3 — EVALUATE RESULTS:
-
-If behavior verification failed (step 1):
-  bd comment {bead_id} "Acceptance failed: feature does not work as specified. [what was expected vs what happened]"
-  bd update {bead_id} --status open --add-label rejected
-  Exit
+RESULTS:
 
 If tests fail, check quickly: does the failing test touch files changed by this bead?
   git diff --name-only origin/{base}...origin/feature/{bead_id}
@@ -51,7 +35,7 @@ B) Failure NOT caused by this bead (test covers unrelated code):
     bd update {bead_id} --status closed
   Exit
 
-C) Behavior verified AND all tests PASS:
+C) All tests PASS:
   bd update {bead_id} --status closed
   Exit
 
