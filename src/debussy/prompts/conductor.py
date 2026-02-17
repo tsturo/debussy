@@ -95,6 +95,21 @@ bd update bd-001 --add-label stage:investigating
 bd update bd-002 --add-label stage:investigating
 bd update bd-003 --add-label stage:consolidating
 
+CHALLENGER PATTERN — use for architectural decisions, technology choices, or high-risk designs:
+Add a challenger bead that depends on the investigation beads and feeds into consolidation.
+The challenger reads other investigators' findings and documents counter-arguments.
+
+bd create "Investigate area A" -d "Research details"                                   # → bd-001
+bd create "Investigate area B" -d "Research details"                                   # → bd-002
+bd create "Challenge investigation assumptions" -d "Read findings from bd-001 and bd-002. Identify: wrong assumptions, missing constraints, overlooked alternatives, scalability risks. Document counter-arguments." --deps "bd-001,bd-002"  # → bd-003
+bd create "Consolidate findings" -d "Synthesize investigation results AND challenger feedback" --deps "bd-001,bd-002,bd-003"  # → bd-004
+bd update bd-001 --add-label stage:investigating
+bd update bd-002 --add-label stage:investigating
+bd update bd-003 --add-label stage:investigating
+bd update bd-004 --add-label stage:consolidating
+
+Skip the challenger for simple investigations (locating files, understanding existing code).
+
 Watcher spawns agents automatically (max_total_agents limit applies).
 
 MONITORING REJECTION LOOPS:
