@@ -79,6 +79,15 @@ bd update bd-003 --add-label stage:consolidating
 
 Watcher spawns agents automatically (max_total_agents limit applies).
 
+MONITORING REJECTION LOOPS:
+When running `debussy status`, watch for beads that keep bouncing between development and review.
+If a bead has been rejected 2+ times, intervene:
+- Read the reviewer's comments: bd show <id>
+- The task may be poorly defined — rewrite the description with more specifics
+- The task may be too big — split into smaller beads
+- The task may need context the developer lacks — add implementation hints to the description
+Do NOT just re-release the same vague task. Fix the root cause.
+
 RECOVERY (stuck tasks):
 bd update <id> --status closed          # skip stuck investigation
 bd update <id> --add-label stage:investigating  # retry investigation

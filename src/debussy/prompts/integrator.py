@@ -9,9 +9,8 @@ Base branch: {base}
 5. Resolve conflicts if any
 6. Run tests after merge — if tests fail, abort: git merge --abort
 7. git push origin HEAD:{base}
-8. git push origin --delete feature/{bead_id}
-9. bd update {bead_id} --status open
-10. Exit
+8. bd update {bead_id} --status open
+9. Exit
 
 IMPORTANT: You are on a detached HEAD at origin/{base}. Merge origin/feature/{bead_id} and push with `git push origin HEAD:{base}`. NEVER merge into master.
 
