@@ -58,7 +58,15 @@ def create_worktree(agent_name: str, branch: str, start_point: str | None = None
     else:
         cmd = ["git", "worktree", "add", str(wt_path), branch]
 
-    subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=30)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    if result.returncode != 0 and new_branch and start_point and _branch_exists(branch):
+        subprocess.run(["git", "branch", "-D", branch], capture_output=True, timeout=10)
+        if wt_path.exists():
+            shutil.rmtree(wt_path, ignore_errors=True)
+        cmd = ["git", "worktree", "add", "-b", branch, str(wt_path), start_point]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
     _symlink_dirs(wt_path, repo)
     return wt_path
 
@@ -91,7 +99,7 @@ def cleanup_orphaned_branches():
     if result.returncode != 0:
         return
     for line in result.stdout.strip().splitlines():
-        branch = line.strip().lstrip("* ")
+        branch = line.strip().lstrip("+* ")
         if not branch:
             continue
         remote_check = subprocess.run(
