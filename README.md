@@ -111,6 +111,8 @@ Agents are named after composers (e.g., `developer-beethoven`, `reviewer-chopin`
 dbs start [requirement]  # Start tmux session
 dbs watch                # Run watcher only
 dbs status               # Show pipeline status
+dbs board                # Kanban board view
+dbs metrics              # Pipeline metrics (stage durations, rejections)
 dbs config [key] [value] # View/set config
 dbs backup               # Backup beads database
 dbs clear [-f]           # Clear all beads (with backup)
