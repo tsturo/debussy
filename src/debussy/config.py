@@ -69,9 +69,19 @@ def get_config() -> dict:
         return DEFAULTS.copy()
 
 
+def _read_config_file() -> dict:
+    if not CONFIG_FILE.exists():
+        return {}
+    try:
+        with open(CONFIG_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
 def set_config(key: str, value):
     CONFIG_DIR.mkdir(exist_ok=True)
-    cfg = get_config()
+    cfg = _read_config_file()
     cfg[key] = value
     atomic_write(CONFIG_FILE, json.dumps(cfg, indent=2))
 

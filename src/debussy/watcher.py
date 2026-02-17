@@ -207,7 +207,7 @@ class Watcher:
         return any(a.bead == bead_id and a.is_alive(self._cached_windows) for a in self.running.values())
 
     def is_at_capacity(self) -> bool:
-        max_total = get_config().get("max_total_agents", 6)
+        max_total = get_config().get("max_total_agents", 8)
         return len(self._alive_agents()) >= max_total
 
     def has_running_role(self, role: str) -> bool:
