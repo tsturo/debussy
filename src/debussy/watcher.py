@@ -150,6 +150,7 @@ class Watcher:
         self.queued: set[str] = set()
         self.used_names: set[str] = set()
         self.failures: dict[str, int] = {}
+        self.empty_branch_retries: dict[str, int] = {}
         self.rejections: dict[str, int] = {}
         self.cooldowns: dict[str, float] = {}
         self.should_exit = False
@@ -563,11 +564,26 @@ class Watcher:
                 if next_stage and agent.spawned_stage == "stage:development":
                     base = get_config().get("base_branch", "master")
                     if not _branch_has_commits(agent.bead, base):
-                        cmd.extend(["--add-label", "stage:development"])
-                        log(f"No commits on feature/{agent.bead} — keeping in development", "⚠️")
-                        _record_event(agent.bead, "empty_branch", stage=agent.spawned_stage)
+                        self.empty_branch_retries[agent.bead] = self.empty_branch_retries.get(agent.bead, 0) + 1
+                        count = self.empty_branch_retries[agent.bead]
+                        if count >= MAX_RETRIES:
+                            cmd.extend(["--status", "blocked"])
+                            log(f"Blocked {agent.bead}: empty branch after {count} attempts, needs conductor", "🚫")
+                            _record_event(agent.bead, "empty_branch_blocked", stage=agent.spawned_stage, retries=count)
+                            try:
+                                subprocess.run(
+                                    ["bd", "comment", agent.bead, f"Blocked after {count} empty-branch retries — needs conductor intervention"],
+                                    capture_output=True, timeout=5,
+                                )
+                            except Exception:
+                                pass
+                        else:
+                            cmd.extend(["--add-label", "stage:development"])
+                            log(f"No commits on feature/{agent.bead} — retry {count}/{MAX_RETRIES}", "⚠️")
+                            _record_event(agent.bead, "empty_branch", stage=agent.spawned_stage, retry=count)
                         next_stage = None
                 if next_stage:
+                    self.empty_branch_retries.pop(agent.bead, None)
                     cmd.extend(["--add-label", next_stage])
                     log(f"Advancing {agent.bead}: {agent.spawned_stage} → {next_stage}", "⏩")
                     _record_event(agent.bead, "advance", **{"from": agent.spawned_stage, "to": next_stage})
