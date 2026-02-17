@@ -4,8 +4,6 @@
 
 This project uses Beads (`bd`) for task tracking. The watcher automatically spawns agents based on **stage labels** on beads.
 
-Role-specific instructions are in `.claude/subagents/`.
-
 ---
 
 ## Core Principles
@@ -202,7 +200,6 @@ src/debussy/
   config.py       # Configuration
   prompts/        # Agent prompt templates (per-agent files)
 .claude/
-  subagents/      # Agent role definitions
   hooks/          # Validation hooks
 .beads/           # Beads database
 ```

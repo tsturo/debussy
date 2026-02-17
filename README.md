@@ -15,7 +15,6 @@ pipx install git+https://github.com/tsturo/debussy.git
 
 # Run
 cd your-project
-bd init
 dbs start
 ```
 
@@ -187,14 +186,14 @@ Agents never merge to master — only the user does that manually.
 ```
 ┌──────────┬──────────┬─────────┐
 │conductor │          │         │
-├──────────┤  status  │ watcher │
+├──────────┤  board   │ watcher │
 │   cmd    │          │         │
 └──────────┴──────────┴─────────┘
 ```
 
 - **conductor**: Main Claude instance for task creation
 - **cmd**: Shell for manual commands
-- **status**: Auto-refreshing pipeline view (full height)
+- **board**: Auto-refreshing kanban board (full height)
 - **watcher**: Agent spawner logs (full height)
 
 ---
@@ -205,9 +204,8 @@ Agents never merge to master — only the user does that manually.
 cd your-project
 bd init
 
-# Optional: Copy agent configs
+# Optional: Copy project config
 git clone https://github.com/tsturo/debussy.git /tmp/debussy
-cp -r /tmp/debussy/.claude/subagents .claude/
 cp /tmp/debussy/CLAUDE.md .
 
 dbs start
