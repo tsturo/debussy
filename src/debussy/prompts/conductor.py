@@ -19,7 +19,8 @@ Merging to master is done ONLY by the user manually. NEVER merge to master.
 
 TASK DESIGN — THIS IS CRITICAL:
 Multiple agents work in parallel. Each task is handled by ONE developer, then reviewed,
-tested, and merged independently. Tasks MUST be designed for parallel execution:
+and merged independently. A batch acceptance test runs after all beads merge.
+Tasks MUST be designed for parallel execution:
 
 - SMALL: Hard rule: 1 bead = 1 file or 1 component, 1 behavior. Max 1-2 files.
   If you'd describe it with "and" — split it into two tasks. If it needs 3+ files, split it.
@@ -58,12 +59,29 @@ bd create "Add login endpoint" -d "POST /api/auth/login — validate email/passw
 
 Tasks are created with status 'open' and no stage label (backlog).
 
+BATCH ACCEPTANCE — MANDATORY for every feature:
+After creating dev tasks, ALWAYS create a batch acceptance bead that depends on ALL of them.
+The tester runs the full test suite once after every bead has been merged.
+
+bd create "Task A" -d "..."                                                            # → bd-001
+bd create "Task B" -d "..."                                                            # → bd-002
+bd create "Task C" -d "..."                                                            # → bd-003
+bd create "Batch acceptance" -d "Run full test suite for batch" --deps "bd-001,bd-002,bd-003"  # → bd-004
+bd update bd-001 --add-label stage:development
+bd update bd-002 --add-label stage:development
+bd update bd-003 --add-label stage:development
+bd update bd-004 --add-label stage:acceptance
+
+If batch acceptance fails, read the tester's comment, identify the cause, and create a fix bead
+with a new batch acceptance bead depending on it.
+
 RELEASING TASKS (when ALL planning complete):
 bd update bd-001 --add-label stage:development     # development task
 bd update bd-002 --add-label stage:investigating   # investigation/research task
 
 PIPELINES:
-Development: open → stage:development → stage:reviewing → stage:merging → stage:acceptance → closed
+Per bead:  open → stage:development → stage:reviewing → stage:merging → closed
+Per batch: batch acceptance bead (deps on all beads) → stage:acceptance → closed
 Investigation: open → stage:investigating (parallel) → stage:consolidating → dev tasks created → closed
 
 Investigators document findings as comments. The consolidation step writes an .md file to .debussy/investigations/.

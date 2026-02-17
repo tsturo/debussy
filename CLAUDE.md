@@ -38,7 +38,8 @@ This project uses Beads (`bd`) for task tracking. The watcher automatically spaw
 Two pipelines depending on task type:
 
 ```
-Development:   open → stage:development → stage:reviewing → stage:merging → stage:acceptance → closed
+Per bead:      open → stage:development → stage:reviewing → stage:merging → closed
+Per batch:     batch acceptance bead (deps on all beads) → stage:acceptance → closed
 Investigation: open → stage:investigating (parallel) → stage:consolidating (investigator) → .md file → conductor creates dev tasks → closed
 ```
 
@@ -82,7 +83,7 @@ Investigators research in parallel and document findings. A consolidation step (
 |--------|---------|------|
 | Claim | `--status in_progress` | Starting work |
 | Success | `--status open` | Work complete (non-terminal) |
-| Done | `--status closed` | Terminal (acceptance pass, investigation) |
+| Done | `--status closed` | Terminal (merge done, acceptance pass, investigation) |
 | Rejected | `--status open --add-label rejected` | Failed review/test, needs rework |
 | Blocked | `--status blocked` | Can't proceed, needs conductor |
 
@@ -121,13 +122,14 @@ Investigators research in parallel and document findings. A consolidation step (
 - Reject: `--status open --add-label rejected` (watcher sends to stage:development)
 
 ### @tester
-- Acceptance testing only (post-merge)
+- Batch acceptance testing (runs after all beads in a batch are merged)
+- Runs full test suite on the base branch
 - Acceptance pass: `--status closed` (watcher removes stage label, done)
-- Acceptance fail: `--status open --add-label rejected` (watcher sends to stage:development)
+- Acceptance fail: `--status open --add-label rejected` (conductor triages and creates fix beads)
 
 ### @integrator
 - Merges feature branches to conductor's base branch
-- Success: `--status open` (watcher advances to stage:acceptance)
+- Success: `--status closed` (bead done, acceptance happens in batch)
 - Conflict: `--status open --add-label rejected` (watcher sends to stage:development)
 - **Never merges to master**
 

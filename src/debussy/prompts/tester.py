@@ -1,42 +1,35 @@
 def tester_prompt(bead_id: str, base: str, stage: str) -> str:
-    return _acceptance_prompt(bead_id, base)
+    return _batch_acceptance_prompt(bead_id, base)
 
 
-def _acceptance_prompt(bead_id: str, base: str) -> str:
-    return f"""You are a verifier. Acceptance test for bead {bead_id} (post-merge).
+def _batch_acceptance_prompt(bead_id: str, base: str) -> str:
+    return f"""You are a verifier. Batch acceptance test for bead {bead_id}.
 Base branch: {base}
 
-1. bd show {bead_id}
+This is a batch acceptance bead. Its dependencies are the individual beads that were
+developed, reviewed, and merged. All code is already merged into the base branch.
+
+1. bd show {bead_id} — read the description and note the dependency beads
 2. bd update {bead_id} --status in_progress
 3. git fetch origin && git checkout origin/{base}
-4. Run bead-specific tests — verify this bead's feature works post-merge
-5. Run the FULL test suite to catch regressions
+4. Run the FULL test suite to catch regressions
    - Look for pytest.ini, pyproject.toml [tool.pytest], Makefile test targets, package.json scripts
-   - Run all discovered tests, not just ones related to this bead
-6. If no test infrastructure exists, note it and proceed with bead-specific verification only
+   - Run all discovered tests
+5. If no test infrastructure exists, verify each dependency bead's feature manually
 
 RESULTS:
 
-If tests fail, check quickly: does the failing test touch files changed by this bead?
-  git diff --name-only origin/{base}...origin/feature/{bead_id}
-Compare with the failing test's imports/files. Keep it simple — no deep forensics.
-
-A) Failure caused by this bead (test covers files this bead changed):
-  bd comment {bead_id} "Acceptance failed: [details]"
-  bd update {bead_id} --status open --add-label rejected
-  Exit
-
-B) Failure NOT caused by this bead (test covers unrelated code):
-  For each unrelated failure, check if a bug already exists:
-    bd search "[test name]" --type bug --status open
-  If no existing bug found, create one:
-    bd create "Bug: [test name] failing" -d "[error output]" --type bug --add-label stage:development
-  Close this bead:
-    bd update {bead_id} --status closed
-  Exit
-
-C) All tests PASS:
+A) All tests PASS:
   bd update {bead_id} --status closed
   Exit
 
-FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""
+B) Tests FAIL:
+  Identify which tests failed and list them in a comment.
+  Do NOT attempt deep forensics on which bead caused it — the conductor will triage.
+  bd comment {bead_id} "Batch acceptance failed: [list each failing test with error output]"
+  bd update {bead_id} --status open --add-label rejected
+  Exit
+
+FORBIDDEN:
+  - Writing or modifying code/test files
+  - Any --add-label stage:* or --remove-label stage:*"""

@@ -9,10 +9,11 @@ Base branch: {base}
 5. Resolve conflicts if any
 6. Run tests after merge — if tests fail, abort: git merge --abort
 7. git push origin HEAD:{base}
-8. bd update {bead_id} --status open
+8. bd update {bead_id} --status closed
 9. Exit
 
 IMPORTANT: You are on a detached HEAD at origin/{base}. Merge origin/feature/{bead_id} and push with `git push origin HEAD:{base}`. NEVER merge into master.
+After a successful merge, set status to CLOSED — acceptance testing happens in a separate batch step.
 
 IF TESTS FAIL (before or after merge):
   bd comment {bead_id} "Tests failed: [details]"

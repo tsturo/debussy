@@ -34,7 +34,7 @@ STAGE_TO_ROLE = {
 NEXT_STAGE = {
     "stage:development": "stage:reviewing",
     "stage:reviewing": "stage:merging",
-    "stage:merging": "stage:acceptance",
+    "stage:merging": None,
     "stage:acceptance": None,
     "stage:investigating": None,
     "stage:consolidating": None,
