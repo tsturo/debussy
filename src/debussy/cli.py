@@ -611,11 +611,11 @@ STAGE_SHORT = {
 
 
 BOARD_COLUMNS = [
-    ("backlog", "Backlog"),
     ("dev", "Dev"),
     ("review", "Review"),
     ("merge", "Merge"),
     ("accept", "Accept"),
+    ("backlog", "Backlog"),
     ("done", "Done"),
 ]
 BOARD_INV_COLUMNS = [
@@ -631,6 +631,7 @@ BOARD_STAGE_MAP = {
     "stage:consolidating": "consolidating",
 }
 DONE_LIMIT = 5
+STAGE_LIMIT = 50
 
 
 def _categorize_bead(bead):
@@ -668,7 +669,8 @@ def _sort_key(bead, running, all_beads_by_id):
     bead_id = bead.get("id", "")
     is_running = bead_id in running
     is_blocked = bead.get("status") == "blocked" or bool(_waiting_on(bead, all_beads_by_id))
-    return (not is_running, not is_blocked, bead_id)
+    priority = bead.get("priority", 99)
+    return (not is_running, not is_blocked, priority, bead_id)
 
 
 def _bead_marker(bead, running, all_beads_by_id):
@@ -702,12 +704,9 @@ def _render_vertical(columns, buckets, running, all_beads_by_id, term_width):
         label = f"{title} ({count})" if count else title
         label_cell = label.ljust(label_width)
 
-        if key == "done":
-            shown = beads_list[:DONE_LIMIT]
-            overflow = count - len(shown)
-        else:
-            shown = beads_list
-            overflow = 0
+        limit = DONE_LIMIT if key == "done" else STAGE_LIMIT
+        shown = beads_list[:limit]
+        overflow = count - len(shown)
 
         if not shown:
             content_lines = [" " * content_width]
