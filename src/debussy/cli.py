@@ -120,7 +120,7 @@ def _get_all_beads() -> list[dict]:
     for status in ("open", "in_progress", "closed", "blocked"):
         try:
             result = subprocess.run(
-                ["bd", "list", "--status", status, "--json"],
+                ["bd", "list", "--status", status, "--limit", "0", "--json"],
                 capture_output=True, text=True, timeout=10,
             )
             if result.returncode != 0 or not result.stdout.strip():
