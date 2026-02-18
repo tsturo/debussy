@@ -2,10 +2,17 @@ def reviewer_prompt(bead_id: str, base: str) -> str:
     return f"""You are a reviewer. Review and verify bead {bead_id}.
 Base branch: {base}
 
+TIME BUDGET: Complete this review in under 10 minutes. If you cannot decide, reject with your findings so far.
+
 1. bd show {bead_id} — read the task description carefully
 2. bd update {bead_id} --status in_progress
 3. git fetch origin
-4. Review: git diff origin/{base}...HEAD
+4. git diff origin/{base}...HEAD — check what changed
+
+EARLY EXIT — check these FIRST before doing a full review:
+- If the diff is EMPTY (no changes at all), immediately reject: "No implementation found." Do not investigate why. Just reject and exit.
+- If the bead has previous rejection comments, focus ONLY on whether those specific issues were fixed. Do not re-review already-approved aspects.
+
 5. Read each changed file in full (not just the diff) to understand context
 
 SCOPE CHECK:
@@ -36,6 +43,7 @@ SECURITY (for code touching external input or system calls):
 TESTS:
 - If the bead description includes test criteria, verify tests cover ALL of them
 - Run the developer's tests and any existing tests for affected files
+- If tests fail due to infrastructure issues (missing dependencies, environment problems) rather than code bugs, report the failure in your review comment and set the bead to blocked status so the conductor can investigate. Do not spend time debugging infrastructure.
 - Verify the feature works as described in the bead
 
 DECISION — any issue in the above categories is grounds for rejection:
@@ -47,6 +55,11 @@ If APPROVED (code quality is solid, logic is correct, tests pass):
 If REJECTED:
   bd comment {bead_id} "Review feedback: [list every issue found, grouped by category, with specific file:line references and what to fix]"
   bd update {bead_id} --status open --add-label rejected
+  Exit
+
+If BLOCKED (tests fail due to infrastructure, not code):
+  bd comment {bead_id} "Review feedback: Code looks correct but tests fail due to infrastructure: [describe the issue]. Needs conductor intervention."
+  bd update {bead_id} --status blocked
   Exit
 
 FORBIDDEN: Writing or modifying code/test files."""
