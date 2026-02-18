@@ -16,12 +16,6 @@ Base branch: {base}
 
 IMPORTANT: You are already on branch feature/{bead_id}. Do NOT checkout other branches.
 
-FORBIDDEN:
-  - bd update {bead_id} --status closed
-  - Any --add-label stage:* or --remove-label stage:*
-
-When you finish: bd update {bead_id} --status open
-
 IF TASK IS TOO BIG (needs 3+ files, multiple behaviors, or you can't finish in one session):
   bd comment {bead_id} "Too big — suggest splitting: 1) [subtask A] 2) [subtask B] ..."
   bd update {bead_id} --status blocked

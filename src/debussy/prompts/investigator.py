@@ -15,14 +15,7 @@ def _investigating_prompt(bead_id: str) -> str:
 6. Exit
 
 IMPORTANT: Do NOT create developer tasks. Only document findings as comments.
-A consolidation step will review all findings and create dev tasks.
-
-IF BLOCKED or need more info:
-  bd comment {bead_id} "Blocked: [reason]"
-  bd update {bead_id} --status blocked
-  Exit
-
-FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""
+A consolidation step will review all findings and create dev tasks."""
 
 
 def _consolidating_prompt(bead_id: str) -> str:
@@ -47,11 +40,4 @@ The .md file should contain:
   - Include specific file paths and clear success criteria
   - Note dependencies only when one task truly needs another's output
 
-Do NOT create beads — the conductor will read your .md file and create tasks.
-
-IF BLOCKED or findings are insufficient:
-  bd comment {bead_id} "Blocked: [reason]"
-  bd update {bead_id} --status blocked
-  Exit
-
-FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""
+Do NOT create beads — the conductor will read your .md file and create tasks."""

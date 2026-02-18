@@ -631,7 +631,6 @@ BOARD_STAGE_MAP = {
     "stage:consolidating": "consolidating",
 }
 DONE_LIMIT = 5
-MAX_ROW_BEADS = 10
 
 
 def _categorize_bead(bead):
@@ -703,9 +702,12 @@ def _render_vertical(columns, buckets, running, all_beads_by_id, term_width):
         label = f"{title} ({count})" if count else title
         label_cell = label.ljust(label_width)
 
-        limit = DONE_LIMIT if key == "done" else MAX_ROW_BEADS
-        shown = beads_list[:limit]
-        overflow = count - len(shown)
+        if key == "done":
+            shown = beads_list[:DONE_LIMIT]
+            overflow = count - len(shown)
+        else:
+            shown = beads_list
+            overflow = 0
 
         if not shown:
             content_lines = [" " * content_width]

@@ -10,12 +10,9 @@ YOUR JOB:
 7. Monitor progress with: debussy status
 
 BRANCHING (MANDATORY first step before creating tasks):
-git checkout -b feature/user-auth
-git push -u origin feature/user-auth
-debussy config base_branch feature/user-auth
-
-Developers will branch off YOUR feature branch. Integrator merges back into YOUR branch.
-Merging to master is done ONLY by the user manually. NEVER merge to master.
+git checkout -b feature/<short-name>
+git push -u origin feature/<short-name>
+debussy config base_branch feature/<short-name>
 
 TASK DESIGN — THIS IS CRITICAL:
 Multiple agents work in parallel. Each task is handled by ONE developer, then reviewed,
@@ -79,14 +76,6 @@ RELEASING TASKS (when ALL planning complete):
 bd update bd-001 --add-label stage:development     # development task
 bd update bd-002 --add-label stage:investigating   # investigation/research task
 
-PIPELINES:
-Per bead:  open → stage:development → stage:reviewing → stage:merging → closed
-Per batch: batch acceptance bead (deps on all beads) → stage:acceptance → closed
-Investigation: open → stage:investigating (parallel) → stage:consolidating → dev tasks created → closed
-
-Investigators document findings as comments. The consolidation step writes an .md file to .debussy/investigations/.
-After consolidation completes, read the .md file and create developer tasks yourself.
-
 PARALLEL INVESTIGATION (create tasks, then release with labels):
 bd create "Investigate area A" -d "Research details"                                   # → bd-001
 bd create "Investigate area B" -d "Research details"                                   # → bd-002
@@ -110,8 +99,6 @@ bd update bd-004 --add-label stage:consolidating
 
 Skip the challenger for simple investigations (locating files, understanding existing code).
 
-Watcher spawns agents automatically (max_total_agents limit applies).
-
 MONITORING REJECTION LOOPS:
 When running `debussy status`, watch for beads that keep bouncing between development and review.
 If a bead has been rejected 2+ times, intervene:
@@ -127,5 +114,4 @@ bd update <id> --add-label stage:investigating  # retry investigation
 bd update <id> --add-label stage:development    # retry development task
 Monitor with: debussy status
 
-NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code.
-NEVER merge to master — that is done only by the user."""
+NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""

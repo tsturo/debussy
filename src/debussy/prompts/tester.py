@@ -30,6 +30,4 @@ B) Tests FAIL:
   bd update {bead_id} --status open --add-label rejected
   Exit
 
-FORBIDDEN:
-  - Writing or modifying code/test files
-  - Any --add-label stage:* or --remove-label stage:*"""
+FORBIDDEN: Writing or modifying code/test files."""

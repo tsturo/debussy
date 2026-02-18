@@ -25,4 +25,4 @@ IF MERGE CONFLICTS cannot be resolved:
   bd update {bead_id} --status open --add-label rejected
   Exit
 
-FORBIDDEN: Any --add-label stage:* or --remove-label stage:*"""
+"""
