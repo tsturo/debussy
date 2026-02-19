@@ -37,12 +37,34 @@ def _branch_exists(branch: str) -> bool:
     return result.returncode == 0
 
 
+def _remove_worktree_for_branch(branch: str):
+    result = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        capture_output=True, text=True, timeout=10,
+    )
+    wt_dir = _repo_root() / WORKTREES_DIR
+    current_path = None
+    for line in result.stdout.split("\n"):
+        if line.startswith("worktree "):
+            current_path = line.split(" ", 1)[1]
+        elif line.startswith("branch ") and current_path:
+            wt_branch = line.split(" ", 1)[1].replace("refs/heads/", "")
+            if wt_branch == branch and str(wt_dir) in current_path:
+                agent_name = Path(current_path).name
+                remove_worktree(agent_name)
+                log(f"Removed stale worktree {agent_name} holding branch {branch}", "🧹")
+            current_path = None
+
+
 def create_worktree(agent_name: str, branch: str, start_point: str | None = None, new_branch: bool = False, detach: bool = False) -> Path:
     wt_path = _worktree_path(agent_name)
     repo = _repo_root()
 
     if wt_path.exists():
         remove_worktree(agent_name)
+
+    if not detach:
+        _remove_worktree_for_branch(branch)
 
     wt_path.parent.mkdir(parents=True, exist_ok=True)
 
