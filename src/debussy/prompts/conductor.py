@@ -79,8 +79,13 @@ bd update bd-002 --add-label stage:development
 bd update bd-003 --add-label stage:development
 bd update bd-004 --add-label stage:acceptance
 
-If batch acceptance fails, read the tester's comment, identify the cause, and create a fix bead
-with a new batch acceptance bead depending on it.
+If batch acceptance fails, the watcher blocks the old acceptance bead. You must:
+1. Read the tester's comment: bd show <acceptance-bead-id>
+2. Close the old acceptance bead: bd update <acceptance-bead-id> --remove-label stage:acceptance --status closed
+3. Create fix beads for each issue found
+4. Create a NEW acceptance bead depending on the fix beads
+5. Release the fix beads and new acceptance bead
+Never re-use the old acceptance bead — always create a new one.
 
 RELEASING TASKS (when ALL planning complete):
 bd update bd-001 --add-label stage:development     # development task

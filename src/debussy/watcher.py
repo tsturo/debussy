@@ -386,6 +386,9 @@ class Watcher:
                 has_stage = any(l.startswith("stage:") for l in labels)
                 cmd = ["bd", "update", bead_id]
 
+                if status == "blocked" and "stage:acceptance" in labels:
+                    continue
+
                 if status == "blocked":
                     cmd.extend(["--status", "open"])
 
@@ -526,16 +529,20 @@ class Watcher:
                 cmd.extend(["--remove-label", "rejected"])
             log(f"Stage removed externally for {agent.bead}, skipping transition", "⏭️")
         else:
-            for label in stage_labels:
-                cmd.extend(["--remove-label", label])
-
-            if has_rejected:
+            if has_rejected and agent.spawned_stage == "stage:acceptance":
                 cmd.extend(["--remove-label", "rejected"])
-                if agent.spawned_stage == "stage:acceptance":
-                    cmd.extend(["--status", "blocked"])
-                    log(f"Acceptance failed {agent.bead}: blocked for conductor to create fix tasks", "🚫")
-                    _record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": "blocked"})
-                else:
+                for label in stage_labels:
+                    if label != "stage:acceptance":
+                        cmd.extend(["--remove-label", label])
+                cmd.extend(["--status", "blocked"])
+                log(f"Acceptance failed {agent.bead}: blocked for conductor to create fix tasks", "🚫")
+                _record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": "blocked"})
+            else:
+                for label in stage_labels:
+                    cmd.extend(["--remove-label", label])
+
+                if has_rejected:
+                    cmd.extend(["--remove-label", "rejected"])
                     self.rejections[agent.bead] = self.rejections.get(agent.bead, 0) + 1
                     count = self.rejections[agent.bead]
                     if count >= MAX_REJECTIONS:
@@ -555,45 +562,45 @@ class Watcher:
                         log(f"Rejected {agent.bead} ({count}/{MAX_REJECTIONS}): {agent.spawned_stage} → stage:development (cooldown {REJECTION_COOLDOWN}s)", "↩️")
                     self._save_rejections()
                     _record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": "stage:development"})
-            elif status == "closed":
-                self.rejections.pop(agent.bead, None)
-                self._save_rejections()
-                delete_branch(f"feature/{agent.bead}")
-                log(f"Closed {agent.bead}: {agent.spawned_stage} complete", "✅")
-                _record_event(agent.bead, "close", stage=agent.spawned_stage)
-            elif status == "blocked":
-                log(f"Blocked {agent.bead}: parked for conductor", "⊘")
-                _record_event(agent.bead, "block", stage=agent.spawned_stage)
-            elif status == "open":
-                next_stage = NEXT_STAGE.get(agent.spawned_stage)
-                if next_stage == "stage:merging" and "security" in labels and agent.spawned_stage == "stage:reviewing":
-                    next_stage = "stage:security-review"
-                if next_stage and agent.spawned_stage == "stage:development":
-                    base = get_config().get("base_branch", "master")
-                    if not _branch_has_commits(agent.bead, base):
-                        self.empty_branch_retries[agent.bead] = self.empty_branch_retries.get(agent.bead, 0) + 1
-                        count = self.empty_branch_retries[agent.bead]
-                        if count >= MAX_RETRIES:
-                            cmd.extend(["--status", "blocked"])
-                            log(f"Blocked {agent.bead}: empty branch after {count} attempts, needs conductor", "🚫")
-                            _record_event(agent.bead, "empty_branch_blocked", stage=agent.spawned_stage, retries=count)
-                            try:
-                                subprocess.run(
-                                    ["bd", "comment", agent.bead, f"Blocked after {count} empty-branch retries — needs conductor intervention"],
-                                    capture_output=True, timeout=5,
-                                )
-                            except Exception:
-                                pass
-                        else:
-                            cmd.extend(["--add-label", "stage:development"])
-                            log(f"No commits on feature/{agent.bead} — retry {count}/{MAX_RETRIES}", "⚠️")
-                            _record_event(agent.bead, "empty_branch", stage=agent.spawned_stage, retry=count)
-                        next_stage = None
-                if next_stage:
-                    self.empty_branch_retries.pop(agent.bead, None)
-                    cmd.extend(["--add-label", next_stage])
-                    log(f"Advancing {agent.bead}: {agent.spawned_stage} → {next_stage}", "⏩")
-                    _record_event(agent.bead, "advance", **{"from": agent.spawned_stage, "to": next_stage})
+                elif status == "closed":
+                    self.rejections.pop(agent.bead, None)
+                    self._save_rejections()
+                    delete_branch(f"feature/{agent.bead}")
+                    log(f"Closed {agent.bead}: {agent.spawned_stage} complete", "✅")
+                    _record_event(agent.bead, "close", stage=agent.spawned_stage)
+                elif status == "blocked":
+                    log(f"Blocked {agent.bead}: parked for conductor", "⊘")
+                    _record_event(agent.bead, "block", stage=agent.spawned_stage)
+                elif status == "open":
+                    next_stage = NEXT_STAGE.get(agent.spawned_stage)
+                    if next_stage == "stage:merging" and "security" in labels and agent.spawned_stage == "stage:reviewing":
+                        next_stage = "stage:security-review"
+                    if next_stage and agent.spawned_stage == "stage:development":
+                        base = get_config().get("base_branch", "master")
+                        if not _branch_has_commits(agent.bead, base):
+                            self.empty_branch_retries[agent.bead] = self.empty_branch_retries.get(agent.bead, 0) + 1
+                            count = self.empty_branch_retries[agent.bead]
+                            if count >= MAX_RETRIES:
+                                cmd.extend(["--status", "blocked"])
+                                log(f"Blocked {agent.bead}: empty branch after {count} attempts, needs conductor", "🚫")
+                                _record_event(agent.bead, "empty_branch_blocked", stage=agent.spawned_stage, retries=count)
+                                try:
+                                    subprocess.run(
+                                        ["bd", "comment", agent.bead, f"Blocked after {count} empty-branch retries — needs conductor intervention"],
+                                        capture_output=True, timeout=5,
+                                    )
+                                except Exception:
+                                    pass
+                            else:
+                                cmd.extend(["--add-label", "stage:development"])
+                                log(f"No commits on feature/{agent.bead} — retry {count}/{MAX_RETRIES}", "⚠️")
+                                _record_event(agent.bead, "empty_branch", stage=agent.spawned_stage, retry=count)
+                            next_stage = None
+                    if next_stage:
+                        self.empty_branch_retries.pop(agent.bead, None)
+                        cmd.extend(["--add-label", next_stage])
+                        log(f"Advancing {agent.bead}: {agent.spawned_stage} → {next_stage}", "⏩")
+                        _record_event(agent.bead, "advance", **{"from": agent.spawned_stage, "to": next_stage})
 
         if len(cmd) > 3:
             try:
