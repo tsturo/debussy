@@ -371,8 +371,7 @@ def cmd_upgrade(args):
         log(f"Upgraded to: {new_ver.stdout.strip()}", "✓")
     else:
         log("Upgrade failed", "✗")
-    bd_result = _upgrade_bd()
-    return result.returncode or bd_result
+    return result.returncode
 
 
 def cmd_restart(args):
