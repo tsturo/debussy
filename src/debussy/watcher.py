@@ -101,6 +101,24 @@ def _has_unresolved_deps(bead: dict) -> bool:
     return False
 
 
+def _has_unmerged_dep_branches(bead: dict) -> list[str]:
+    unmerged = []
+    for dep in bead.get("dependencies", []):
+        dep_id = dep.get("depends_on_id") or dep.get("id")
+        if not dep_id:
+            continue
+        try:
+            result = subprocess.run(
+                ["git", "ls-remote", "--heads", "origin", f"feature/{dep_id}"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                unmerged.append(dep_id)
+        except Exception:
+            pass
+    return unmerged
+
+
 @dataclass
 class AgentInfo:
     bead: str
@@ -448,6 +466,13 @@ class Watcher:
                         full_bead = _get_bead_json(bead_id)
                         if not full_bead or _has_unresolved_deps(full_bead):
                             continue
+                        if role == "tester":
+                            unmerged = _has_unmerged_dep_branches(full_bead)
+                            if unmerged:
+                                if bead_id not in self.queued:
+                                    log(f"Holding {bead_id}: {len(unmerged)} dep branch(es) still unmerged on origin", "⏳")
+                                    self.queued.add(bead_id)
+                                continue
 
                     if role == "integrator" and self.has_running_role("integrator"):
                         if bead_id not in self.queued:
