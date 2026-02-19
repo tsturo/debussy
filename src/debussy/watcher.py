@@ -225,7 +225,7 @@ class Watcher:
         try:
             if role == "developer":
                 wt = create_worktree(agent_name, f"feature/{bead_id}", start_point=f"origin/{base}", new_branch=True)
-            elif role == "reviewer":
+            elif role in ("reviewer", "security-reviewer"):
                 wt = create_worktree(agent_name, f"origin/feature/{bead_id}", detach=True)
             elif role in ("integrator", "tester"):
                 wt = create_worktree(agent_name, f"origin/{base}", detach=True)
@@ -531,25 +531,30 @@ class Watcher:
 
             if has_rejected:
                 cmd.extend(["--remove-label", "rejected"])
-                self.rejections[agent.bead] = self.rejections.get(agent.bead, 0) + 1
-                count = self.rejections[agent.bead]
-                if count >= MAX_REJECTIONS:
+                if agent.spawned_stage == "stage:acceptance":
                     cmd.extend(["--status", "blocked"])
-                    log(f"Blocked {agent.bead}: rejected {count} times, needs conductor", "🚫")
-                    _record_event(agent.bead, "loop_blocked", stage=agent.spawned_stage, rejections=count)
-                    try:
-                        subprocess.run(
-                            ["bd", "comment", agent.bead, f"Blocked after {count} rejection loops — needs conductor intervention"],
-                            capture_output=True, timeout=5,
-                        )
-                    except Exception:
-                        pass
+                    log(f"Acceptance failed {agent.bead}: blocked for conductor to create fix tasks", "🚫")
+                    _record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": "blocked"})
                 else:
-                    cmd.extend(["--add-label", "stage:development"])
-                    self.cooldowns[agent.bead] = time.time()
-                    log(f"Rejected {agent.bead} ({count}/{MAX_REJECTIONS}): {agent.spawned_stage} → stage:development (cooldown {REJECTION_COOLDOWN}s)", "↩️")
-                self._save_rejections()
-                _record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": "stage:development"})
+                    self.rejections[agent.bead] = self.rejections.get(agent.bead, 0) + 1
+                    count = self.rejections[agent.bead]
+                    if count >= MAX_REJECTIONS:
+                        cmd.extend(["--status", "blocked"])
+                        log(f"Blocked {agent.bead}: rejected {count} times, needs conductor", "🚫")
+                        _record_event(agent.bead, "loop_blocked", stage=agent.spawned_stage, rejections=count)
+                        try:
+                            subprocess.run(
+                                ["bd", "comment", agent.bead, f"Blocked after {count} rejection loops — needs conductor intervention"],
+                                capture_output=True, timeout=5,
+                            )
+                        except Exception:
+                            pass
+                    else:
+                        cmd.extend(["--add-label", "stage:development"])
+                        self.cooldowns[agent.bead] = time.time()
+                        log(f"Rejected {agent.bead} ({count}/{MAX_REJECTIONS}): {agent.spawned_stage} → stage:development (cooldown {REJECTION_COOLDOWN}s)", "↩️")
+                    self._save_rejections()
+                    _record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": "stage:development"})
             elif status == "closed":
                 self.rejections.pop(agent.bead, None)
                 self._save_rejections()
@@ -561,6 +566,8 @@ class Watcher:
                 _record_event(agent.bead, "block", stage=agent.spawned_stage)
             elif status == "open":
                 next_stage = NEXT_STAGE.get(agent.spawned_stage)
+                if next_stage == "stage:merging" and "security" in labels and agent.spawned_stage == "stage:reviewing":
+                    next_stage = "stage:security-review"
                 if next_stage and agent.spawned_stage == "stage:development":
                     base = get_config().get("base_branch", "master")
                     if not _branch_has_commits(agent.bead, base):

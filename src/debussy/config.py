@@ -25,6 +25,7 @@ DEFAULTS = {
 STAGE_TO_ROLE = {
     "stage:acceptance": "tester",
     "stage:merging": "integrator",
+    "stage:security-review": "security-reviewer",
     "stage:reviewing": "reviewer",
     "stage:consolidating": "investigator",
     "stage:investigating": "investigator",
@@ -34,6 +35,7 @@ STAGE_TO_ROLE = {
 NEXT_STAGE = {
     "stage:development": "stage:reviewing",
     "stage:reviewing": "stage:merging",
+    "stage:security-review": "stage:merging",
     "stage:merging": None,
     "stage:acceptance": None,
     "stage:investigating": None,

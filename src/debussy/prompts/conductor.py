@@ -41,6 +41,16 @@ GOOD: "Create User model in src/models/user.ts with email, passwordHash, created
 GOOD: "Add POST /api/auth/login endpoint — validate credentials, return JWT"
 GOOD: "Create LoginForm component in src/components/LoginForm.tsx with email/password fields"
 
+SECURITY LABEL — add `security` to beads that touch sensitive areas. This triggers a dedicated
+security review stage after code review. Apply it when the task involves:
+- External/user input handling (forms, API endpoints, CLI args, file uploads)
+- Authentication or authorization logic
+- Cryptography or token/secret management
+- File path construction or file system access with dynamic paths
+- Database queries with dynamic input
+- Deserialization of untrusted data
+Example: bd update <id> --add-label security
+
 INCLUDE TEST CRITERIA only when the task warrants it. Not every task needs tests.
 Tasks that benefit from tests: new logic, algorithms, validation, API endpoints, data transformations.
 Tasks that typically don't: config changes, wiring/glue code, simple renames, UI markup, type definitions.

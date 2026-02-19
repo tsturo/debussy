@@ -7,6 +7,7 @@ import sys
 ALLOWED_LABELS = {
     "developer": set(),
     "reviewer": {"rejected"},
+    "security-reviewer": {"rejected"},
     "tester": {"rejected"},
     "investigator": set(),
     "integrator": {"rejected"},
@@ -15,6 +16,7 @@ ALLOWED_LABELS = {
 ALLOWED_STATUSES = {
     "developer": {"in_progress", "open", "blocked"},
     "reviewer": {"in_progress", "open"},
+    "security-reviewer": {"in_progress", "open", "blocked"},
     "tester": {"in_progress", "open", "closed"},
     "investigator": {"in_progress", "closed", "blocked"},
     "integrator": {"in_progress", "open"},

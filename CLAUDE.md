@@ -39,9 +39,12 @@ Two pipelines depending on task type:
 
 ```
 Per bead:      open → stage:development → stage:reviewing → stage:merging → closed
+Security bead: open → stage:development → stage:reviewing → stage:security-review → stage:merging → closed
 Per batch:     batch acceptance bead (deps on all beads) → stage:acceptance → closed
 Investigation: open → stage:investigating (parallel) → stage:consolidating (investigator) → .md file → conductor creates dev tasks → closed
 ```
+
+Beads with the `security` label (set by conductor) get routed through an extra security review after the standard code review. The watcher handles this conditionally.
 
 Investigators research in parallel and document findings. A consolidation step (investigator) synthesizes findings into an .md file. Conductor then creates developer tasks.
 
@@ -65,6 +68,7 @@ Investigators research in parallel and document findings. A consolidation step (
 | `stage:investigating` | investigator |
 | `stage:consolidating` | investigator |
 | `stage:reviewing` | reviewer |
+| `stage:security-review` | security-reviewer |
 | `stage:merging` | integrator |
 | `stage:acceptance` | tester |
 
@@ -93,6 +97,7 @@ Investigators research in parallel and document findings. A consolidation step (
 |------------|----------------|
 | status=open, no rejected | Remove stage label, add NEXT_STAGE |
 | status=open, rejected | Remove stage + rejected labels, add stage:development |
+| status=open, rejected (acceptance) | Remove stage + rejected labels, set blocked for conductor |
 | status=closed | Remove stage label (done) |
 | status=blocked | Remove stage label (parked for conductor) |
 
@@ -132,6 +137,15 @@ Investigators research in parallel and document findings. A consolidation step (
 - Success: `--status closed` (bead done, acceptance happens in batch)
 - Conflict: `--status open --add-label rejected` (watcher sends to stage:development)
 - **Never merges to master**
+
+### @security-reviewer
+- Dedicated security review for beads with the `security` label
+- Runs after standard code review passes, before merge
+- OWASP-aligned checklist: trust boundaries, input validation, injection, auth, secrets, crypto, error disclosure, dependencies
+- Approve: `--status open` (watcher advances to stage:merging)
+- Reject: `--status open --add-label rejected` (watcher sends to stage:development)
+- Blocked: `--status blocked` (watcher parks for conductor)
+- **Does not write code**
 
 ### @investigator
 - Researches codebase, documents findings as bead comments

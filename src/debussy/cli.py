@@ -339,6 +339,22 @@ def cmd_status(args):
     _print_runtime_info(running)
 
 
+def _upgrade_bd():
+    old = subprocess.run(["bd", "version"], capture_output=True, text=True)
+    old_ver = old.stdout.strip() if old.returncode == 0 else "unknown"
+    log(f"Current bd: {old_ver}", "📦")
+    log("Upgrading bd...", "⬆️")
+    result = subprocess.run([
+        "go", "install", "github.com/steveyegge/beads/cmd/bd@latest"
+    ])
+    if result.returncode == 0:
+        new = subprocess.run(["bd", "version"], capture_output=True, text=True)
+        log(f"Upgraded bd to: {new.stdout.strip()}", "✓")
+    else:
+        log("bd upgrade failed", "✗")
+    return result.returncode
+
+
 def cmd_upgrade(args):
     from . import __version__
     log(f"Current version: {__version__}", "📦")
@@ -355,7 +371,8 @@ def cmd_upgrade(args):
         log(f"Upgraded to: {new_ver.stdout.strip()}", "✓")
     else:
         log("Upgrade failed", "✗")
-    return result.returncode
+    bd_result = _upgrade_bd()
+    return result.returncode or bd_result
 
 
 def cmd_restart(args):
@@ -603,6 +620,7 @@ def cmd_debug(args):
 STAGE_SHORT = {
     "stage:development": "dev",
     "stage:reviewing": "rev",
+    "stage:security-review": "sec",
     "stage:merging": "merge",
     "stage:acceptance": "accept",
     "stage:investigating": "inv",
@@ -613,6 +631,7 @@ STAGE_SHORT = {
 BOARD_COLUMNS = [
     ("dev", "Dev"),
     ("review", "Review"),
+    ("sec-review", "Sec Review"),
     ("merge", "Merge"),
     ("accept", "Accept"),
     ("backlog", "Backlog"),
@@ -625,6 +644,7 @@ BOARD_INV_COLUMNS = [
 BOARD_STAGE_MAP = {
     "stage:development": "dev",
     "stage:reviewing": "review",
+    "stage:security-review": "sec-review",
     "stage:merging": "merge",
     "stage:acceptance": "accept",
     "stage:investigating": "investigating",
@@ -841,7 +861,8 @@ def cmd_metrics(args):
     if stage_durations:
         print("Stage averages:")
         for stage in ("stage:development", "stage:reviewing",
-                       "stage:merging", "stage:acceptance"):
+                       "stage:security-review", "stage:merging",
+                       "stage:acceptance"):
             durs = stage_durations.get(stage, [])
             if durs:
                 avg = sum(durs) / len(durs)

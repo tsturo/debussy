@@ -6,6 +6,7 @@ from .developer import developer_prompt
 from .integrator import integrator_prompt
 from .investigator import investigator_prompt
 from .reviewer import reviewer_prompt
+from .security_reviewer import security_reviewer_prompt
 from .tester import tester_prompt
 
 __all__ = ["get_prompt", "CONDUCTOR_PROMPT"]
@@ -19,6 +20,7 @@ _NO_BRANCH_ERROR = (
 _BUILDERS = {
     "developer": lambda bead_id, base, stage: developer_prompt(bead_id, base),
     "reviewer": lambda bead_id, base, stage: reviewer_prompt(bead_id, base),
+    "security-reviewer": lambda bead_id, base, stage: security_reviewer_prompt(bead_id, base),
     "tester": tester_prompt,
     "integrator": integrator_prompt,
     "investigator": investigator_prompt,
