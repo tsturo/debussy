@@ -2,7 +2,7 @@
 
 **Multi-agent orchestration for Claude Code.**
 
-*Named after Claude Debussy, the impressionist composer. Agents are named after composers too.*
+*Named after Claude Debussy, the impressionist composer. Agents are named after composers too (e.g., `developer-beethoven`, `reviewer-chopin`).*
 
 ---
 
@@ -18,15 +18,73 @@ cd your-project
 dbs start
 ```
 
-**Prerequisites:** Your project must be a git repository with an `origin` remote configured. Debussy uses `origin` for fetching, pushing, and branch tracking.
+**Prerequisites:** Your project must be a git repository with an `origin` remote configured.
 
 ---
 
-## How It Works
+## Architecture
 
-The **watcher** polls beads every 5 seconds and spawns Claude agents based on **stage labels**.
+Debussy has three layers:
 
-The **conductor** (you talk to it directly) creates tasks, then releases them by adding a stage label. The watcher spawns agents for beads with `status: open` and a `stage:*` label — beads without a stage label are backlog.
+1. **Conductor** - the entry point. You talk to it, it plans work and creates tasks (beads). It never writes code.
+2. **Watcher** - the orchestration engine. Polls beads every 5 seconds, spawns Claude agents based on stage labels, owns all stage transitions.
+3. **Agents** - specialized Claude instances (developer, reviewer, integrator, tester, investigator) that do the actual work in isolated git worktrees.
+
+```
+You ↔ Conductor (plans, creates tasks)
+              ↓
+         Watcher (polls every 5s, spawns agents, manages transitions)
+              ↓
+     Agents (work in isolated worktrees, signal results via status)
+```
+
+---
+
+## Pipelines
+
+### Development Pipeline
+
+Each bead flows through four stages. The watcher advances beads automatically based on agent signals.
+
+```
+open → stage:development → stage:reviewing → stage:merging → closed
+              ↓                  ↓                ↓
+          developer           reviewer        integrator
+              ↑                  │                │
+              └──────────────────┴────────────────┘  (on rejection → back to development)
+```
+
+After all beads in a batch are merged, a batch acceptance bead runs:
+
+```
+stage:acceptance → closed
+       ↓
+     tester
+```
+
+### Investigation Pipeline
+
+Parallel research with consolidation:
+
+```
+stage:investigating (parallel) → stage:consolidating → .md file → conductor creates dev tasks
+          ↓                              ↓
+     investigator                   investigator
+```
+
+Investigators research in parallel and document findings as comments. A consolidation bead (blocked by investigation beads) waits for all to finish, then synthesizes findings into an `.md` file.
+
+---
+
+## Watcher Orchestration
+
+The watcher is the central state machine. It runs a loop every 5 seconds:
+
+1. **Check timeouts** - kill agents running longer than `agent_timeout` (default 1 hour)
+2. **Clean up finished agents** - detect completed agents and process their results
+3. **Reset orphaned beads** - if an agent disappeared but bead is still `in_progress`, reset it
+4. **Resolve dependencies** - unblock beads whose dependencies have all closed
+5. **Spawn new agents** - for beads with `status: open` + a stage label, up to `max_total_agents`
 
 ### Status Model
 
@@ -36,82 +94,96 @@ The **conductor** (you talk to it directly) creates tasks, then releases them by
 | `open` (no stage label) | Backlog/parked |
 | `in_progress` | Agent is working |
 | `closed` | Pipeline complete |
-| `blocked` | Waiting for deps |
+| `blocked` | Waiting for deps / needs conductor |
 
-### Development Pipeline
+### Stage Transition Ownership
 
-| Stage Label | Agent | Next Stage |
-|-------------|-------|------------|
-| `stage:development` | developer | `stage:reviewing` |
-| `stage:reviewing` | reviewer | `stage:merging` |
-| `stage:merging` | integrator | `stage:acceptance` |
-| `stage:acceptance` | tester | `closed` |
+**The watcher owns ALL stage transitions.** Agents never add or remove stage labels. Agents only set bead status to signal their result:
+
+| Agent Signal | Command | When |
+|--------------|---------|------|
+| Claim | `--status in_progress` | Starting work |
+| Success | `--status open` | Work complete |
+| Done | `--status closed` | Terminal stage (merge, acceptance, investigation) |
+| Rejected | `--status open --add-label rejected` | Failed review/test |
+| Blocked | `--status blocked` | Can't proceed |
+
+The watcher reads the bead state after the agent finishes and transitions accordingly:
+
+| Bead State After Agent | Watcher Action |
+|------------------------|----------------|
+| `open`, no `rejected` | Remove current stage, add next stage |
+| `open` + `rejected` | Remove stage + rejected, add `stage:development` (retry) |
+| `closed` | Remove stage label (done) |
+| `blocked` | Remove stage label (parked for conductor) |
+
+### Resilience
+
+- **Rejection cooldown**: 60 seconds before retrying a rejected bead
+- **Max rejections**: After 5 rejections, bead is blocked and needs conductor intervention
+- **Empty branch detection**: If a developer doesn't commit anything, retries up to 3 times
+- **Crash recovery**: If an agent crashes within 30 seconds, counts as a failure. After 3 consecutive failures, bead is parked
+- **Orphan recovery**: Beads stuck as `in_progress` with no running agent are reset to `open`
+- **Integrator queueing**: Only one integrator runs at a time to avoid merge conflicts
+- **Priority sorting**: Bugs are prioritized over features
+
+### Event Recording
+
+All pipeline events (spawn, advance, reject, close, block, timeout, crash) are recorded to `.debussy/pipeline_events.jsonl`. Use `dbs metrics` to view analytics.
+
+---
+
+## Git Worktree Isolation
+
+Each agent works in an isolated git worktree under `.debussy-worktrees/`:
+
+| Role | Worktree Branch |
+|------|-----------------|
+| Developer | New branch `feature/{bead_id}` from `origin/{base}` |
+| Reviewer | Detached at `origin/feature/{bead_id}` (read-only) |
+| Integrator | Detached at `origin/{base}` (merge target) |
+| Tester | Detached at `origin/{base}` |
+| Investigator | No worktree (works in main repo) |
+
+Worktrees symlink `.beads/` and `.debussy/` back to the main repo so all agents share the same task database and configuration.
+
+---
+
+## Branching Model
 
 ```
-open → stage:development → stage:reviewing → stage:merging → stage:acceptance → closed
-              ↓                  ↓                ↓                ↓
-          developer           reviewer        integrator         tester
-              ↑                  │                │
-              └──────────────────┴────────────────┘  (on failure → stage:development)
+master (manual merge only by user)
+  └── feature/<name>          ← conductor's base branch
+        ├── feature/bd-001    ← developer branch (merged back by integrator)
+        ├── feature/bd-002
+        └── feature/bd-003
 ```
 
-### Investigation Pipeline
-
-| Stage Label | Agent | Result |
-|-------------|-------|--------|
-| `stage:investigating` | investigator | `closed` |
-| `stage:consolidating` | investigator | `closed` |
-
-```
-stage:investigating (parallel) → stage:consolidating → .md file → conductor creates dev tasks
-          ↓                              ↓
-     investigator                   investigator
-```
-
-Investigators research in parallel and document findings as comments. A consolidation bead (blocked by investigation beads) waits for all to finish, then the investigator synthesizes findings into an `.md` file.
-
-**Total agents** capped at 8 (configurable).
-**Blocked beads** skipped automatically.
+Agents never merge to master.
 
 ---
 
 ## Agents
 
-Agents are named after composers (e.g., `developer-beethoven`, `reviewer-chopin`).
-
-| Agent | Does |
-|-------|------|
-| **conductor** | Creates tasks. Never writes code. |
-| **investigator** | Researches codebase, documents findings. Also handles consolidation. |
-| **developer** | Implements on feature branch |
-| **reviewer** | Reviews code quality, security, and runs tests |
-| **tester** | Acceptance testing (post-merge) |
-| **integrator** | Merges feature branches to conductor's base branch |
-
-### Agent Workflow
-
-**The watcher owns all stage transitions.** Agents only set status:
-
-1. Watcher finds bead with `status: open` + stage label → spawns agent
-2. Agent claims: `bd update <id> --status in_progress`
-3. Agent works
-4. Agent signals result:
-   - Success: `bd update <id> --status open`
-   - Rejection: `bd update <id> --status open --add-label rejected`
-   - Terminal: `bd update <id> --status closed`
-   - Blocked: `bd update <id> --status blocked`
-5. Watcher detects completion → moves stage label automatically
+| Agent | Role | Terminal? |
+|-------|------|-----------|
+| **conductor** | Creates tasks, monitors progress, never writes code | N/A |
+| **developer** | Implements features and fixes on feature branch | No |
+| **reviewer** | Reviews code quality, security, runs tests | No |
+| **integrator** | Merges feature branch to conductor's base branch | Yes |
+| **tester** | Batch acceptance testing after all beads merged | Yes |
+| **investigator** | Researches codebase, documents findings. Also handles consolidation | Yes |
 
 ---
 
 ## Commands
 
 ```bash
-dbs start [requirement]  # Start tmux session
+dbs start [requirement]  # Start tmux session with optional initial requirement
 dbs watch                # Run watcher only
-dbs status               # Show pipeline status
+dbs status               # Show active agents, branches, base branch
 dbs board                # Kanban board view
-dbs metrics              # Pipeline metrics (stage durations, rejections)
+dbs metrics              # Pipeline analytics (stage durations, rejections)
 dbs config [key] [value] # View/set config
 dbs backup               # Backup beads database
 dbs clear [-f]           # Clear all beads (with backup)
@@ -127,12 +199,11 @@ dbs debug                # Troubleshoot pipeline detection
 
 ```bash
 dbs config                          # Show all
-dbs config max_total_agents 8       # Set total agent limit
-dbs config use_tmux_windows true    # Spawn agents as tmux windows
-dbs config base_branch feature/foo  # Set conductor's base branch
+dbs config max_total_agents 8       # Max concurrent agents (default: 8)
+dbs config use_tmux_windows true    # Spawn agents as tmux windows (default: true)
+dbs config base_branch feature/foo  # Conductor's base branch
+dbs config agent_timeout 3600       # Agent timeout in seconds (default: 3600)
 ```
-
-Defaults: 8 total agents, tmux windows on.
 
 ### tmux Windows Mode
 
@@ -140,8 +211,7 @@ When `use_tmux_windows` is enabled, agents spawn as separate tmux windows instea
 
 - Real-time output visible (no log buffering)
 - Switch between agents with `Ctrl-b n/p` or `Ctrl-b w`
-- Window closes when agent finishes (press Enter to dismiss)
-- Works only when watcher runs inside tmux session
+- Window closes when agent finishes
 
 ---
 
@@ -152,32 +222,23 @@ When `use_tmux_windows` is enabled, agents spawn as separate tmux windows instea
 bd create "Implement feature X" -d "Description of what to do"
 bd update <bead-id> --add-label stage:development
 ```
-Conductor creates tasks (backlog), then releases them with `--add-label`. Watcher detects `stage:development` label → spawns developer → pipeline begins.
 
 ### Parallel Investigation
 ```bash
-bd create "Investigate area A" -d "Research details"
-bd create "Investigate area B" -d "Research details"
-bd create "Consolidate findings" -d "Synthesize results" --deps "bd-001,bd-002"
+bd create "Investigate area A" -d "Research details"                             # → bd-001
+bd create "Investigate area B" -d "Research details"                             # → bd-002
+bd create "Consolidate findings" -d "Synthesize results" --deps "bd-001,bd-002"  # → bd-003
 bd update bd-001 --add-label stage:investigating
 bd update bd-002 --add-label stage:investigating
 bd update bd-003 --add-label stage:consolidating
 ```
-Investigators work in parallel. Consolidation bead stays blocked until all finish, then investigator synthesizes findings.
 
----
-
-## Branching Model
-
+### Batch Acceptance
+```bash
+bd create "Acceptance testing" -d "Run full test suite" --deps "bd-001,bd-002,bd-003"
+bd update <id> --add-label stage:acceptance
 ```
-master (manual merge only by user)
-  └── feature/<name>          ← conductor's base branch
-        ├── feature/bd-001    ← developer branch (merged back by integrator)
-        ├── feature/bd-002
-        └── feature/bd-003
-```
-
-Agents never merge to master — only the user does that manually.
+The acceptance bead stays blocked until all dependencies close.
 
 ---
 
@@ -193,8 +254,8 @@ Agents never merge to master — only the user does that manually.
 
 - **conductor**: Main Claude instance for task creation
 - **cmd**: Shell for manual commands
-- **board**: Auto-refreshing kanban board (full height)
-- **watcher**: Agent spawner logs (full height)
+- **board**: Auto-refreshing kanban board (updates every 5s)
+- **watcher**: Agent spawner logs
 
 ---
 
@@ -203,11 +264,6 @@ Agents never merge to master — only the user does that manually.
 ```bash
 cd your-project
 bd init
-
-# Optional: Copy project config
-git clone https://github.com/tsturo/debussy.git /tmp/debussy
-cp /tmp/debussy/CLAUDE.md .
-
 dbs start
 ```
 
