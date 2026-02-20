@@ -5,9 +5,16 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .config import get_config, log
+from .config import STATUS_CLOSED, get_config, log
 
 WORKTREES_DIR = ".debussy-worktrees"
+
+
+def _remove_symlinks(worktree_path: Path):
+    for name in (".beads", ".debussy"):
+        link = worktree_path / name
+        if link.is_symlink():
+            link.unlink()
 
 
 def _repo_root() -> Path:
@@ -99,10 +106,7 @@ def remove_worktree(agent_name: str):
     if not wt_path.exists():
         return
 
-    for name in (".beads", ".debussy"):
-        link = wt_path / name
-        if link.is_symlink():
-            link.unlink()
+    _remove_symlinks(wt_path)
 
     result = subprocess.run(
         ["git", "worktree", "remove", "--force", str(wt_path)],
@@ -116,14 +120,14 @@ def remove_worktree(agent_name: str):
 def _get_closed_bead_ids() -> set[str]:
     try:
         result = subprocess.run(
-            ["bd", "list", "--status", "closed", "--limit", "0", "--json"],
+            ["bd", "list", "--status", STATUS_CLOSED, "--limit", "0", "--json"],
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode != 0 or not result.stdout.strip():
             return set()
         beads = json.loads(result.stdout)
         return {b.get("id") for b in beads if b.get("id")}
-    except Exception:
+    except (subprocess.SubprocessError, OSError, ValueError):
         return set()
 
 
@@ -197,10 +201,7 @@ def cleanup_stale_worktrees():
 
     for child in wt_dir.iterdir():
         if child.is_dir() and child.resolve() not in active_paths:
-            for name in (".beads", ".debussy"):
-                link = child / name
-                if link.is_symlink():
-                    link.unlink()
+            _remove_symlinks(child)
             shutil.rmtree(child, ignore_errors=True)
             log(f"Cleaned stale worktree: {child.name}", "🧹")
 
@@ -224,10 +225,7 @@ def remove_all_worktrees():
 
     for child in wt_dir.iterdir():
         if child.is_dir():
-            for name in (".beads", ".debussy"):
-                link = child / name
-                if link.is_symlink():
-                    link.unlink()
+            _remove_symlinks(child)
             shutil.rmtree(child, ignore_errors=True)
 
     subprocess.run(["git", "worktree", "prune"], capture_output=True, timeout=10)

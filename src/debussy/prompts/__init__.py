@@ -36,10 +36,4 @@ def get_prompt(role: str, bead_id: str, stage: str) -> str:
     if builder:
         return builder(bead_id, base, stage)
 
-    return (
-        f"You are a {role}. Work on bead {bead_id} (stage={stage}).\n\n"
-        f"1. bd show {bead_id}\n"
-        "2. Do the work\n"
-        "3. Update status when done\n"
-        "4. Exit"
-    )
+    raise ValueError(f"Unknown role: {role}")

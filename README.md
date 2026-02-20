@@ -269,6 +269,30 @@ dbs start
 
 ---
 
+## Project Structure
+
+```
+src/debussy/
+  cli.py              # CLI command handlers (thin dispatch layer)
+  watcher.py          # Watcher run loop and agent state management
+  config.py           # Configuration, constants, stage/status definitions
+  bead_client.py      # Shared bead query/mutation functions (wraps bd CLI)
+  transitions.py      # Stage transition logic (state machine)
+  spawner.py          # Agent spawning (tmux windows and background processes)
+  pipeline_checker.py # Pipeline scanning, dependency resolution, parent auto-close
+  board.py            # Kanban board rendering
+  metrics.py          # Pipeline analytics and stage duration tracking
+  status.py           # Status and debug display
+  tmux.py             # Tmux session and window management
+  worktree.py         # Git worktree lifecycle
+  prompts/            # Agent prompt templates (one file per role)
+tests/
+  test_bead_client.py # Tests for bead data access layer
+  test_transitions.py # Tests for stage transition logic
+```
+
+---
+
 ## License
 
 MIT

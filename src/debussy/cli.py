@@ -2,19 +2,19 @@
 
 import json
 import os
-import signal
 import shutil
 import subprocess
-import time
 from datetime import datetime
 from pathlib import Path
 
+from .bead_client import get_bead_status
 from .config import (
-    CLAUDE_STARTUP_DELAY, COMMENT_TRUNCATE_LEN,
-    SESSION_NAME, STAGE_TO_ROLE, YOLO_MODE, clean_config, get_config, log,
-    parse_value, set_config,
+    SESSION_NAME, STATUS_IN_PROGRESS, STATUS_OPEN,
+    clean_config, get_config, log, parse_value, set_config,
 )
-from .prompts import CONDUCTOR_PROMPT
+from .tmux import (
+    create_tmux_layout, kill_agent, label_panes, send_conductor_prompt,
+)
 from .worktree import remove_worktree, remove_all_worktrees
 
 
@@ -24,69 +24,16 @@ def _preflight_check() -> bool:
         capture_output=True, text=True,
     )
     if result.returncode != 0:
-        log("Not a git repository", "✗")
+        log("Not a git repository", "\u2717")
         return False
     result = subprocess.run(
         ["git", "remote"], capture_output=True, text=True,
     )
     if "origin" not in result.stdout.split():
-        log("No 'origin' remote configured. Debussy requires a git remote.", "✗")
+        log("No 'origin' remote configured. Debussy requires a git remote.", "\u2717")
         log("Add one with: git remote add origin <url>", "")
         return False
     return True
-
-
-def _run_tmux(*args, check=True):
-    return subprocess.run(["tmux", *args], capture_output=True, check=check)
-
-
-def _send_keys(target: str, keys: str, literal: bool = False):
-    cmd = ["tmux", "send-keys"]
-    if literal:
-        cmd.append("-l")
-    cmd.extend(["-t", target, keys])
-    if not literal:
-        cmd.append("C-m")
-    subprocess.run(cmd, check=True)
-
-
-def _create_tmux_layout():
-    _run_tmux("kill-session", "-t", SESSION_NAME, check=False)
-    _run_tmux("new-session", "-d", "-s", SESSION_NAME, "-n", "main")
-
-    t = f"{SESSION_NAME}:main"
-    _run_tmux("split-window", "-h", "-p", "33", "-t", t)
-    _run_tmux("split-window", "-h", "-p", "50", "-t", f"{t}.0")
-    _run_tmux("split-window", "-v", "-p", "50", "-t", f"{t}.0")
-
-    Path(".debussy").mkdir(parents=True, exist_ok=True)
-
-    claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
-    _send_keys(f"{t}.0", claude_cmd)
-    _send_keys(f"{t}.2", "watch -n 5 'debussy board'")
-    _send_keys(f"{t}.3", "debussy watch")
-
-
-def _label_panes():
-    t = f"{SESSION_NAME}:main"
-    for idx, title in enumerate(["conductor", "cmd", "board", "watcher"]):
-        _run_tmux("select-pane", "-t", f"{t}.{idx}", "-T", title)
-    _run_tmux("set-option", "-t", SESSION_NAME, "pane-border-status", "top")
-    _run_tmux("set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} ")
-    _run_tmux("select-window", "-t", f"{SESSION_NAME}:main")
-    _run_tmux("select-pane", "-t", f"{t}.0")
-
-
-def _send_conductor_prompt(requirement: str | None):
-    prompt = CONDUCTOR_PROMPT
-    if requirement:
-        prompt = f"{prompt}\n\nUser requirement: {requirement}"
-
-    target = f"{SESSION_NAME}:main.0"
-    time.sleep(CLAUDE_STARTUP_DELAY)
-    _send_keys(target, prompt, literal=True)
-    time.sleep(0.5)
-    subprocess.run(["tmux", "send-keys", "-t", target, "Enter"], check=True)
 
 
 def cmd_start(args):
@@ -97,18 +44,18 @@ def cmd_start(args):
         set_config("paused", True)
     else:
         set_config("paused", False)
-    _create_tmux_layout()
-    _send_conductor_prompt(getattr(args, "requirement", None))
-    _label_panes()
+    create_tmux_layout()
+    send_conductor_prompt(getattr(args, "requirement", None))
+    label_panes()
 
-    print("🎼 Debussy started")
+    print("\U0001f3bc Debussy started")
     print("")
     print("Layout:")
-    print("  ┌──────────┬──────────┬─────────┐")
-    print("  │conductor │          │         │")
-    print("  ├──────────┤  board   │ watcher │")
-    print("  │   cmd    │          │         │")
-    print("  └──────────┴──────────┴─────────┘")
+    print("  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510")
+    print("  \u2502conductor \u2502          \u2502         \u2502")
+    print("  \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524  board   \u2502 watcher \u2502")
+    print("  \u2502   cmd    \u2502          \u2502         \u2502")
+    print("  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518")
     print("")
 
     subprocess.run(["tmux", "attach-session", "-t", SESSION_NAME])
@@ -121,277 +68,26 @@ def cmd_watch(args):
     Watcher().run()
 
 
-def _get_all_beads() -> list[dict]:
-    beads = {}
-    for status in ("open", "in_progress", "closed", "blocked"):
-        try:
-            result = subprocess.run(
-                ["bd", "list", "--status", status, "--limit", "0", "--json"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                continue
-            data = json.loads(result.stdout)
-            if isinstance(data, list):
-                for bead in data:
-                    bead_id = bead.get("id")
-                    if bead_id:
-                        beads[bead_id] = bead
-        except Exception:
-            continue
-    return list(beads.values())
-
-
-def _get_running_agents() -> dict:
-    state_file = Path(".debussy/watcher_state.json")
-    if not state_file.exists():
-        return {}
-    try:
-        with open(state_file) as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-
-def _get_bead_comments(bead_id: str) -> list[str]:
-    try:
-        result = subprocess.run(
-            ["bd", "show", bead_id],
-            capture_output=True, text=True, timeout=5
-        )
-    except Exception:
-        return []
-    if result.returncode != 0:
-        return []
-    comments = []
-    in_comments = False
-    for line in result.stdout.split('\n'):
-        if line.startswith("Comments:") or line.startswith("## Comments"):
-            in_comments = True
-            continue
-        if in_comments and line.strip() and not line.startswith("---"):
-            comments.append(line.strip())
-    return comments
-
-
-def _print_section(label: str, items: list, show_comments: bool = False):
-    if items:
-        print(f"{label} ({len(items)})")
-        for line, bead_id in items:
-            print(f"   {line}")
-            if show_comments:
-                try:
-                    comments = _get_bead_comments(bead_id)
-                    if comments:
-                        print(f"      💬 {comments[-1][:COMMENT_TRUNCATE_LEN]}")
-                except Exception:
-                    pass
-    else:
-        print(f"{label}: none")
-    print()
-
-
-def _waiting_on(bead: dict, all_beads_by_id: dict) -> list[str]:
-    waiting = []
-    for dep in bead.get("dependencies", []):
-        dep_id = dep.get("depends_on_id") or dep.get("id")
-        dep_status = dep.get("status") or all_beads_by_id.get(dep_id, {}).get("status")
-        if dep_id and dep_status != "closed":
-            waiting.append(dep_id)
-    return waiting
-
-
-def _print_blocked_tree(blocked: list, all_beads_by_id: dict):
-    blocked_ids = {bead_id for _, bead_id in blocked}
-    lines_by_id = {bead_id: line for line, bead_id in blocked}
-
-    children: dict[str, list[str]] = {}
-    roots = []
-    for _, bead_id in blocked:
-        bead = all_beads_by_id.get(bead_id, {})
-        blocked_parents = [d for d in _waiting_on(bead, all_beads_by_id) if d in blocked_ids]
-        if blocked_parents:
-            for parent in blocked_parents:
-                children.setdefault(parent, []).append(bead_id)
-        else:
-            roots.append(bead_id)
-
-    printed = set()
-
-    def _print_node(bead_id: str, indent: int):
-        if bead_id in printed:
-            return
-        printed.add(bead_id)
-        prefix = "   " + "  " * indent + ("└ " if indent > 0 else "")
-        print(f"{prefix}{lines_by_id.get(bead_id, bead_id)}")
-        for child in children.get(bead_id, []):
-            _print_node(child, indent + 1)
-
-    print(f"⊘ BLOCKED ({len(blocked)})")
-    for root in roots:
-        _print_node(root, 0)
-    for _, bead_id in blocked:
-        if bead_id not in printed:
-            _print_node(bead_id, 0)
-    print()
-
-
-def _dep_summary(bead: dict, all_beads_by_id: dict) -> str:
-    deps = bead.get("dependencies", [])
-    if not deps:
-        return ""
-    waiting = []
-    for dep in deps:
-        dep_id = dep.get("depends_on_id") or dep.get("id")
-        if not dep_id:
-            continue
-        status = dep.get("status") or all_beads_by_id.get(dep_id, {}).get("status")
-        if status != "closed":
-            waiting.append(dep_id)
-    if not waiting:
-        return ""
-    return f" (waiting: {', '.join(waiting)})"
-
-
-def _format_bead(bead: dict, running: dict, all_beads_by_id: dict) -> tuple[str, str, str]:
-    bead_id = bead.get("id", "")
-    title = bead.get("title", "")
-    status = bead.get("status", "")
-    labels = bead.get("labels", [])
-    stages = [l for l in labels if l.startswith("stage:")]
-
-    agent_str = ""
-    if bead_id in running:
-        agent_str = f" ← {running[bead_id]['agent']} 🔄"
-
-    if status == "closed":
-        return "done", f"{bead_id} {title}", bead_id
-
-    if status == "blocked":
-        dep_info = _dep_summary(bead, all_beads_by_id)
-        return "blocked", f"[blocked] {bead_id} {title}{dep_info}", bead_id
-
-    dep_info = _dep_summary(bead, all_beads_by_id)
-    if dep_info:
-        stage_info = f" {stages[0]}" if stages else ""
-        return "blocked", f"[waiting{stage_info}] {bead_id} {title}{dep_info}", bead_id
-
-    if status == "in_progress":
-        stage_info = f" {stages[0]}" if stages else ""
-        return "active", f"[in_progress{stage_info}] {bead_id} {title}{agent_str}", bead_id
-
-    if stages:
-        stage = stages[0]
-        role = STAGE_TO_ROLE.get(stage, "?")
-        return "active", f"[{stage} → {role}] {bead_id} {title}{agent_str}", bead_id
-
-    return "backlog", f"[open] {bead_id} {title}", bead_id
-
-
-def _get_branches() -> list[str]:
-    try:
-        result = subprocess.run(
-            ["git", "branch", "--list", "feature/*"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode != 0:
-            return []
-        current = subprocess.run(
-            ["git", "branch", "--show-current"],
-            capture_output=True, text=True, timeout=5,
-        )
-        current_branch = current.stdout.strip()
-        branches = []
-        for line in result.stdout.strip().split("\n"):
-            branch = line.strip().lstrip("* ")
-            if branch:
-                marker = " *" if branch == current_branch else ""
-                branches.append(f"{branch}{marker}")
-        return branches
-    except Exception:
-        return []
-
-
-def _print_runtime_info(running):
-    now = time.time()
-    cfg = get_config()
-    base = cfg.get("base_branch", "not set")
-    max_agents = cfg.get("max_total_agents", 8)
-
-    print(f"  base: {base}  agents: {len(running)}/{max_agents}")
-    print()
-
-    if running:
-        print("Agents:")
-        for bead_id, info in running.items():
-            agent = info.get("agent", "?")
-            role = info.get("role", "?")
-            started = info.get("started_at")
-            dur = _fmt_duration(now - started) if started else "?"
-            print(f"  {agent} ({role}) → {bead_id}  [{dur}]")
-        print()
-
-    branches = _get_branches()
-    if branches:
-        print(f"Branches ({len(branches)}):")
-        for branch in branches:
-            print(f"  {branch}")
-        print()
-
-
-def _print_parent_progress(all_beads):
-    by_parent = {}
-    parent_beads = {}
-    for bead in all_beads:
-        pid = bead.get("parent_id")
-        if pid:
-            by_parent.setdefault(pid, []).append(bead)
-        bead_id = bead.get("id")
-        if bead_id:
-            parent_beads[bead_id] = bead
-
-    if not by_parent:
-        return
-
-    print("Features:")
-    for pid, children in sorted(by_parent.items()):
-        parent = parent_beads.get(pid)
-        title = parent.get("title", pid) if parent else pid
-        closed = sum(1 for c in children if c.get("status") == "closed")
-        total = len(children)
-        check = " \u2713" if closed == total else ""
-        print(f"  {title} ({closed}/{total}){check}")
-    print()
-
-
-def cmd_status(args):
-    print("\n=== DEBUSSY STATUS ===\n")
-    running = _get_running_agents()
-    _print_runtime_info(running)
-    all_beads = _get_all_beads()
-    _print_parent_progress(all_beads)
-
-
 def _upgrade_bd():
     old = subprocess.run(["bd", "version"], capture_output=True, text=True)
     old_ver = old.stdout.strip() if old.returncode == 0 else "unknown"
-    log(f"Current bd: {old_ver}", "📦")
-    log("Upgrading bd...", "⬆️")
+    log(f"Current bd: {old_ver}", "\U0001f4e6")
+    log("Upgrading bd...", "\u2b06\ufe0f")
     result = subprocess.run([
         "go", "install", "github.com/steveyegge/beads/cmd/bd@latest"
     ])
     if result.returncode == 0:
         new = subprocess.run(["bd", "version"], capture_output=True, text=True)
-        log(f"Upgraded bd to: {new.stdout.strip()}", "✓")
+        log(f"Upgraded bd to: {new.stdout.strip()}", "\u2713")
     else:
-        log("bd upgrade failed", "✗")
+        log("bd upgrade failed", "\u2717")
     return result.returncode
 
 
 def cmd_upgrade(args):
     from . import __version__
-    log(f"Current version: {__version__}", "📦")
-    log("Upgrading debussy...", "⬆️")
+    log(f"Current version: {__version__}", "\U0001f4e6")
+    log("Upgrading debussy...", "\u2b06\ufe0f")
     result = subprocess.run([
         "pipx", "install", "--force",
         "git+https://github.com/tsturo/debussy.git"
@@ -401,9 +97,9 @@ def cmd_upgrade(args):
             ["debussy", "--version"],
             capture_output=True, text=True
         )
-        log(f"Upgraded to: {new_ver.stdout.strip()}", "✓")
+        log(f"Upgraded to: {new_ver.stdout.strip()}", "\u2713")
     else:
-        log("Upgrade failed", "✗")
+        log("Upgrade failed", "\u2717")
     return result.returncode
 
 
@@ -422,14 +118,14 @@ def cmd_restart(args):
          f"sleep 1 && tmux kill-session -t {SESSION_NAME} 2>/dev/null && sleep 1 && cd {cwd} && debussy start"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
-    log("Restarting in background...", "🔄")
+    log("Restarting in background...", "\U0001f504")
 
 
 def cmd_config(args):
     if args.key and args.value is not None:
         value = parse_value(args.value)
         set_config(args.key, value)
-        log(f"Set {args.key} = {value}", "✓")
+        log(f"Set {args.key} = {value}", "\u2713")
     elif args.key:
         cfg = get_config()
         val = cfg.get(args.key, "not set")
@@ -458,9 +154,9 @@ def _backup_beads() -> Path | None:
 def cmd_backup(args):
     backup_path = _backup_beads()
     if backup_path:
-        log(f"Backed up to {backup_path}", "✓")
+        log(f"Backed up to {backup_path}", "\u2713")
     else:
-        log("No .beads directory to backup", "⚠️")
+        log("No .beads directory to backup", "\u26a0\ufe0f")
 
 
 def cmd_clear(args):
@@ -471,23 +167,23 @@ def cmd_clear(args):
         result = subprocess.run(["bd", "list"], capture_output=True, text=True)
         task_count = len([l for l in result.stdout.strip().split('\n') if l.strip()]) if result.stdout.strip() else 0
         if task_count > 0:
-            print(f"⚠️  This will delete {task_count} tasks!")
+            print(f"\u26a0\ufe0f  This will delete {task_count} tasks!")
             confirm = input("Type 'yes' to confirm: ")
             if confirm.lower() != 'yes':
-                log("Aborted", "✗")
+                log("Aborted", "\u2717")
                 return 1
 
     if beads_dir.exists():
         backup_path = _backup_beads()
         if backup_path:
-            log(f"Backed up to {backup_path}", "💾")
+            log(f"Backed up to {backup_path}", "\U0001f4be")
         shutil.rmtree(beads_dir)
-        log("Removed .beads", "🗑")
+        log("Removed .beads", "\U0001f5d1")
 
     try:
         remove_all_worktrees()
-        log("Removed all worktrees", "🧹")
-    except Exception:
+        log("Removed all worktrees", "\U0001f9f9")
+    except (subprocess.SubprocessError, OSError):
         pass
 
     if debussy_dir.exists():
@@ -497,61 +193,27 @@ def cmd_clear(args):
                     shutil.rmtree(item)
                 else:
                     item.unlink()
-        log("Cleared .debussy (kept backups)", "🗑")
+        log("Cleared .debussy (kept backups)", "\U0001f5d1")
 
     result = subprocess.run(["bd", "init"], capture_output=True)
     if result.returncode != 0:
-        log("Failed to init beads", "✗")
+        log("Failed to init beads", "\u2717")
         return 1
-    log("Initialized fresh beads", "✓")
-
-
-def _stop_watcher():
-    subprocess.run(
-        ["tmux", "send-keys", "-t", f"{SESSION_NAME}:main.3", "C-c"],
-        capture_output=True,
-    )
-
-
-def _kill_agent(agent: dict, agent_name: str):
-    if agent.get("tmux"):
-        subprocess.run(
-            ["tmux", "kill-window", "-t", f"{SESSION_NAME}:{agent_name}"],
-            capture_output=True,
-        )
-    elif agent.get("pid"):
-        try:
-            os.kill(agent["pid"], signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-
-
-def _get_bead_status(bead_id: str) -> str | None:
-    try:
-        result = subprocess.run(
-            ["bd", "show", bead_id, "--json"],
-            capture_output=True, text=True, timeout=5,
-        )
-        data = json.loads(result.stdout)
-        if isinstance(data, list) and data:
-            return data[0].get("status")
-    except Exception:
-        pass
-    return None
+    log("Initialized fresh beads", "\u2713")
 
 
 def _reset_bead_to_open(bead_id: str):
-    status = _get_bead_status(bead_id)
-    if status and status == "in_progress":
+    status = get_bead_status(bead_id)
+    if status and status == STATUS_IN_PROGRESS:
         subprocess.run(
             ["bd", "comment", bead_id, "Paused by debussy pause"],
             capture_output=True, timeout=5,
         )
         subprocess.run(
-            ["bd", "update", bead_id, "--status", "open"],
+            ["bd", "update", bead_id, "--status", STATUS_OPEN],
             capture_output=True, timeout=5,
         )
-        log(f"Reset {bead_id} ({status} → open)", "⏸")
+        log(f"Reset {bead_id} ({status} \u2192 open)", "\u23f8")
 
 
 def _delete_orphan_branches(paused_beads: set[str]):
@@ -570,9 +232,9 @@ def _delete_orphan_branches(paused_beads: set[str]):
                     ["git", "branch", "-D", branch],
                     capture_output=True,
                 )
-                log(f"Deleted branch {branch}", "🗑")
-    except Exception as e:
-        log(f"Failed to clean branches: {e}", "⚠️")
+                log(f"Deleted branch {branch}", "\U0001f5d1")
+    except (subprocess.SubprocessError, OSError) as e:
+        log(f"Failed to clean branches: {e}", "\u26a0\ufe0f")
 
 
 def cmd_pause(args):
@@ -584,378 +246,26 @@ def cmd_pause(args):
         try:
             with open(state_file) as f:
                 state = json.load(f)
-        except Exception:
+        except (OSError, ValueError):
             pass
 
     for bead_id, agent in state.items():
         agent_name = agent.get("agent", "")
-        _kill_agent(agent, agent_name)
-        log(f"Killed {agent_name}", "🛑")
+        kill_agent(agent, agent_name)
+        log(f"Killed {agent_name}", "\U0001f6d1")
         if agent.get("worktree_path"):
             try:
                 remove_worktree(agent_name)
-            except Exception:
+            except (subprocess.SubprocessError, OSError):
                 pass
         _reset_bead_to_open(bead_id)
 
     if state_file.exists():
         state_file.unlink()
 
-    log("Pipeline paused", "⏸")
+    log("Pipeline paused", "\u23f8")
 
 
 def cmd_resume(args):
     set_config("paused", False)
-    log("Pipeline resumed", "▶")
-
-
-def cmd_debug(args):
-    print("=== DEBUSSY DEBUG ===\n")
-
-    all_beads = _get_all_beads()
-
-    by_status = {}
-    by_stage = {}
-    for bead in all_beads:
-        status = bead.get("status", "unknown")
-        by_status.setdefault(status, []).append(bead)
-        for label in bead.get("labels", []):
-            if label.startswith("stage:"):
-                by_stage.setdefault(label, []).append(bead)
-
-    print("By status:")
-    for status in ("open", "in_progress", "closed", "blocked"):
-        beads = by_status.get(status, [])
-        print(f"  {status}: {len(beads)}")
-    print()
-
-    print("By stage label:")
-    for stage in STAGE_TO_ROLE:
-        beads = by_stage.get(stage, [])
-        print(f"  {stage}: {len(beads)}")
-        for bead in beads[:3]:
-            print(f"    → {bead.get('id')} {bead.get('title', '')}")
-    print()
-
-    print("Checking .debussy directory...")
-    debussy_dir = Path(".debussy")
-    if debussy_dir.exists():
-        for item in debussy_dir.iterdir():
-            if item.is_dir():
-                count = len(list(item.iterdir()))
-                print(f"  {item.name}/: {count} files")
-            else:
-                print(f"  {item.name}: {item.stat().st_size} bytes")
-    else:
-        print("  .debussy directory doesn't exist")
-    print()
-
-
-STAGE_SHORT = {
-    "stage:development": "dev",
-    "stage:reviewing": "rev",
-    "stage:security-review": "sec",
-    "stage:merging": "merge",
-    "stage:acceptance": "accept",
-    "stage:investigating": "inv",
-    "stage:consolidating": "cons",
-}
-
-
-BOARD_COLUMNS = [
-    ("dev", "Dev"),
-    ("review", "Review"),
-    ("sec-review", "Sec Review"),
-    ("merge", "Merge"),
-    ("accept", "Accept"),
-    ("backlog", "Backlog"),
-    ("done", "Done"),
-]
-BOARD_INV_COLUMNS = [
-    ("investigating", "Investigating"),
-    ("consolidating", "Consolidating"),
-]
-BOARD_STAGE_MAP = {
-    "stage:development": "dev",
-    "stage:reviewing": "review",
-    "stage:security-review": "sec-review",
-    "stage:merging": "merge",
-    "stage:acceptance": "accept",
-    "stage:investigating": "investigating",
-    "stage:consolidating": "consolidating",
-}
-DONE_LIMIT = 5
-STAGE_LIMIT = 50
-
-
-def _categorize_bead(bead, parent_ids: set[str] | None = None):
-    if bead.get("status") == "closed":
-        return "done"
-    if parent_ids and bead.get("id") in parent_ids:
-        return "skip"
-    for label in bead.get("labels", []):
-        if label in BOARD_STAGE_MAP:
-            return BOARD_STAGE_MAP[label]
-    return "backlog"
-
-
-def _build_buckets(beads, running, all_beads_by_id):
-    dev_keys = {k for k, _ in BOARD_COLUMNS}
-    inv_keys = {k for k, _ in BOARD_INV_COLUMNS}
-    dev = {k: [] for k in dev_keys}
-    inv = {k: [] for k in inv_keys}
-
-    parent_ids = {b.get("parent_id") for b in beads if b.get("parent_id")}
-
-    for bead in beads:
-        col = _categorize_bead(bead, parent_ids)
-        if col == "skip":
-            continue
-        if col in dev:
-            dev[col].append(bead)
-        elif col in inv:
-            inv[col].append(bead)
-
-    for key, bucket in list(dev.items()) + list(inv.items()):
-        if key == "done":
-            bucket.sort(key=lambda b: b.get("id", ""), reverse=True)
-        else:
-            bucket.sort(key=lambda b: _sort_key(b, running, all_beads_by_id))
-
-    return dev, inv
-
-
-def _sort_key(bead, running, all_beads_by_id):
-    bead_id = bead.get("id", "")
-    is_running = bead_id in running
-    is_blocked = bead.get("status") == "blocked" or bool(_waiting_on(bead, all_beads_by_id))
-    priority = bead.get("priority", 99)
-    return (not is_running, not is_blocked, priority, bead_id)
-
-
-def _bead_marker(bead, running, all_beads_by_id):
-    bead_id = bead.get("id", "")
-    if bead_id in running:
-        agent = running[bead_id].get("agent", "")
-        return f" \U0001f504 {agent}"
-    if bead.get("status") == "blocked" or _waiting_on(bead, all_beads_by_id):
-        return " \u2298"
-    return ""
-
-
-def _board_truncate(text, width):
-    if len(text) <= width:
-        return text
-    return text[:width - 2] + ".."
-
-
-def _count_children(parent_id, all_beads_by_id):
-    return sum(1 for b in all_beads_by_id.values() if b.get("parent_id") == parent_id)
-
-
-def _group_done_beads(done_beads, all_beads_by_id):
-    groups = {}
-    orphans = []
-    for bead in done_beads:
-        pid = bead.get("parent_id")
-        if pid:
-            groups.setdefault(pid, 0)
-            groups[pid] += 1
-        else:
-            orphans.append(bead)
-
-    result = []
-    for pid, closed_count in groups.items():
-        parent = all_beads_by_id.get(pid)
-        total = _count_children(pid, all_beads_by_id)
-        title = parent.get("title", pid) if parent else pid
-        result.append((pid, title, closed_count, total))
-    result.sort(key=lambda t: t[0], reverse=True)
-    return result, orphans
-
-
-def _render_done_content(done_beads, all_beads_by_id, content_width):
-    if not done_beads:
-        return [" " * content_width]
-    groups, orphans = _group_done_beads(done_beads, all_beads_by_id)
-    content_lines = []
-    for _pid, title, closed, total in groups[:DONE_LIMIT]:
-        check = "\u2713" if closed == total else ""
-        entry = f"{title} {check} ({closed}/{total})" if check else f"{title} ({closed}/{total})"
-        content_lines.append(_board_truncate(entry, content_width).ljust(content_width))
-    remaining = DONE_LIMIT - len(content_lines)
-    for bead in orphans[:remaining]:
-        entry = f"{bead.get('id', '')} {bead.get('title', '')}"
-        content_lines.append(_board_truncate(entry, content_width).ljust(content_width))
-    total_items = len(groups) + len(orphans)
-    if total_items > DONE_LIMIT:
-        content_lines.append(f"+{total_items - DONE_LIMIT} more".ljust(content_width))
-    return content_lines or [" " * content_width]
-
-
-def _render_vertical(columns, buckets, running, all_beads_by_id, term_width):
-    label_width = max(len(title) for _, title in columns) + 5
-    content_width = term_width - label_width - 3
-
-    top = "\u250c" + "\u2500" * (label_width) + "\u252c" + "\u2500" * (content_width) + "\u2510"
-    sep = "\u251c" + "\u2500" * (label_width) + "\u253c" + "\u2500" * (content_width) + "\u2524"
-    bot = "\u2514" + "\u2500" * (label_width) + "\u2534" + "\u2500" * (content_width) + "\u2518"
-
-    lines = [top]
-    for i, (key, title) in enumerate(columns):
-        beads_list = buckets.get(key, [])
-        count = len(beads_list)
-        label = f"{title} ({count})" if count else title
-        label_cell = label.ljust(label_width)
-
-        if key == "done":
-            content_lines = _render_done_content(beads_list, all_beads_by_id, content_width)
-        else:
-            limit = STAGE_LIMIT
-            shown = beads_list[:limit]
-            overflow = count - len(shown)
-
-            if not shown:
-                content_lines = [" " * content_width]
-            else:
-                content_lines = []
-                for bead in shown:
-                    bead_id = bead.get("id", "")
-                    bead_title = bead.get("title", "")
-                    marker = _bead_marker(bead, running, all_beads_by_id)
-                    entry = f"{bead_id} {bead_title}{marker}"
-                    content_lines.append(_board_truncate(entry, content_width).ljust(content_width))
-                if overflow > 0:
-                    content_lines.append(f"+{overflow} more".ljust(content_width))
-
-        for j, cl in enumerate(content_lines):
-            lbl = label_cell if j == 0 else " " * label_width
-            lines.append(f"\u2502{lbl}\u2502{cl}\u2502")
-
-        if i < len(columns) - 1:
-            lines.append(sep)
-
-    lines.append(bot)
-    return "\n".join(lines)
-
-
-def cmd_board(args):
-    all_beads = _get_all_beads()
-    running = _get_running_agents()
-    all_beads_by_id = {b.get("id"): b for b in all_beads if b.get("id")}
-
-    dev_buckets, inv_buckets = _build_buckets(all_beads, running, all_beads_by_id)
-    term_width = shutil.get_terminal_size().columns
-
-    print(_render_vertical(BOARD_COLUMNS, dev_buckets, running, all_beads_by_id, term_width))
-
-    has_inv = any(inv_buckets.get(k) for k, _ in BOARD_INV_COLUMNS)
-    if has_inv:
-        print()
-        print(_render_vertical(BOARD_INV_COLUMNS, inv_buckets, running, all_beads_by_id, term_width))
-
-    print()
-    _print_runtime_info(running)
-
-
-def _fmt_duration(seconds: float) -> str:
-    if seconds < 60:
-        return f"{int(seconds)}s"
-    if seconds < 3600:
-        return f"{int(seconds / 60)}m"
-    return f"{seconds / 3600:.1f}h"
-
-
-def cmd_metrics(args):
-    events_file = Path(".debussy/pipeline_events.jsonl")
-    if not events_file.exists():
-        print("No pipeline events recorded yet.")
-        return
-
-    events = []
-    with open(events_file) as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                try:
-                    events.append(json.loads(line))
-                except Exception:
-                    continue
-
-    if not events:
-        print("No pipeline events recorded yet.")
-        return
-
-    print("\n=== PIPELINE METRICS ===\n")
-
-    bead_events: dict[str, list] = {}
-    for e in events:
-        bead_events.setdefault(e["bead"], []).append(e)
-
-    stage_durations: dict[str, list[float]] = {}
-    total_rejections = 0
-    total_timeouts = 0
-
-    print("Per-bead:")
-    for bead_id, bevents in bead_events.items():
-        bevents.sort(key=lambda e: e["ts"])
-        stages = []
-        stage_counts: dict[str, int] = {}
-        current_stage = None
-        stage_start = None
-
-        for e in bevents:
-            if e["event"] == "spawn":
-                current_stage = e.get("stage")
-                stage_start = e["ts"]
-            elif e["event"] == "advance":
-                if stage_start and current_stage:
-                    dur = e["ts"] - stage_start
-                    short = STAGE_SHORT.get(current_stage, current_stage)
-                    count = stage_counts.get(current_stage, 0) + 1
-                    stage_counts[current_stage] = count
-                    count_str = f"{count}x " if count > 1 else ""
-                    stages.append(f"{short}({count_str}{_fmt_duration(dur)})")
-                    stage_durations.setdefault(current_stage, []).append(dur)
-                current_stage = e.get("to")
-                stage_start = e["ts"]
-            elif e["event"] == "reject":
-                total_rejections += 1
-                if stage_start and current_stage:
-                    dur = e["ts"] - stage_start
-                    short = STAGE_SHORT.get(current_stage, current_stage)
-                    stages.append(f"{short}({_fmt_duration(dur)}!)")
-                    stage_durations.setdefault(current_stage, []).append(dur)
-                current_stage = e.get("to")
-                stage_start = e["ts"]
-            elif e["event"] == "timeout":
-                total_timeouts += 1
-            elif e["event"] == "close":
-                if stage_start and current_stage:
-                    dur = e["ts"] - stage_start
-                    short = STAGE_SHORT.get(current_stage, current_stage)
-                    count = stage_counts.get(current_stage, 0) + 1
-                    count_str = f"{count}x " if count > 1 else ""
-                    stages.append(f"{short}({count_str}{_fmt_duration(dur)})")
-                    stage_durations.setdefault(current_stage, []).append(dur)
-                stages.append("done")
-
-        total = bevents[-1]["ts"] - bevents[0]["ts"] if len(bevents) > 1 else 0
-        trail = " → ".join(stages) if stages else "started"
-        print(f"  {bead_id}  {trail}  [{_fmt_duration(total)}]")
-
-    print()
-    if stage_durations:
-        print("Stage averages:")
-        for stage in ("stage:development", "stage:reviewing",
-                       "stage:security-review", "stage:merging",
-                       "stage:acceptance"):
-            durs = stage_durations.get(stage, [])
-            if durs:
-                avg = sum(durs) / len(durs)
-                print(f"  {STAGE_SHORT.get(stage, stage):8s} avg {_fmt_duration(avg):>5s}  ({len(durs)} passes)")
-        print()
-
-    if total_rejections or total_timeouts:
-        print(f"Issues: {total_rejections} rejections, {total_timeouts} timeouts")
-        print()
+    log("Pipeline resumed", "\u25b6")
