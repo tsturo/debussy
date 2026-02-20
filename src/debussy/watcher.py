@@ -57,6 +57,8 @@ def _tmux_windows() -> set[str]:
         ["tmux", "list-windows", "-t", SESSION_NAME, "-F", "#{window_name}"],
         capture_output=True, text=True
     )
+    if result.returncode != 0 or not result.stdout.strip():
+        return set()
     return set(result.stdout.strip().split('\n'))
 
 
@@ -285,7 +287,6 @@ class Watcher:
                     remove_worktree(agent_name)
                 except Exception:
                     pass
-            self.used_names.discard(agent_name)
 
     def _spawn_tmux(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str, stage: str, worktree_path: str = ""):
         claude_cmd = "claude"
@@ -546,7 +547,8 @@ class Watcher:
                 remove_worktree(agent.name)
             except Exception as e:
                 log(f"Failed to remove worktree for {agent.name}: {e}", "⚠️")
-        self.used_names.discard(agent.name)
+        if self._cached_windows is not None:
+            self._cached_windows.discard(agent.name)
         del self.running[key]
 
     def _ensure_stage_transition(self, agent: AgentInfo):
@@ -554,6 +556,7 @@ class Watcher:
             return
         bead = _get_bead_json(agent.bead)
         if not bead:
+            log(f"Could not read bead {agent.bead}, skipping stage transition", "⚠️")
             return
 
         labels = bead.get("labels", [])
@@ -649,9 +652,11 @@ class Watcher:
 
         if len(cmd) > 3:
             try:
-                subprocess.run(cmd, capture_output=True, timeout=5)
-            except Exception:
-                pass
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+                if result.returncode != 0:
+                    log(f"Stage transition failed for {agent.bead}: {result.stderr.strip()}", "⚠️")
+            except Exception as e:
+                log(f"Stage transition error for {agent.bead}: {e}", "⚠️")
             self._verify_single_stage(agent.bead)
 
     def _verify_single_stage(self, bead_id: str):
@@ -731,6 +736,7 @@ class Watcher:
                 self._reset_orphaned()
 
                 if not get_config().get("paused", False):
+                    self._refresh_tmux_cache()
                     self._release_ready()
                     self.check_pipeline()
 
