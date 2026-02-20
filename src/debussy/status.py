@@ -11,10 +11,10 @@ from .config import (
     STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS, STATUS_OPEN,
     get_config, log,
 )
-from .metrics import _fmt_duration
+from .metrics import fmt_duration
 
 
-def _get_running_agents() -> dict:
+def get_running_agents() -> dict:
     state_file = Path(".debussy/watcher_state.json")
     if not state_file.exists():
         return {}
@@ -164,7 +164,7 @@ def _get_branches() -> list[str]:
         return []
 
 
-def _print_runtime_info(running):
+def print_runtime_info(running):
     now = time.time()
     cfg = get_config()
     base = cfg.get("base_branch", "not set")
@@ -179,7 +179,7 @@ def _print_runtime_info(running):
             agent = info.get("agent", "?")
             role = info.get("role", "?")
             started = info.get("started_at")
-            dur = _fmt_duration(now - started) if started else "?"
+            dur = fmt_duration(now - started) if started else "?"
             print(f"  {agent} ({role}) \u2192 {bead_id}  [{dur}]")
         print()
 
@@ -218,8 +218,8 @@ def _print_parent_progress(all_beads):
 
 def cmd_status(args):
     print("\n=== DEBUSSY STATUS ===\n")
-    running = _get_running_agents()
-    _print_runtime_info(running)
+    running = get_running_agents()
+    print_runtime_info(running)
     all_beads = get_all_beads()
     _print_parent_progress(all_beads)
 

@@ -105,7 +105,7 @@ def _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path=""):
         raise
 
 
-def _spawn_background(agent_name, bead_id, role, prompt, worktree_path=""):
+def _spawn_background(agent_name, bead_id, role, prompt, stage, worktree_path=""):
     from .watcher import AgentInfo
 
     cmd = ["claude"]
@@ -130,8 +130,8 @@ def _spawn_background(agent_name, bead_id, role, prompt, worktree_path=""):
         )
         return AgentInfo(
             bead=bead_id, role=role, name=agent_name,
-            proc=proc, log_path=str(log_file), log_handle=log_handle,
-            worktree_path=worktree_path,
+            spawned_stage=stage, proc=proc, log_path=str(log_file),
+            log_handle=log_handle, worktree_path=worktree_path,
         )
     except (subprocess.SubprocessError, OSError) as e:
         log(f"Failed to spawn {role}: {e}", "✗")
@@ -160,7 +160,7 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str):
         if use_tmux:
             agent_info = _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path)
         else:
-            agent_info = _spawn_background(agent_name, bead_id, role, prompt, worktree_path)
+            agent_info = _spawn_background(agent_name, bead_id, role, prompt, stage, worktree_path)
         watcher.running[key] = agent_info
         if agent_info.tmux and watcher._cached_windows is not None:
             watcher._cached_windows.add(agent_name)

@@ -8,7 +8,7 @@ from .config import (
     STAGE_INVESTIGATING, STAGE_MERGING, STAGE_REVIEWING,
     STAGE_SECURITY_REVIEW, STATUS_BLOCKED, STATUS_CLOSED,
 )
-from .status import _get_running_agents, _print_runtime_info
+from .status import get_running_agents, print_runtime_info
 
 
 BOARD_COLUMNS = [
@@ -190,7 +190,7 @@ def _render_vertical(columns, buckets, running, all_beads_by_id, term_width):
 
 def cmd_board(args):
     all_beads = get_all_beads()
-    running = _get_running_agents()
+    running = get_running_agents()
     all_beads_by_id = {b.get("id"): b for b in all_beads if b.get("id")}
 
     dev_buckets, inv_buckets = _build_buckets(all_beads, running, all_beads_by_id)
@@ -204,4 +204,4 @@ def cmd_board(args):
         print(_render_vertical(BOARD_INV_COLUMNS, inv_buckets, running, all_beads_by_id, term_width))
 
     print()
-    _print_runtime_info(running)
+    print_runtime_info(running)

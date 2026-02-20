@@ -9,7 +9,7 @@ from .config import (
 )
 
 
-def _fmt_duration(seconds: float) -> str:
+def fmt_duration(seconds: float) -> str:
     if seconds < 60:
         return f"{int(seconds)}s"
     if seconds < 3600:
@@ -38,7 +38,7 @@ def _format_stage_entry(stage, duration, stage_counts):
     count = stage_counts.get(stage, 0) + 1
     stage_counts[stage] = count
     count_str = f"{count}x " if count > 1 else ""
-    return f"{short}({count_str}{_fmt_duration(duration)})"
+    return f"{short}({count_str}{fmt_duration(duration)})"
 
 
 def _process_bead_events(bevents):
@@ -65,7 +65,7 @@ def _process_bead_events(bevents):
             if stage_start and current_stage:
                 dur = e["ts"] - stage_start
                 short = STAGE_SHORT.get(current_stage, current_stage)
-                stages.append(f"{short}({_fmt_duration(dur)}!)")
+                stages.append(f"{short}({fmt_duration(dur)}!)")
                 stage_durations.setdefault(current_stage, []).append(dur)
             current_stage, stage_start = e.get("to"), e["ts"]
         elif event == "timeout":
@@ -114,13 +114,13 @@ def _print_metrics(bead_trails, stage_averages, total_rejections, total_timeouts
 
     print("Per-bead:")
     for bead_id, trail, total in bead_trails:
-        print(f"  {bead_id}  {trail}  [{_fmt_duration(total)}]")
+        print(f"  {bead_id}  {trail}  [{fmt_duration(total)}]")
 
     print()
     if stage_averages:
         print("Stage averages:")
         for short, avg, count in stage_averages:
-            print(f"  {short:8s} avg {_fmt_duration(avg):>5s}  ({count} passes)")
+            print(f"  {short:8s} avg {fmt_duration(avg):>5s}  ({count} passes)")
         print()
 
     if total_rejections or total_timeouts:
