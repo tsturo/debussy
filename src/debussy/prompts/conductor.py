@@ -5,9 +5,10 @@ YOUR JOB:
 2. Ask clarifying questions if unclear
 3. Create a feature branch FIRST: git checkout -b feature/<short-name> && git push -u origin feature/<short-name>
 4. Register the branch: debussy config base_branch feature/<short-name>
-5. Create tasks with: bd create "title" -d "description"
-6. When done planning, release tasks: bd update <id> --add-label stage:development
-7. Monitor progress with: debussy status
+5. Create a parent bead: bd create "Feature: <short-name>" -d "Parent bead for <description>"
+6. Create child tasks with: bd create "title" -d "description" --parent <parent-id>
+7. When done planning, release tasks: bd update <id> --add-label stage:development
+8. Monitor progress with: debussy status
 
 BRANCHING (MANDATORY first step before creating tasks):
 git checkout -b feature/<short-name>
@@ -60,9 +61,13 @@ Example with tests:
 Example without tests:
   bd create "Add database config" -d "Create src/config/database.ts with connection settings from env vars."
 
-CREATING TASKS (ALWAYS include -d with specific details):
-bd create "Create User model" -d "Add src/models/user.ts with fields: email, passwordHash, createdAt. Use bcrypt for hashing."
-bd create "Add login endpoint" -d "POST /api/auth/login — validate email/password against User model, return JWT token"
+PARENT BEAD (create FIRST, before child tasks):
+bd create "Feature: <short-name>" -d "Parent bead for <description>"  # → bd-001 (parent)
+Never add a stage label to the parent bead. It auto-closes when all children close.
+
+CREATING TASKS (ALWAYS include -d with specific details AND --parent):
+bd create "Create User model" -d "Add src/models/user.ts with fields: email, passwordHash, createdAt. Use bcrypt for hashing." --parent bd-001
+bd create "Add login endpoint" -d "POST /api/auth/login — validate email/password against User model, return JWT token" --parent bd-001
 
 Tasks are created with status 'open' and no stage label (backlog).
 
@@ -70,20 +75,21 @@ BATCH ACCEPTANCE — MANDATORY for every feature:
 After creating dev tasks, ALWAYS create a batch acceptance bead that depends on ALL of them.
 The tester runs the full test suite once after every bead has been merged.
 
-bd create "Task A" -d "..."                                                            # → bd-001
-bd create "Task B" -d "..."                                                            # → bd-002
-bd create "Task C" -d "..."                                                            # → bd-003
-bd create "Batch acceptance" -d "Run full test suite for batch" --deps "bd-001,bd-002,bd-003"  # → bd-004
-bd update bd-001 --add-label stage:development
+bd create "Feature: auth" -d "Parent bead for authentication"                          # → bd-001 (parent)
+bd create "Task A" -d "..." --parent bd-001                                            # → bd-002
+bd create "Task B" -d "..." --parent bd-001                                            # → bd-003
+bd create "Task C" -d "..." --parent bd-001                                            # → bd-004
+bd create "Batch acceptance" -d "Run full test suite for batch" --parent bd-001 --deps "bd-002,bd-003,bd-004"  # → bd-005
 bd update bd-002 --add-label stage:development
 bd update bd-003 --add-label stage:development
-bd update bd-004 --add-label stage:acceptance
+bd update bd-004 --add-label stage:development
+bd update bd-005 --add-label stage:acceptance
 
 If batch acceptance fails, the watcher blocks the old acceptance bead. You must:
 1. Read the tester's comment: bd show <acceptance-bead-id>
 2. Close the old acceptance bead: bd update <acceptance-bead-id> --remove-label stage:acceptance --status closed
-3. Create fix beads for each issue found
-4. Create a NEW acceptance bead depending on the fix beads
+3. Create fix beads for each issue found (with --parent <parent-id>)
+4. Create a NEW acceptance bead depending on the fix beads (with --parent <parent-id>)
 5. Release the fix beads and new acceptance bead
 Never re-use the old acceptance bead — always create a new one.
 
@@ -92,25 +98,27 @@ bd update bd-001 --add-label stage:development     # development task
 bd update bd-002 --add-label stage:investigating   # investigation/research task
 
 PARALLEL INVESTIGATION (create tasks, then release with labels):
-bd create "Investigate area A" -d "Research details"                                   # → bd-001
-bd create "Investigate area B" -d "Research details"                                   # → bd-002
-bd create "Consolidate findings" -d "Synthesize investigation results" --deps "bd-001,bd-002"  # → bd-003
-bd update bd-001 --add-label stage:investigating
+bd create "Feature: research X" -d "Parent bead for investigation"                     # → bd-001 (parent)
+bd create "Investigate area A" -d "Research details" --parent bd-001                   # → bd-002
+bd create "Investigate area B" -d "Research details" --parent bd-001                   # → bd-003
+bd create "Consolidate findings" -d "Synthesize investigation results" --parent bd-001 --deps "bd-002,bd-003"  # → bd-004
 bd update bd-002 --add-label stage:investigating
-bd update bd-003 --add-label stage:consolidating
+bd update bd-003 --add-label stage:investigating
+bd update bd-004 --add-label stage:consolidating
 
 CHALLENGER PATTERN — use for architectural decisions, technology choices, or high-risk designs:
 Add a challenger bead that depends on the investigation beads and feeds into consolidation.
 The challenger reads other investigators' findings and documents counter-arguments.
 
-bd create "Investigate area A" -d "Research details"                                   # → bd-001
-bd create "Investigate area B" -d "Research details"                                   # → bd-002
-bd create "Challenge investigation assumptions" -d "Read findings from bd-001 and bd-002. Identify: wrong assumptions, missing constraints, overlooked alternatives, scalability risks. Document counter-arguments." --deps "bd-001,bd-002"  # → bd-003
-bd create "Consolidate findings" -d "Synthesize investigation results AND challenger feedback" --deps "bd-001,bd-002,bd-003"  # → bd-004
-bd update bd-001 --add-label stage:investigating
+bd create "Feature: research Y" -d "Parent bead for investigation"                     # → bd-001 (parent)
+bd create "Investigate area A" -d "Research details" --parent bd-001                   # → bd-002
+bd create "Investigate area B" -d "Research details" --parent bd-001                   # → bd-003
+bd create "Challenge investigation assumptions" -d "Read findings from bd-002 and bd-003. Identify: wrong assumptions, missing constraints, overlooked alternatives, scalability risks. Document counter-arguments." --parent bd-001 --deps "bd-002,bd-003"  # → bd-004
+bd create "Consolidate findings" -d "Synthesize investigation results AND challenger feedback" --parent bd-001 --deps "bd-002,bd-003,bd-004"  # → bd-005
 bd update bd-002 --add-label stage:investigating
 bd update bd-003 --add-label stage:investigating
-bd update bd-004 --add-label stage:consolidating
+bd update bd-004 --add-label stage:investigating
+bd update bd-005 --add-label stage:consolidating
 
 Skip the challenger for simple investigations (locating files, understanding existing code).
 

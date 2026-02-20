@@ -675,6 +675,53 @@ class Watcher:
         except Exception:
             pass
 
+    def _get_children(self, parent_id: str) -> list[dict]:
+        try:
+            result = subprocess.run(
+                ["bd", "children", parent_id, "--json"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return []
+            data = json.loads(result.stdout)
+            return data if isinstance(data, list) else []
+        except Exception:
+            return []
+
+    def _auto_close_parents(self):
+        try:
+            result = subprocess.run(
+                ["bd", "list", "--status", "open", "--no-parent", "--json"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return
+            beads = json.loads(result.stdout)
+            if not isinstance(beads, list):
+                return
+        except Exception:
+            return
+
+        for bead in beads:
+            bead_id = bead.get("id")
+            if not bead_id:
+                continue
+            labels = bead.get("labels", [])
+            if any(l.startswith("stage:") for l in labels):
+                continue
+            children = self._get_children(bead_id)
+            if not children:
+                continue
+            if all(c.get("status") == "closed" for c in children):
+                try:
+                    subprocess.run(
+                        ["bd", "update", bead_id, "--status", "closed"],
+                        capture_output=True, timeout=5,
+                    )
+                    log(f"Auto-closed parent {bead_id}: all children closed", "📦")
+                except Exception:
+                    pass
+
     def cleanup_finished(self):
         cleaned = False
         for key, agent in list(self.running.items()):
@@ -734,6 +781,9 @@ class Watcher:
                 self._check_timeouts()
                 self.cleanup_finished()
                 self._reset_orphaned()
+
+                if tick % 3 == 0:
+                    self._auto_close_parents()
 
                 if not get_config().get("paused", False):
                     self._refresh_tmux_cache()
