@@ -1,10 +1,11 @@
 """Git worktree lifecycle management for parallel agent isolation."""
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
 
-from .config import log
+from .config import get_config, log
 
 WORKTREES_DIR = ".debussy-worktrees"
 
@@ -112,28 +113,70 @@ def remove_worktree(agent_name: str):
         subprocess.run(["git", "worktree", "prune"], capture_output=True, timeout=10)
 
 
+def _get_closed_bead_ids() -> set[str]:
+    try:
+        result = subprocess.run(
+            ["bd", "list", "--status", "closed", "--limit", "0", "--json"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return set()
+        beads = json.loads(result.stdout)
+        return {b.get("id") for b in beads if b.get("id")}
+    except Exception:
+        return set()
+
+
 def cleanup_orphaned_branches():
     subprocess.run(["git", "fetch", "--prune"], capture_output=True, timeout=30)
+
+    base_branch = get_config().get("base_branch", "")
+    closed = _get_closed_bead_ids()
+
     result = subprocess.run(
         ["git", "branch", "--list", "feature/*"],
+        capture_output=True, text=True, timeout=10,
+    )
+    if result.returncode == 0:
+        for line in result.stdout.strip().splitlines():
+            branch = line.strip().lstrip("+* ")
+            if not branch:
+                continue
+            remote_check = subprocess.run(
+                ["git", "rev-parse", "--verify", f"origin/{branch}"],
+                capture_output=True, timeout=5,
+            )
+            if remote_check.returncode != 0:
+                subprocess.run(
+                    ["git", "branch", "-D", branch],
+                    capture_output=True, timeout=10,
+                )
+                log(f"Deleted orphaned local branch: {branch}", "🧹")
+
+    result = subprocess.run(
+        ["git", "branch", "-r", "--list", "origin/feature/*"],
         capture_output=True, text=True, timeout=10,
     )
     if result.returncode != 0:
         return
     for line in result.stdout.strip().splitlines():
-        branch = line.strip().lstrip("+* ")
-        if not branch:
+        ref = line.strip()
+        if not ref:
             continue
-        remote_check = subprocess.run(
-            ["git", "rev-parse", "--verify", f"origin/{branch}"],
-            capture_output=True, timeout=5,
-        )
-        if remote_check.returncode != 0:
+        branch = ref.removeprefix("origin/")
+        if branch == base_branch:
+            continue
+        bead_id = branch.removeprefix("feature/")
+        if bead_id in closed:
+            subprocess.run(
+                ["git", "push", "origin", "--delete", branch],
+                capture_output=True, timeout=15,
+            )
             subprocess.run(
                 ["git", "branch", "-D", branch],
                 capture_output=True, timeout=10,
             )
-            log(f"Deleted orphaned local branch: {branch}", "🧹")
+            log(f"Deleted stale remote branch: {branch}", "🧹")
 
 
 def cleanup_stale_worktrees():

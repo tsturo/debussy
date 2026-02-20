@@ -360,6 +360,7 @@ class Watcher:
             self.save_state()
         except Exception as e:
             log(f"Failed to spawn {role}: {e}", "✗")
+            raise
 
     def _reset_orphaned(self):
         try:
