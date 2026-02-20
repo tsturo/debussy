@@ -76,10 +76,21 @@ def create_tmux_layout():
     send_keys(f"{t}.3", "debussy watch")
 
 
+PANE_STYLES = {
+    "conductor": "fg=colour114",
+    "cmd": "default",
+    "board": "fg=colour208",
+    "watcher": "fg=white",
+}
+
+
 def label_panes():
     t = f"{SESSION_NAME}:main"
     for idx, title in enumerate(["conductor", "cmd", "board", "watcher"]):
         run_tmux("select-pane", "-t", f"{t}.{idx}", "-T", title)
+        style = PANE_STYLES.get(title, "default")
+        if style != "default":
+            run_tmux("select-pane", "-t", f"{t}.{idx}", "-P", style)
     run_tmux("set-option", "-t", SESSION_NAME, "pane-border-status", "top")
     run_tmux("set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} ")
     run_tmux("select-window", "-t", f"{SESSION_NAME}:main")
