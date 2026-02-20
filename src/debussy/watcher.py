@@ -2,7 +2,6 @@
 
 import json
 import os
-import random
 import signal
 import subprocess
 import time
@@ -11,114 +10,21 @@ from pathlib import Path
 
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
+from .bead_client import get_bead_status
 from .config import (
-    AGENT_TIMEOUT, CLAUDE_STARTUP_DELAY, POLL_INTERVAL, YOLO_MODE, SESSION_NAME,
-    HEARTBEAT_TICKS, NEXT_STAGE, STAGE_TO_ROLE, atomic_write,
-    get_config, log,
+    AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
+    HEARTBEAT_TICKS, STATUS_IN_PROGRESS, STATUS_OPEN,
+    atomic_write, get_config, log,
 )
-from .prompts import get_prompt
-from .worktree import cleanup_orphaned_branches, cleanup_stale_worktrees, create_worktree, delete_branch, remove_worktree
-
-EVENTS_FILE = Path(".debussy/pipeline_events.jsonl")
-
-
-def _record_event(bead_id: str, event: str, **kwargs):
-    entry = {"ts": time.time(), "bead": bead_id, "event": event, **kwargs}
-    try:
-        EVENTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(EVENTS_FILE, "a") as f:
-            f.write(json.dumps(entry) + "\n")
-    except Exception:
-        pass
-
+from .pipeline_checker import auto_close_parents, check_pipeline, release_ready, reset_orphaned
+from .tmux import tmux_windows as get_tmux_windows
+from .transitions import (
+    MAX_RETRIES,
+    ensure_stage_transition, record_event,
+)
+from .worktree import cleanup_orphaned_branches, cleanup_stale_worktrees, remove_worktree
 
 MIN_AGENT_RUNTIME = 30
-MAX_RETRIES = 3
-MAX_REJECTIONS = 5
-REJECTION_COOLDOWN = 60
-
-COMPOSERS = [
-    "bach", "mozart", "beethoven", "chopin", "liszt", "brahms", "wagner",
-    "tchaikovsky", "dvorak", "grieg", "rachmaninoff", "ravel", "prokofiev",
-    "stravinsky", "gershwin", "copland", "bernstein", "glass", "reich",
-    "handel", "haydn", "schubert", "schumann", "mendelssohn", "verdi", "puccini",
-    "rossini", "vivaldi", "mahler", "bruckner", "sibelius", "elgar", "holst",
-    "debussy", "faure", "satie", "bizet", "offenbach", "berlioz", "saint-saens",
-    "mussorgsky", "rimsky", "borodin", "scriabin", "shostakovich", "khachaturian",
-    "bartok", "kodaly", "janacek", "smetana", "nielsen", "vaughan", "britten",
-    "walton", "tippett", "barber", "ives", "cage", "feldman", "adams", "corigliano",
-    "pärt", "gorecki", "ligeti", "xenakis", "boulez", "stockhausen", "berio",
-    "nono", "messiaen", "dutilleux", "penderecki", "lutoslawski", "takemitsu",
-]
-
-
-def _tmux_windows() -> set[str]:
-    result = subprocess.run(
-        ["tmux", "list-windows", "-t", SESSION_NAME, "-F", "#{window_name}"],
-        capture_output=True, text=True
-    )
-    if result.returncode != 0 or not result.stdout.strip():
-        return set()
-    return set(result.stdout.strip().split('\n'))
-
-
-def _get_bead_json(bead_id: str) -> dict | None:
-    try:
-        result = subprocess.run(
-            ["bd", "show", bead_id, "--json"],
-            capture_output=True, text=True, timeout=5,
-        )
-        data = json.loads(result.stdout)
-        if isinstance(data, list) and data:
-            return data[0]
-    except Exception:
-        pass
-    return None
-
-
-def _get_bead_status(bead_id: str) -> str | None:
-    bead = _get_bead_json(bead_id)
-    return bead.get("status") if bead else None
-
-
-def _branch_has_commits(bead_id: str, base: str) -> bool:
-    try:
-        result = subprocess.run(
-            ["git", "rev-list", "--count", f"{base}..origin/feature/{bead_id}"],
-            capture_output=True, text=True, timeout=5,
-        )
-        return result.returncode == 0 and int(result.stdout.strip()) > 0
-    except Exception:
-        return True
-
-
-def _has_unresolved_deps(bead: dict) -> bool:
-    for dep in bead.get("dependencies", []):
-        dep_id = dep.get("depends_on_id") or dep.get("id")
-        if not dep_id:
-            continue
-        status = dep.get("status") or _get_bead_status(dep_id)
-        if status != "closed":
-            return True
-    return False
-
-
-def _has_unmerged_dep_branches(bead: dict) -> list[str]:
-    unmerged = []
-    for dep in bead.get("dependencies", []):
-        dep_id = dep.get("depends_on_id") or dep.get("id")
-        if not dep_id:
-            continue
-        try:
-            result = subprocess.run(
-                ["git", "ls-remote", "--heads", "origin", f"feature/{dep_id}"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                unmerged.append(dep_id)
-        except Exception:
-            pass
-    return unmerged
 
 
 @dataclass
@@ -138,17 +44,17 @@ class AgentInfo:
     def is_alive(self, tmux_windows: set[str] | None = None) -> bool:
         if self.tmux:
             if tmux_windows is None:
-                tmux_windows = _tmux_windows()
+                tmux_windows = get_tmux_windows()
             return self.name in tmux_windows
         return self.proc is not None and self.proc.poll() is None
 
     def is_done(self) -> bool:
-        current = _get_bead_status(self.bead)
+        current = get_bead_status(self.bead)
         if current is None:
             return False
-        if current == "in_progress" and not self.claimed:
+        if current == STATUS_IN_PROGRESS and not self.claimed:
             self.claimed = True
-        return self.claimed and current != "in_progress"
+        return self.claimed and current != STATUS_IN_PROGRESS
 
     def stop(self):
         if self.tmux:
@@ -186,18 +92,18 @@ class Watcher:
         try:
             if self._rejections_file.exists():
                 self.rejections = json.loads(self._rejections_file.read_text())
-        except Exception:
+        except (OSError, ValueError):
             pass
 
     def _save_rejections(self):
         try:
             atomic_write(self._rejections_file, json.dumps(self.rejections))
-        except Exception:
+        except OSError:
             pass
 
     def _refresh_tmux_cache(self):
         has_tmux = any(a.tmux for a in self.running.values())
-        self._cached_windows = _tmux_windows() if has_tmux else None
+        self._cached_windows = get_tmux_windows() if has_tmux else None
 
     def _alive_agents(self) -> list[AgentInfo]:
         return [a for a in self.running.values() if a.is_alive(self._cached_windows)]
@@ -218,15 +124,6 @@ class Watcher:
             state[agent.bead] = entry
         atomic_write(self.state_file, json.dumps(state))
 
-    def get_agent_name(self, role: str) -> str:
-        available = [n for n in COMPOSERS if f"{role}-{n}" not in self.used_names]
-        if available:
-            name = random.choice(available)
-            full_name = f"{role}-{name}"
-            self.used_names.add(full_name)
-            return full_name
-        return f"{role}-{len(self.used_names)}"
-
     def is_bead_running(self, bead_id: str) -> bool:
         return any(a.bead == bead_id and a.is_alive(self._cached_windows) for a in self.running.values())
 
@@ -236,300 +133,6 @@ class Watcher:
 
     def has_running_role(self, role: str) -> bool:
         return any(a.role == role for a in self._alive_agents())
-
-    def _create_agent_worktree(self, role: str, bead_id: str, agent_name: str) -> str:
-        if role == "investigator":
-            return ""
-        cfg = get_config()
-        base = cfg.get("base_branch", "master")
-        try:
-            subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=30)
-        except Exception:
-            pass
-        try:
-            if role == "developer":
-                wt = create_worktree(agent_name, f"feature/{bead_id}", start_point=f"origin/{base}", new_branch=True)
-            elif role in ("reviewer", "security-reviewer"):
-                wt = create_worktree(agent_name, f"origin/feature/{bead_id}", detach=True)
-            elif role in ("integrator", "tester"):
-                wt = create_worktree(agent_name, f"origin/{base}", detach=True)
-            else:
-                return ""
-            return str(wt)
-        except Exception as e:
-            log(f"Failed to create worktree for {agent_name}: {e}", "⚠️")
-            return ""
-
-    def spawn_agent(self, role: str, bead_id: str, stage: str):
-        key = f"{role}:{bead_id}"
-
-        if key in self.running and self.running[key].is_alive(self._cached_windows):
-            return
-
-        if self.failures.get(bead_id, 0) >= MAX_RETRIES:
-            return
-
-        agent_name = self.get_agent_name(role)
-        log(f"Spawning {agent_name} for {bead_id}", "🚀")
-
-        worktree_path = self._create_agent_worktree(role, bead_id, agent_name)
-
-        prompt = get_prompt(role, bead_id, stage)
-
-        cfg = get_config()
-        use_tmux = cfg.get("use_tmux_windows", False) and os.environ.get("TMUX") is not None
-
-        try:
-            if use_tmux:
-                self._spawn_tmux(key, agent_name, bead_id, role, prompt, stage, worktree_path)
-            else:
-                self._spawn_background(key, agent_name, bead_id, role, prompt, worktree_path)
-            _record_event(bead_id, "spawn", stage=stage, agent=agent_name)
-        except Exception as e:
-            self.failures[bead_id] = self.failures.get(bead_id, 0) + 1
-            log(f"Spawn failed for {bead_id} ({self.failures[bead_id]}/{MAX_RETRIES}): {e}", "💥")
-            if worktree_path:
-                try:
-                    remove_worktree(agent_name)
-                except Exception:
-                    pass
-
-    def _spawn_tmux(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str, stage: str, worktree_path: str = ""):
-        claude_cmd = "claude"
-        if YOLO_MODE:
-            claude_cmd += " --dangerously-skip-permissions"
-
-        cd_prefix = f"cd '{worktree_path}' && " if worktree_path else ""
-        shell_cmd = f"{cd_prefix}export DEBUSSY_ROLE={role} DEBUSSY_BEAD={bead_id}; {claude_cmd}"
-
-        window_created = False
-        try:
-            subprocess.run([
-                "tmux", "new-window", "-d", "-t", SESSION_NAME,
-                "-n", agent_name, "bash", "-c", shell_cmd
-            ], check=True)
-            window_created = True
-
-            target = f"{SESSION_NAME}:{agent_name}"
-            time.sleep(CLAUDE_STARTUP_DELAY)
-            subprocess.run(
-                ["tmux", "send-keys", "-l", "-t", target, prompt],
-                check=True,
-            )
-            time.sleep(0.5)
-            subprocess.run(
-                ["tmux", "send-keys", "-t", target, "Enter"],
-                check=True,
-            )
-
-            self.running[key] = AgentInfo(
-                bead=bead_id, role=role, name=agent_name,
-                spawned_stage=stage, tmux=True, worktree_path=worktree_path,
-            )
-            if self._cached_windows is not None:
-                self._cached_windows.add(agent_name)
-            self.save_state()
-        except Exception as e:
-            if window_created:
-                subprocess.run(
-                    ["tmux", "kill-window", "-t", f"{SESSION_NAME}:{agent_name}"],
-                    capture_output=True,
-                )
-            log(f"Failed to spawn tmux window: {e}", "✗")
-            raise
-
-    def _spawn_background(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str, worktree_path: str = ""):
-        cmd = ["claude"]
-        if YOLO_MODE:
-            cmd.append("--dangerously-skip-permissions")
-        cmd.extend(["--print", prompt])
-
-        logs_dir = Path(".debussy/logs")
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        log_file = logs_dir / f"{agent_name}.log"
-
-        try:
-            env = os.environ.copy()
-            env["DEBUSSY_ROLE"] = role
-            env["DEBUSSY_BEAD"] = bead_id
-            cwd = worktree_path if worktree_path else os.getcwd()
-            log_handle = open(log_file, "wb", buffering=0)
-            proc = subprocess.Popen(
-                cmd, cwd=cwd, env=env,
-                stdout=log_handle, stderr=subprocess.STDOUT,
-                bufsize=0
-            )
-            self.running[key] = AgentInfo(
-                bead=bead_id, role=role, name=agent_name,
-                proc=proc, log_path=str(log_file), log_handle=log_handle,
-                worktree_path=worktree_path,
-            )
-            self.save_state()
-        except Exception as e:
-            log(f"Failed to spawn {role}: {e}", "✗")
-            raise
-
-    def _reset_orphaned(self):
-        try:
-            result = subprocess.run(
-                ["bd", "list", "--status", "in_progress", "--json"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                return
-            beads = json.loads(result.stdout)
-            if not isinstance(beads, list):
-                return
-        except Exception:
-            return
-
-        running_beads = {a.bead for a in self.running.values()}
-        for bead in beads:
-            bead_id = bead.get("id")
-            if not bead_id or bead_id in running_beads:
-                continue
-            labels = bead.get("labels", [])
-            stage_labels = [l for l in labels if l.startswith("stage:")]
-            if not stage_labels:
-                continue
-            full_bead = _get_bead_json(bead_id)
-            real_labels = full_bead.get("labels", []) if full_bead else labels
-            real_stages = [l for l in real_labels if l.startswith("stage:")]
-            cmd = ["bd", "update", bead_id, "--status", "open"]
-            for label in real_stages[1:]:
-                cmd.extend(["--remove-label", label])
-            try:
-                subprocess.run(cmd, capture_output=True, timeout=5)
-                log(f"Reset orphaned {bead_id}: no agent running", "👻")
-            except Exception:
-                pass
-
-    def _release_ready(self):
-        for status in ("blocked", "open"):
-            try:
-                result = subprocess.run(
-                    ["bd", "list", "--status", status, "--json"],
-                    capture_output=True, text=True, timeout=10,
-                )
-                if result.returncode != 0 or not result.stdout.strip():
-                    continue
-                beads = json.loads(result.stdout)
-                if not isinstance(beads, list):
-                    continue
-            except Exception:
-                continue
-
-            for bead in beads:
-                bead_id = bead.get("id")
-                if not bead_id or bead.get("dependency_count", 0) == 0:
-                    continue
-                full_bead = _get_bead_json(bead_id)
-                if not full_bead or _has_unresolved_deps(full_bead):
-                    continue
-
-                labels = full_bead.get("labels", [])
-                has_stage = any(l.startswith("stage:") for l in labels)
-                cmd = ["bd", "update", bead_id]
-
-                if status == "blocked" and "stage:acceptance" in labels:
-                    continue
-
-                if status == "blocked":
-                    cmd.extend(["--status", "open"])
-
-                if not has_stage:
-                    cmd.extend(["--add-label", "stage:development"])
-
-                if len(cmd) <= 3:
-                    continue
-
-                try:
-                    subprocess.run(cmd, capture_output=True, timeout=5)
-                    if has_stage:
-                        log(f"Unblocked {bead_id}: deps resolved", "🔓")
-                        _record_event(bead_id, "unblock")
-                    else:
-                        log(f"Released {bead_id}: deps resolved → stage:development", "🔓")
-                        _record_event(bead_id, "release", stage="stage:development")
-                    self._verify_single_stage(bead_id)
-                except Exception:
-                    pass
-
-    def check_pipeline(self):
-        for stage, role in STAGE_TO_ROLE.items():
-            try:
-                result = subprocess.run(
-                    ["bd", "list", "--status", "open", "--label", stage, "--json"],
-                    capture_output=True, text=True, timeout=10,
-                )
-                if result.returncode != 0 or not result.stdout.strip():
-                    continue
-
-                beads = json.loads(result.stdout)
-                if not isinstance(beads, list):
-                    continue
-
-                beads.sort(key=lambda b: b.get("issue_type") != "bug")
-
-                for bead in beads:
-                    bead_id = bead.get("id")
-                    if not bead_id:
-                        continue
-
-                    if self.is_bead_running(bead_id):
-                        continue
-
-                    cooldown_until = self.cooldowns.get(bead_id, 0)
-                    if cooldown_until and time.time() - cooldown_until < REJECTION_COOLDOWN:
-                        continue
-
-                    if self.failures.get(bead_id, 0) >= MAX_RETRIES:
-                        if bead_id not in self.blocked_failures:
-                            self.blocked_failures.add(bead_id)
-                            log(f"Blocked {bead_id}: {MAX_RETRIES} failures, needs conductor", "🚫")
-                            try:
-                                subprocess.run(
-                                    ["bd", "update", bead_id, "--status", "blocked"],
-                                    capture_output=True, timeout=5,
-                                )
-                            except Exception:
-                                pass
-                        continue
-
-                    if bead.get("status") == "blocked":
-                        continue
-
-                    if bead.get("dependency_count", 0) > 0:
-                        full_bead = _get_bead_json(bead_id)
-                        if not full_bead or _has_unresolved_deps(full_bead):
-                            continue
-                        if role == "tester":
-                            unmerged = _has_unmerged_dep_branches(full_bead)
-                            if unmerged:
-                                if bead_id not in self.queued:
-                                    log(f"Holding {bead_id}: {len(unmerged)} dep branch(es) still unmerged on origin", "⏳")
-                                    self.queued.add(bead_id)
-                                continue
-
-                    if role == "integrator" and self.has_running_role("integrator"):
-                        if bead_id not in self.queued:
-                            log(f"Queued: {bead_id} waiting for integrator", "⏳")
-                            self.queued.add(bead_id)
-                        continue
-
-                    if self.is_at_capacity():
-                        if bead_id not in self.queued:
-                            log(f"Queued: {bead_id} waiting for agent slot", "⏳")
-                            self.queued.add(bead_id)
-                        continue
-
-                    self.queued.discard(bead_id)
-                    self.spawn_agent(role, bead_id, stage)
-
-            except subprocess.TimeoutExpired:
-                log(f"Timeout checking {stage}", "⚠️")
-            except Exception as e:
-                log(f"Error checking {stage}: {e}", "⚠️")
 
     def _check_timeouts(self):
         now = time.time()
@@ -541,7 +144,7 @@ class Watcher:
             if elapsed < timeout:
                 continue
             log(f"{agent.name} timed out after {int(elapsed)}s on {agent.bead}", "⏰")
-            _record_event(agent.bead, "timeout", stage=agent.spawned_stage, agent=agent.name)
+            record_event(agent.bead, "timeout", stage=agent.spawned_stage, agent=agent.name)
             agent.stop()
             try:
                 subprocess.run(
@@ -549,10 +152,10 @@ class Watcher:
                     capture_output=True, timeout=5,
                 )
                 subprocess.run(
-                    ["bd", "update", agent.bead, "--status", "open"],
+                    ["bd", "update", agent.bead, "--status", STATUS_OPEN],
                     capture_output=True, timeout=5,
                 )
-            except Exception:
+            except (subprocess.SubprocessError, OSError):
                 pass
             self._remove_agent(key, agent)
 
@@ -561,182 +164,11 @@ class Watcher:
         if agent.worktree_path:
             try:
                 remove_worktree(agent.name)
-            except Exception as e:
+            except (subprocess.SubprocessError, OSError) as e:
                 log(f"Failed to remove worktree for {agent.name}: {e}", "⚠️")
         if self._cached_windows is not None:
             self._cached_windows.discard(agent.name)
         del self.running[key]
-
-    def _ensure_stage_transition(self, agent: AgentInfo):
-        if not agent.spawned_stage:
-            return
-        bead = _get_bead_json(agent.bead)
-        if not bead:
-            log(f"Could not read bead {agent.bead}, skipping stage transition", "⚠️")
-            return
-
-        labels = bead.get("labels", [])
-        status = bead.get("status")
-        has_rejected = "rejected" in labels
-        stage_labels = [l for l in labels if l.startswith("stage:")]
-        had_spawned_stage = agent.spawned_stage in stage_labels
-
-        cmd = ["bd", "update", agent.bead]
-
-        if status == "in_progress":
-            cmd.extend(["--status", "open"])
-            for label in stage_labels[1:]:
-                cmd.extend(["--remove-label", label])
-            log(f"Agent left {agent.bead} as in_progress, resetting to open for retry", "⚠️")
-        elif not had_spawned_stage:
-            if has_rejected:
-                cmd.extend(["--remove-label", "rejected"])
-            log(f"Stage removed externally for {agent.bead}, skipping transition", "⏭️")
-        else:
-            if has_rejected and agent.spawned_stage == "stage:acceptance":
-                cmd.extend(["--remove-label", "rejected"])
-                for label in stage_labels:
-                    if label != "stage:acceptance":
-                        cmd.extend(["--remove-label", label])
-                cmd.extend(["--status", "blocked"])
-                log(f"Acceptance failed {agent.bead}: blocked for conductor to create fix tasks", "🚫")
-                _record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": "blocked"})
-            else:
-                for label in stage_labels:
-                    cmd.extend(["--remove-label", label])
-
-                if has_rejected:
-                    cmd.extend(["--remove-label", "rejected"])
-                    self.rejections[agent.bead] = self.rejections.get(agent.bead, 0) + 1
-                    count = self.rejections[agent.bead]
-                    if count >= MAX_REJECTIONS:
-                        cmd.extend(["--status", "blocked"])
-                        log(f"Blocked {agent.bead}: rejected {count} times, needs conductor", "🚫")
-                        _record_event(agent.bead, "loop_blocked", stage=agent.spawned_stage, rejections=count)
-                        try:
-                            subprocess.run(
-                                ["bd", "comment", agent.bead, f"Blocked after {count} rejection loops — needs conductor intervention"],
-                                capture_output=True, timeout=5,
-                            )
-                        except Exception:
-                            pass
-                    else:
-                        cmd.extend(["--add-label", "stage:development"])
-                        self.cooldowns[agent.bead] = time.time()
-                        log(f"Rejected {agent.bead} ({count}/{MAX_REJECTIONS}): {agent.spawned_stage} → stage:development (cooldown {REJECTION_COOLDOWN}s)", "↩️")
-                    self._save_rejections()
-                    _record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": "stage:development"})
-                elif status == "closed":
-                    self.rejections.pop(agent.bead, None)
-                    self._save_rejections()
-                    delete_branch(f"feature/{agent.bead}")
-                    log(f"Closed {agent.bead}: {agent.spawned_stage} complete", "✅")
-                    _record_event(agent.bead, "close", stage=agent.spawned_stage)
-                elif status == "blocked":
-                    log(f"Blocked {agent.bead}: parked for conductor", "⊘")
-                    _record_event(agent.bead, "block", stage=agent.spawned_stage)
-                elif status == "open":
-                    next_stage = NEXT_STAGE.get(agent.spawned_stage)
-                    if next_stage == "stage:merging" and "security" in labels and agent.spawned_stage == "stage:reviewing":
-                        next_stage = "stage:security-review"
-                    if next_stage and agent.spawned_stage == "stage:development":
-                        base = get_config().get("base_branch", "master")
-                        if not _branch_has_commits(agent.bead, base):
-                            self.empty_branch_retries[agent.bead] = self.empty_branch_retries.get(agent.bead, 0) + 1
-                            count = self.empty_branch_retries[agent.bead]
-                            if count >= MAX_RETRIES:
-                                cmd.extend(["--status", "blocked"])
-                                log(f"Blocked {agent.bead}: empty branch after {count} attempts, needs conductor", "🚫")
-                                _record_event(agent.bead, "empty_branch_blocked", stage=agent.spawned_stage, retries=count)
-                                try:
-                                    subprocess.run(
-                                        ["bd", "comment", agent.bead, f"Blocked after {count} empty-branch retries — needs conductor intervention"],
-                                        capture_output=True, timeout=5,
-                                    )
-                                except Exception:
-                                    pass
-                            else:
-                                cmd.extend(["--add-label", "stage:development"])
-                                log(f"No commits on feature/{agent.bead} — retry {count}/{MAX_RETRIES}", "⚠️")
-                                _record_event(agent.bead, "empty_branch", stage=agent.spawned_stage, retry=count)
-                            next_stage = None
-                    if next_stage:
-                        self.empty_branch_retries.pop(agent.bead, None)
-                        cmd.extend(["--add-label", next_stage])
-                        log(f"Advancing {agent.bead}: {agent.spawned_stage} → {next_stage}", "⏩")
-                        _record_event(agent.bead, "advance", **{"from": agent.spawned_stage, "to": next_stage})
-
-        if len(cmd) > 3:
-            try:
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-                if result.returncode != 0:
-                    log(f"Stage transition failed for {agent.bead}: {result.stderr.strip()}", "⚠️")
-            except Exception as e:
-                log(f"Stage transition error for {agent.bead}: {e}", "⚠️")
-            self._verify_single_stage(agent.bead)
-
-    def _verify_single_stage(self, bead_id: str):
-        bead = _get_bead_json(bead_id)
-        if not bead:
-            return
-        stages = [l for l in bead.get("labels", []) if l.startswith("stage:")]
-        if len(stages) <= 1:
-            return
-        cmd = ["bd", "update", bead_id]
-        for label in stages[1:]:
-            cmd.extend(["--remove-label", label])
-        try:
-            subprocess.run(cmd, capture_output=True, timeout=5)
-            log(f"Fixed {bead_id}: removed {len(stages)-1} extra stage label(s), kept {stages[0]}", "🔧")
-        except Exception:
-            pass
-
-    def _get_children(self, parent_id: str) -> list[dict]:
-        try:
-            result = subprocess.run(
-                ["bd", "list", "--parent", parent_id, "--all", "--limit", "0", "--json"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                return []
-            data = json.loads(result.stdout)
-            return data if isinstance(data, list) else []
-        except Exception:
-            return []
-
-    def _auto_close_parents(self):
-        try:
-            result = subprocess.run(
-                ["bd", "list", "--status", "open", "--no-parent", "--json"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                return
-            beads = json.loads(result.stdout)
-            if not isinstance(beads, list):
-                return
-        except Exception:
-            return
-
-        for bead in beads:
-            bead_id = bead.get("id")
-            if not bead_id:
-                continue
-            labels = bead.get("labels", [])
-            if any(l.startswith("stage:") for l in labels):
-                continue
-            children = self._get_children(bead_id)
-            if not children:
-                continue
-            if all(c.get("status") == "closed" for c in children):
-                try:
-                    subprocess.run(
-                        ["bd", "update", bead_id, "--status", "closed"],
-                        capture_output=True, timeout=5,
-                    )
-                    log(f"Auto-closed parent {bead_id}: all children closed", "📦")
-                except Exception:
-                    pass
 
     def cleanup_finished(self):
         cleaned = False
@@ -745,7 +177,7 @@ class Watcher:
                 if agent.is_done():
                     log(f"{agent.name} completed {agent.bead}", "✅")
                     agent.stop()
-                    self._ensure_stage_transition(agent)
+                    ensure_stage_transition(self, agent)
                     self.failures.pop(agent.bead, None)
                     self._remove_agent(key, agent)
                     cleaned = True
@@ -753,25 +185,25 @@ class Watcher:
 
             if not agent.is_alive(self._cached_windows):
                 elapsed = time.time() - agent.started_at
-                bead_status = _get_bead_status(agent.bead)
+                bead_status = get_bead_status(agent.bead)
                 if agent.tmux:
-                    agent_completed = agent.claimed and bead_status not in ("in_progress", None)
+                    agent_completed = agent.claimed and bead_status not in (STATUS_IN_PROGRESS, None)
                 else:
-                    agent_completed = elapsed >= MIN_AGENT_RUNTIME and bead_status != "in_progress"
+                    agent_completed = elapsed >= MIN_AGENT_RUNTIME and bead_status != STATUS_IN_PROGRESS
                 if agent_completed:
-                    self._ensure_stage_transition(agent)
+                    ensure_stage_transition(self, agent)
                     self.failures.pop(agent.bead, None)
                     log(f"{agent.name} finished {agent.bead}", "🛑")
                 else:
                     self.failures[agent.bead] = self.failures.get(agent.bead, 0) + 1
                     log(f"{agent.name} died on {agent.bead} after {int(elapsed)}s, status={bead_status} (attempt {self.failures[agent.bead]}/{MAX_RETRIES})", "💥")
-                    if bead_status == "in_progress":
+                    if bead_status == STATUS_IN_PROGRESS:
                         try:
                             subprocess.run(
-                                ["bd", "update", agent.bead, "--status", "open"],
+                                ["bd", "update", agent.bead, "--status", STATUS_OPEN],
                                 capture_output=True, timeout=5,
                             )
-                        except Exception:
+                        except (subprocess.SubprocessError, OSError):
                             pass
                 self._remove_agent(key, agent)
                 cleaned = True
@@ -809,15 +241,15 @@ class Watcher:
                 self._refresh_tmux_cache()
                 self._check_timeouts()
                 self.cleanup_finished()
-                self._reset_orphaned()
+                reset_orphaned(self)
 
                 if tick % 3 == 0:
-                    self._auto_close_parents()
+                    auto_close_parents(self)
 
                 if not get_config().get("paused", False):
                     self._refresh_tmux_cache()
-                    self._release_ready()
-                    self.check_pipeline()
+                    release_ready(self)
+                    check_pipeline(self)
 
                 self.save_state()
 

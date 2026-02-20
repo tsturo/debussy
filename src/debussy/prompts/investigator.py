@@ -1,5 +1,8 @@
+from ..config import STAGE_CONSOLIDATING
+
+
 def investigator_prompt(bead_id: str, base: str, stage: str) -> str:
-    if stage == "stage:consolidating":
+    if stage == STAGE_CONSOLIDATING:
         return _consolidating_prompt(bead_id)
     return _investigating_prompt(bead_id)
 

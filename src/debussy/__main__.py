@@ -5,6 +5,9 @@ import argparse
 import sys
 
 from . import cli, __version__
+from .board import cmd_board
+from .metrics import cmd_metrics
+from .status import cmd_status, cmd_debug
 
 
 def main():
@@ -25,7 +28,7 @@ def main():
     p.set_defaults(func=cli.cmd_watch)
 
     p = subparsers.add_parser("status", help="Show status")
-    p.set_defaults(func=cli.cmd_status)
+    p.set_defaults(func=cmd_status)
 
     p = subparsers.add_parser("upgrade", help="Upgrade to latest")
     p.set_defaults(func=cli.cmd_upgrade)
@@ -53,13 +56,13 @@ def main():
     p.set_defaults(func=cli.cmd_resume)
 
     p = subparsers.add_parser("board", help="Show kanban board")
-    p.set_defaults(func=cli.cmd_board)
+    p.set_defaults(func=cmd_board)
 
     p = subparsers.add_parser("debug", help="Debug watcher pipeline")
-    p.set_defaults(func=cli.cmd_debug)
+    p.set_defaults(func=cmd_debug)
 
     p = subparsers.add_parser("metrics", help="Show pipeline metrics")
-    p.set_defaults(func=cli.cmd_metrics)
+    p.set_defaults(func=cmd_metrics)
 
     args = parser.parse_args()
 

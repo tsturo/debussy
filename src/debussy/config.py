@@ -14,6 +14,19 @@ YOLO_MODE = True
 SESSION_NAME = "debussy"
 AGENT_TIMEOUT = 3600
 
+STAGE_DEVELOPMENT = "stage:development"
+STAGE_REVIEWING = "stage:reviewing"
+STAGE_SECURITY_REVIEW = "stage:security-review"
+STAGE_MERGING = "stage:merging"
+STAGE_ACCEPTANCE = "stage:acceptance"
+STAGE_INVESTIGATING = "stage:investigating"
+STAGE_CONSOLIDATING = "stage:consolidating"
+
+STATUS_OPEN = "open"
+STATUS_IN_PROGRESS = "in_progress"
+STATUS_CLOSED = "closed"
+STATUS_BLOCKED = "blocked"
+
 CONFIG_DIR = Path(".debussy")
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
@@ -23,23 +36,37 @@ DEFAULTS = {
 }
 
 STAGE_TO_ROLE = {
-    "stage:acceptance": "tester",
-    "stage:merging": "integrator",
-    "stage:security-review": "security-reviewer",
-    "stage:reviewing": "reviewer",
-    "stage:consolidating": "investigator",
-    "stage:investigating": "investigator",
-    "stage:development": "developer",
+    STAGE_ACCEPTANCE: "tester",
+    STAGE_MERGING: "integrator",
+    STAGE_SECURITY_REVIEW: "security-reviewer",
+    STAGE_REVIEWING: "reviewer",
+    STAGE_CONSOLIDATING: "investigator",
+    STAGE_INVESTIGATING: "investigator",
+    STAGE_DEVELOPMENT: "developer",
 }
 
 NEXT_STAGE = {
-    "stage:development": "stage:reviewing",
-    "stage:reviewing": "stage:merging",
-    "stage:security-review": "stage:merging",
-    "stage:merging": None,
-    "stage:acceptance": None,
-    "stage:investigating": None,
-    "stage:consolidating": None,
+    STAGE_DEVELOPMENT: STAGE_REVIEWING,
+    STAGE_REVIEWING: STAGE_MERGING,
+    STAGE_SECURITY_REVIEW: STAGE_MERGING,
+    STAGE_MERGING: None,
+    STAGE_ACCEPTANCE: None,
+    STAGE_INVESTIGATING: None,
+    STAGE_CONSOLIDATING: None,
+}
+
+SECURITY_NEXT_STAGE = {
+    STAGE_REVIEWING: STAGE_SECURITY_REVIEW,
+}
+
+STAGE_SHORT = {
+    STAGE_DEVELOPMENT: "dev",
+    STAGE_REVIEWING: "rev",
+    STAGE_SECURITY_REVIEW: "sec",
+    STAGE_MERGING: "merge",
+    STAGE_ACCEPTANCE: "accept",
+    STAGE_INVESTIGATING: "inv",
+    STAGE_CONSOLIDATING: "cons",
 }
 
 
@@ -55,7 +82,7 @@ def atomic_write(path: Path, data: str):
         with os.fdopen(fd, "w") as f:
             f.write(data)
         os.replace(tmp, path)
-    except Exception:
+    except OSError:
         os.unlink(tmp)
         raise
 
@@ -67,7 +94,7 @@ def get_config() -> dict:
         with open(CONFIG_FILE) as f:
             cfg = json.load(f)
         return {**DEFAULTS, **cfg}
-    except Exception:
+    except (OSError, ValueError):
         return DEFAULTS.copy()
 
 
@@ -77,7 +104,7 @@ def _read_config_file() -> dict:
     try:
         with open(CONFIG_FILE) as f:
             return json.load(f)
-    except Exception:
+    except (OSError, ValueError):
         return {}
 
 
