@@ -173,6 +173,7 @@ class Watcher:
         self.empty_branch_retries: dict[str, int] = {}
         self.rejections: dict[str, int] = {}
         self.cooldowns: dict[str, float] = {}
+        self.blocked_failures: set[str] = set()
         self.should_exit = False
         self.state_file = Path(".debussy/watcher_state.json")
         self._rejections_file = Path(".debussy/rejections.json")
@@ -265,9 +266,11 @@ class Watcher:
         if key in self.running and self.running[key].is_alive(self._cached_windows):
             return
 
+        if self.failures.get(bead_id, 0) >= MAX_RETRIES:
+            return
+
         agent_name = self.get_agent_name(role)
         log(f"Spawning {agent_name} for {bead_id}", "🚀")
-        _record_event(bead_id, "spawn", stage=stage, agent=agent_name)
 
         worktree_path = self._create_agent_worktree(role, bead_id, agent_name)
 
@@ -281,7 +284,10 @@ class Watcher:
                 self._spawn_tmux(key, agent_name, bead_id, role, prompt, stage, worktree_path)
             else:
                 self._spawn_background(key, agent_name, bead_id, role, prompt, worktree_path)
-        except Exception:
+            _record_event(bead_id, "spawn", stage=stage, agent=agent_name)
+        except Exception as e:
+            self.failures[bead_id] = self.failures.get(bead_id, 0) + 1
+            log(f"Spawn failed for {bead_id} ({self.failures[bead_id]}/{MAX_RETRIES}): {e}", "💥")
             if worktree_path:
                 try:
                     remove_worktree(agent_name)
@@ -478,6 +484,16 @@ class Watcher:
                         continue
 
                     if self.failures.get(bead_id, 0) >= MAX_RETRIES:
+                        if bead_id not in self.blocked_failures:
+                            self.blocked_failures.add(bead_id)
+                            log(f"Blocked {bead_id}: {MAX_RETRIES} failures, needs conductor", "🚫")
+                            try:
+                                subprocess.run(
+                                    ["bd", "update", bead_id, "--status", "blocked"],
+                                    capture_output=True, timeout=5,
+                                )
+                            except Exception:
+                                pass
                         continue
 
                     if bead.get("status") == "blocked":
@@ -737,13 +753,26 @@ class Watcher:
 
             if not agent.is_alive(self._cached_windows):
                 elapsed = time.time() - agent.started_at
-                if elapsed < MIN_AGENT_RUNTIME:
-                    self.failures[agent.bead] = self.failures.get(agent.bead, 0) + 1
-                    log(f"{agent.name} crashed after {int(elapsed)}s on {agent.bead} (attempt {self.failures[agent.bead]}/{MAX_RETRIES})", "💥")
+                bead_status = _get_bead_status(agent.bead)
+                if agent.tmux:
+                    agent_completed = agent.claimed and bead_status not in ("in_progress", None)
                 else:
+                    agent_completed = elapsed >= MIN_AGENT_RUNTIME and bead_status != "in_progress"
+                if agent_completed:
                     self._ensure_stage_transition(agent)
                     self.failures.pop(agent.bead, None)
                     log(f"{agent.name} finished {agent.bead}", "🛑")
+                else:
+                    self.failures[agent.bead] = self.failures.get(agent.bead, 0) + 1
+                    log(f"{agent.name} died on {agent.bead} after {int(elapsed)}s, status={bead_status} (attempt {self.failures[agent.bead]}/{MAX_RETRIES})", "💥")
+                    if bead_status == "in_progress":
+                        try:
+                            subprocess.run(
+                                ["bd", "update", agent.bead, "--status", "open"],
+                                capture_output=True, timeout=5,
+                            )
+                        except Exception:
+                            pass
                 self._remove_agent(key, agent)
                 cleaned = True
 
