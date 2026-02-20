@@ -11,8 +11,8 @@ from pathlib import Path
 
 from .config import (
     CLAUDE_STARTUP_DELAY, COMMENT_TRUNCATE_LEN,
-    SESSION_NAME, STAGE_TO_ROLE, YOLO_MODE, get_config, log, parse_value,
-    set_config,
+    SESSION_NAME, STAGE_TO_ROLE, YOLO_MODE, clean_config, get_config, log,
+    parse_value, set_config,
 )
 from .prompts import CONDUCTOR_PROMPT
 from .worktree import remove_worktree, remove_all_worktrees
@@ -92,6 +92,7 @@ def _send_conductor_prompt(requirement: str | None):
 def cmd_start(args):
     if not _preflight_check():
         return 1
+    clean_config()
     if getattr(args, "paused", False):
         set_config("paused", True)
     else:

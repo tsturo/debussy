@@ -81,10 +81,23 @@ def _read_config_file() -> dict:
         return {}
 
 
+KNOWN_KEYS = {"max_total_agents", "use_tmux_windows", "base_branch", "paused", "agent_timeout"}
+
+
 def set_config(key: str, value):
     CONFIG_DIR.mkdir(exist_ok=True)
     cfg = _read_config_file()
     cfg[key] = value
+    atomic_write(CONFIG_FILE, json.dumps(cfg, indent=2))
+
+
+def clean_config():
+    cfg = _read_config_file()
+    unknown = [k for k in cfg if k not in KNOWN_KEYS]
+    if not unknown:
+        return
+    for k in unknown:
+        del cfg[k]
     atomic_write(CONFIG_FILE, json.dumps(cfg, indent=2))
 
 

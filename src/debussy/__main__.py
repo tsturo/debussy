@@ -35,7 +35,7 @@ def main():
     p.set_defaults(func=cli.cmd_restart)
 
     p = subparsers.add_parser("config", help="View or set config")
-    p.add_argument("key", nargs="?", help="Config key (max_developers, max_testers, use_tmux_windows)")
+    p.add_argument("key", nargs="?", help="Config key (max_total_agents, use_tmux_windows, base_branch, paused)")
     p.add_argument("value", nargs="?", help="Value to set")
     p.set_defaults(func=cli.cmd_config)
 
