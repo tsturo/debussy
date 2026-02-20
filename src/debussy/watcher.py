@@ -678,7 +678,7 @@ class Watcher:
     def _get_children(self, parent_id: str) -> list[dict]:
         try:
             result = subprocess.run(
-                ["bd", "children", parent_id, "--json"],
+                ["bd", "list", "--parent", parent_id, "--all", "--limit", "0", "--json"],
                 capture_output=True, text=True, timeout=10,
             )
             if result.returncode != 0 or not result.stdout.strip():
