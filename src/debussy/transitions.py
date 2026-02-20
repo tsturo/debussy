@@ -171,9 +171,9 @@ def _handle_advance(watcher: Watcher, agent: AgentInfo, labels: list[str], stage
     return TransitionResult(remove_labels=stage_labels, add_labels=[next_stage])
 
 
-def _execute_transition(bead_id: str, result: TransitionResult) -> None:
+def _execute_transition(bead_id: str, result: TransitionResult) -> bool:
     if not result.has_changes:
-        return
+        return True
     cmd = ["bd", "update", bead_id]
     if result.status:
         cmd.extend(["--status", result.status])
@@ -185,9 +185,12 @@ def _execute_transition(bead_id: str, result: TransitionResult) -> None:
         run_result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
         if run_result.returncode != 0:
             log(f"Stage transition failed for {bead_id}: {run_result.stderr.strip()}", "⚠️")
+            return False
     except (subprocess.SubprocessError, OSError) as e:
         log(f"Stage transition error for {bead_id}: {e}", "⚠️")
+        return False
     verify_single_stage(bead_id)
+    return True
 
 
 def verify_single_stage(bead_id: str) -> None:
@@ -231,12 +234,12 @@ def _dispatch_transition(watcher: Watcher, agent: AgentInfo, bead: dict) -> Tran
     return TransitionResult(remove_labels=stage_labels)
 
 
-def ensure_stage_transition(watcher: Watcher, agent: AgentInfo) -> None:
+def ensure_stage_transition(watcher: Watcher, agent: AgentInfo) -> bool:
     if not agent.spawned_stage:
-        return
+        return True
     bead = get_bead_json(agent.bead)
     if not bead:
         log(f"Could not read bead {agent.bead}, skipping stage transition", "⚠️")
-        return
+        return False
     result = _dispatch_transition(watcher, agent, bead)
-    _execute_transition(agent.bead, result)
+    return _execute_transition(agent.bead, result)

@@ -34,6 +34,31 @@ def tmux_windows() -> set[str]:
     return set(result.stdout.strip().split('\n'))
 
 
+def tmux_window_ids() -> set[str]:
+    result = subprocess.run(
+        ["tmux", "list-windows", "-t", SESSION_NAME, "-F", "#{window_id}"],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return set()
+    return set(result.stdout.strip().split('\n'))
+
+
+def tmux_window_id_names() -> dict[str, str]:
+    result = subprocess.run(
+        ["tmux", "list-windows", "-t", SESSION_NAME, "-F", "#{window_id}\t#{window_name}"],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return {}
+    info = {}
+    for line in result.stdout.strip().split('\n'):
+        parts = line.split('\t', 1)
+        if len(parts) == 2:
+            info[parts[0]] = parts[1]
+    return info
+
+
 def create_tmux_layout():
     run_tmux("kill-session", "-t", SESSION_NAME, check=False)
     run_tmux("new-session", "-d", "-s", SESSION_NAME, "-n", "main")

@@ -40,10 +40,10 @@ STAGE_LIMIT = 50
 def _categorize_bead(bead, parent_ids: set[str] | None = None):
     if bead.get("status") == STATUS_CLOSED:
         return "done"
-    if parent_ids and bead.get("id") in parent_ids:
-        return "skip"
     for label in bead.get("labels", []):
         if label in BOARD_STAGE_MAP:
+            if parent_ids and bead.get("id") in parent_ids:
+                return "skip"
             return BOARD_STAGE_MAP[label]
     return "backlog"
 

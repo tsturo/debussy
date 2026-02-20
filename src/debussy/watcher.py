@@ -17,7 +17,7 @@ from .config import (
     atomic_write, get_config, log,
 )
 from .pipeline_checker import auto_close_parents, check_pipeline, release_ready, reset_orphaned
-from .tmux import tmux_windows as get_tmux_windows
+from .tmux import tmux_window_id_names, tmux_window_ids as get_tmux_windows
 from .transitions import (
     MAX_RETRIES,
     ensure_stage_transition, record_event,
@@ -35,6 +35,7 @@ class AgentInfo:
     spawned_stage: str = ""
     claimed: bool = False
     tmux: bool = False
+    window_id: str = ""
     proc: subprocess.Popen | None = None
     log_path: str = ""
     log_handle: object = field(default=None, repr=False)
@@ -45,6 +46,8 @@ class AgentInfo:
         if self.tmux:
             if tmux_windows is None:
                 tmux_windows = get_tmux_windows()
+            if self.window_id:
+                return self.window_id in tmux_windows
             return self.name in tmux_windows
         return self.proc is not None and self.proc.poll() is None
 
@@ -58,8 +61,9 @@ class AgentInfo:
 
     def stop(self):
         if self.tmux:
+            target = self.window_id if self.window_id else f"{SESSION_NAME}:{self.name}"
             subprocess.run(
-                ["tmux", "kill-window", "-t", f"{SESSION_NAME}:{self.name}"],
+                ["tmux", "kill-window", "-t", target],
                 capture_output=True
             )
         elif self.proc:
@@ -79,6 +83,7 @@ class Watcher:
         self.empty_branch_retries: dict[str, int] = {}
         self.rejections: dict[str, int] = {}
         self.cooldowns: dict[str, float] = {}
+        self.spawn_counts: dict[str, int] = {}
         self.blocked_failures: set[str] = set()
         self.should_exit = False
         self.state_file = Path(".debussy/watcher_state.json")
@@ -104,6 +109,25 @@ class Watcher:
     def _refresh_tmux_cache(self):
         has_tmux = any(a.tmux for a in self.running.values())
         self._cached_windows = get_tmux_windows() if has_tmux else None
+
+    AGENT_ROLES = {"developer", "reviewer", "security-reviewer", "integrator", "tester", "investigator"}
+
+    def _kill_orphan_windows(self):
+        info = tmux_window_id_names()
+        if not info:
+            return
+        known_ids = {a.window_id for a in self.running.values() if a.tmux and a.window_id}
+        for wid, name in info.items():
+            if wid in known_ids:
+                continue
+            role = name.rsplit("-", 1)[0] if "-" in name else ""
+            if role not in self.AGENT_ROLES:
+                continue
+            try:
+                subprocess.run(["tmux", "kill-window", "-t", wid], capture_output=True)
+                log(f"Killed orphan window: {name}", "🧹")
+            except (subprocess.SubprocessError, OSError):
+                pass
 
     def _alive_agents(self) -> list[AgentInfo]:
         return [a for a in self.running.values() if a.is_alive(self._cached_windows)]
@@ -167,7 +191,10 @@ class Watcher:
             except (subprocess.SubprocessError, OSError) as e:
                 log(f"Failed to remove worktree for {agent.name}: {e}", "⚠️")
         if self._cached_windows is not None:
-            self._cached_windows.discard(agent.name)
+            if agent.window_id:
+                self._cached_windows.discard(agent.window_id)
+            else:
+                self._cached_windows.discard(agent.name)
         del self.running[key]
 
     def cleanup_finished(self):
@@ -177,8 +204,8 @@ class Watcher:
                 if agent.is_done():
                     log(f"{agent.name} completed {agent.bead}", "✅")
                     agent.stop()
-                    ensure_stage_transition(self, agent)
-                    self.failures.pop(agent.bead, None)
+                    if ensure_stage_transition(self, agent):
+                        self.failures.pop(agent.bead, None)
                     self._remove_agent(key, agent)
                     cleaned = True
                 continue
@@ -191,8 +218,8 @@ class Watcher:
                 else:
                     agent_completed = elapsed >= MIN_AGENT_RUNTIME and bead_status != STATUS_IN_PROGRESS
                 if agent_completed:
-                    ensure_stage_transition(self, agent)
-                    self.failures.pop(agent.bead, None)
+                    if ensure_stage_transition(self, agent):
+                        self.failures.pop(agent.bead, None)
                     log(f"{agent.name} finished {agent.bead}", "🛑")
                 else:
                     self.failures[agent.bead] = self.failures.get(agent.bead, 0) + 1
@@ -241,6 +268,7 @@ class Watcher:
                 self._refresh_tmux_cache()
                 self._check_timeouts()
                 self.cleanup_finished()
+                self._kill_orphan_windows()
                 reset_orphaned(self)
 
                 if tick % 3 == 0:

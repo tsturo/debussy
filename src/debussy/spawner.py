@@ -34,7 +34,9 @@ def get_agent_name(used_names: set[str], role: str) -> str:
         full_name = f"{role}-{name}"
         used_names.add(full_name)
         return full_name
-    return f"{role}-{len(used_names)}"
+    fallback = f"{role}-{len(used_names)}"
+    used_names.add(fallback)
+    return fallback
 
 
 def create_agent_worktree(role: str, bead_id: str, agent_name: str) -> str:
@@ -72,14 +74,17 @@ def _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path=""):
     shell_cmd = f"{cd_prefix}export DEBUSSY_ROLE={shlex.quote(role)} DEBUSSY_BEAD={shlex.quote(bead_id)}; {claude_cmd}"
 
     window_created = False
+    window_id = ""
     try:
-        subprocess.run([
+        create_result = subprocess.run([
             "tmux", "new-window", "-d", "-t", SESSION_NAME,
-            "-n", agent_name, "bash", "-c", shell_cmd
-        ], check=True)
+            "-n", agent_name, "-P", "-F", "#{window_id}",
+            "bash", "-c", shell_cmd
+        ], check=True, capture_output=True, text=True)
         window_created = True
+        window_id = create_result.stdout.strip()
 
-        target = f"{SESSION_NAME}:{agent_name}"
+        target = window_id if window_id else f"{SESSION_NAME}:{agent_name}"
         time.sleep(CLAUDE_STARTUP_DELAY)
         subprocess.run(
             ["tmux", "send-keys", "-l", "-t", target, prompt],
@@ -93,12 +98,14 @@ def _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path=""):
 
         return AgentInfo(
             bead=bead_id, role=role, name=agent_name,
-            spawned_stage=stage, tmux=True, worktree_path=worktree_path,
+            spawned_stage=stage, tmux=True, window_id=window_id,
+            worktree_path=worktree_path,
         )
     except (subprocess.SubprocessError, OSError) as e:
         if window_created:
+            kill_target = window_id if window_id else f"{SESSION_NAME}:{agent_name}"
             subprocess.run(
-                ["tmux", "kill-window", "-t", f"{SESSION_NAME}:{agent_name}"],
+                ["tmux", "kill-window", "-t", kill_target],
                 capture_output=True,
             )
         log(f"Failed to spawn tmux window: {e}", "✗")
@@ -138,6 +145,9 @@ def _spawn_background(agent_name, bead_id, role, prompt, stage, worktree_path=""
         raise
 
 
+MAX_TOTAL_SPAWNS = 20
+
+
 def spawn_agent(watcher, role: str, bead_id: str, stage: str):
     key = f"{role}:{bead_id}"
 
@@ -145,6 +155,10 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str):
         return
 
     if watcher.failures.get(bead_id, 0) >= MAX_RETRIES:
+        return
+
+    if watcher.spawn_counts.get(bead_id, 0) >= MAX_TOTAL_SPAWNS:
+        log(f"Blocked {bead_id}: {MAX_TOTAL_SPAWNS} total spawns exceeded", "🚫")
         return
 
     agent_name = get_agent_name(watcher.used_names, role)
@@ -163,7 +177,9 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str):
             agent_info = _spawn_background(agent_name, bead_id, role, prompt, stage, worktree_path)
         watcher.running[key] = agent_info
         if agent_info.tmux and watcher._cached_windows is not None:
-            watcher._cached_windows.add(agent_name)
+            cache_id = agent_info.window_id if agent_info.window_id else agent_name
+            watcher._cached_windows.add(cache_id)
+        watcher.spawn_counts[bead_id] = watcher.spawn_counts.get(bead_id, 0) + 1
         watcher.save_state()
         record_event(bead_id, "spawn", stage=stage, agent=agent_name)
     except (subprocess.SubprocessError, OSError) as e:
