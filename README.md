@@ -28,7 +28,7 @@ Debussy has three layers:
 
 1. **Conductor** - the entry point. You talk to it, it plans work and creates tasks (beads). It never writes code.
 2. **Watcher** - the orchestration engine. Polls beads every 5 seconds, spawns Claude agents based on stage labels, owns all stage transitions.
-3. **Agents** - specialized Claude instances (developer, reviewer, integrator, tester, investigator) that do the actual work in isolated git worktrees.
+3. **Agents** - specialized Claude instances (developer, reviewer, security-reviewer, integrator, tester, investigator) that do the actual work in isolated git worktrees.
 
 ```
 You ↔ Conductor (plans, creates tasks)
@@ -52,6 +52,14 @@ open → stage:development → stage:reviewing → stage:merging → closed
           developer           reviewer        integrator
               ↑                  │                │
               └──────────────────┴────────────────┘  (on rejection → back to development)
+```
+
+Beads with the `security` label get an extra stage after code review:
+
+```
+stage:reviewing → stage:security-review → stage:merging
+                        ↓
+                  security-reviewer
 ```
 
 After all beads in a batch are merged, a batch acceptance bead runs:
@@ -141,6 +149,7 @@ Each agent works in an isolated git worktree under `.debussy-worktrees/`:
 |------|-----------------|
 | Developer | New branch `feature/{bead_id}` from `origin/{base}` |
 | Reviewer | Detached at `origin/feature/{bead_id}` (read-only) |
+| Security-reviewer | Detached at `origin/feature/{bead_id}` (read-only) |
 | Integrator | Detached at `origin/{base}` (merge target) |
 | Tester | Detached at `origin/{base}` |
 | Investigator | No worktree (works in main repo) |
@@ -169,7 +178,8 @@ Agents never merge to master.
 |-------|------|-----------|
 | **conductor** | Creates tasks, monitors progress, never writes code | N/A |
 | **developer** | Implements features and fixes on feature branch | No |
-| **reviewer** | Reviews code quality, security, runs tests | No |
+| **reviewer** | Reviews code quality, runs tests | No |
+| **security-reviewer** | OWASP-aligned security review for beads with `security` label | No |
 | **integrator** | Merges feature branch to conductor's base branch | Yes |
 | **tester** | Batch acceptance testing after all beads merged | Yes |
 | **investigator** | Researches codebase, documents findings. Also handles consolidation | Yes |
