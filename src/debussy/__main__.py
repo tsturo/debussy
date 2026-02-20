@@ -18,6 +18,7 @@ def main():
 
     p = subparsers.add_parser("start", help="Start the system")
     p.add_argument("requirement", nargs="?", help="Initial requirement")
+    p.add_argument("--paused", action="store_true", help="Start with pipeline paused")
     p.set_defaults(func=cli.cmd_start)
 
     p = subparsers.add_parser("watch", help="Run watcher")

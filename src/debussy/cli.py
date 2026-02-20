@@ -92,6 +92,10 @@ def _send_conductor_prompt(requirement: str | None):
 def cmd_start(args):
     if not _preflight_check():
         return 1
+    if getattr(args, "paused", False):
+        set_config("paused", True)
+    else:
+        set_config("paused", False)
     _create_tmux_layout()
     _send_conductor_prompt(getattr(args, "requirement", None))
     _label_panes()
