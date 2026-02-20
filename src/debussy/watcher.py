@@ -202,7 +202,7 @@ class Watcher:
     def save_state(self):
         state = {}
         for agent in self._alive_agents():
-            state[agent.bead] = {
+            entry = {
                 "agent": agent.name,
                 "role": agent.role,
                 "log": agent.log_path,
@@ -210,6 +210,9 @@ class Watcher:
                 "worktree_path": agent.worktree_path,
                 "started_at": agent.started_at,
             }
+            if agent.proc:
+                entry["pid"] = agent.proc.pid
+            state[agent.bead] = entry
         atomic_write(self.state_file, json.dumps(state))
 
     def get_agent_name(self, role: str) -> str:
@@ -271,10 +274,18 @@ class Watcher:
         cfg = get_config()
         use_tmux = cfg.get("use_tmux_windows", False) and os.environ.get("TMUX") is not None
 
-        if use_tmux:
-            self._spawn_tmux(key, agent_name, bead_id, role, prompt, stage, worktree_path)
-        else:
-            self._spawn_background(key, agent_name, bead_id, role, prompt, worktree_path)
+        try:
+            if use_tmux:
+                self._spawn_tmux(key, agent_name, bead_id, role, prompt, stage, worktree_path)
+            else:
+                self._spawn_background(key, agent_name, bead_id, role, prompt, worktree_path)
+        except Exception:
+            if worktree_path:
+                try:
+                    remove_worktree(agent_name)
+                except Exception:
+                    pass
+            self.used_names.discard(agent_name)
 
     def _spawn_tmux(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str, stage: str, worktree_path: str = ""):
         claude_cmd = "claude"
@@ -284,11 +295,13 @@ class Watcher:
         cd_prefix = f"cd '{worktree_path}' && " if worktree_path else ""
         shell_cmd = f"{cd_prefix}export DEBUSSY_ROLE={role} DEBUSSY_BEAD={bead_id}; {claude_cmd}"
 
+        window_created = False
         try:
             subprocess.run([
                 "tmux", "new-window", "-d", "-t", SESSION_NAME,
                 "-n", agent_name, "bash", "-c", shell_cmd
             ], check=True)
+            window_created = True
 
             target = f"{SESSION_NAME}:{agent_name}"
             time.sleep(CLAUDE_STARTUP_DELAY)
@@ -310,7 +323,13 @@ class Watcher:
                 self._cached_windows.add(agent_name)
             self.save_state()
         except Exception as e:
+            if window_created:
+                subprocess.run(
+                    ["tmux", "kill-window", "-t", f"{SESSION_NAME}:{agent_name}"],
+                    capture_output=True,
+                )
             log(f"Failed to spawn tmux window: {e}", "✗")
+            raise
 
     def _spawn_background(self, key: str, agent_name: str, bead_id: str, role: str, prompt: str, worktree_path: str = ""):
         cmd = ["claude"]
@@ -709,8 +728,11 @@ class Watcher:
                 self._check_timeouts()
                 self.cleanup_finished()
                 self._reset_orphaned()
-                self._release_ready()
-                self.check_pipeline()
+
+                if not get_config().get("paused", False):
+                    self._release_ready()
+                    self.check_pipeline()
+
                 self.save_state()
 
                 tick += 1

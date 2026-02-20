@@ -19,7 +19,7 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 
 DEFAULTS = {
     "max_total_agents": 8,
-    "use_tmux_windows": True,
+    "use_tmux_windows": False,
 }
 
 STAGE_TO_ROLE = {

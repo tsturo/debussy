@@ -45,9 +45,11 @@ def main():
     p = subparsers.add_parser("backup", help="Backup beads database")
     p.set_defaults(func=cli.cmd_backup)
 
-    p = subparsers.add_parser("pause", help="Pause pipeline, reset agent beads to open")
-    p.add_argument("--restart", action="store_true", help="Restart after pausing")
+    p = subparsers.add_parser("pause", help="Pause pipeline, kill agents, keep watcher running")
     p.set_defaults(func=cli.cmd_pause)
+
+    p = subparsers.add_parser("resume", help="Resume paused pipeline")
+    p.set_defaults(func=cli.cmd_resume)
 
     p = subparsers.add_parser("board", help="Show kanban board")
     p.set_defaults(func=cli.cmd_board)

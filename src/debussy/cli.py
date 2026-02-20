@@ -2,6 +2,7 @@
 
 import json
 import os
+import signal
 import shutil
 import subprocess
 import time
@@ -381,6 +382,7 @@ def cmd_restart(args):
             return result
 
     cmd_pause(args)
+    set_config("paused", False)
 
     cwd = os.getcwd()
     subprocess.Popen(
@@ -485,6 +487,11 @@ def _kill_agent(agent: dict, agent_name: str):
             ["tmux", "kill-window", "-t", f"{SESSION_NAME}:{agent_name}"],
             capture_output=True,
         )
+    elif agent.get("pid"):
+        try:
+            os.kill(agent["pid"], signal.SIGTERM)
+        except ProcessLookupError:
+            pass
 
 
 def _get_bead_status(bead_id: str) -> str | None:
@@ -537,10 +544,9 @@ def _delete_orphan_branches(paused_beads: set[str]):
 
 
 def cmd_pause(args):
+    set_config("paused", True)
+
     state_file = Path(".debussy/watcher_state.json")
-
-    _stop_watcher()
-
     state = {}
     if state_file.exists():
         try:
@@ -549,7 +555,6 @@ def cmd_pause(args):
         except Exception:
             pass
 
-    paused_beads = set()
     for bead_id, agent in state.items():
         agent_name = agent.get("agent", "")
         _kill_agent(agent, agent_name)
@@ -557,21 +562,19 @@ def cmd_pause(args):
         if agent.get("worktree_path"):
             try:
                 remove_worktree(agent_name)
-                log(f"Removed worktree for {agent_name}", "🧹")
             except Exception:
                 pass
         _reset_bead_to_open(bead_id)
-        paused_beads.add(bead_id)
-
-    _delete_orphan_branches(paused_beads)
 
     if state_file.exists():
         state_file.unlink()
 
     log("Pipeline paused", "⏸")
 
-    if getattr(args, "restart", False):
-        cmd_start(args)
+
+def cmd_resume(args):
+    set_config("paused", False)
+    log("Pipeline resumed", "▶")
 
 
 def cmd_debug(args):
