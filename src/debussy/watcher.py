@@ -100,12 +100,50 @@ class Watcher:
         if self.LOCK_FILE.exists():
             try:
                 pid = int(self.LOCK_FILE.read_text().strip())
-                os.kill(pid, 0)
-                return False
+                if pid != os.getpid():
+                    os.kill(pid, 0)
+                    os.kill(pid, signal.SIGTERM)
+                    log(f"Stopping previous watcher (PID {pid})", "🧹")
+                    for _ in range(10):
+                        time.sleep(0.5)
+                        try:
+                            os.kill(pid, 0)
+                        except OSError:
+                            break
+                    else:
+                        log(f"Previous watcher (PID {pid}) did not stop", "⚠️")
+                        return False
             except (ValueError, OSError):
                 pass
         self.LOCK_FILE.write_text(str(os.getpid()))
         return True
+
+    def _kill_stale_watchers(self):
+        my_pid = os.getpid()
+        try:
+            result = subprocess.run(
+                ["pgrep", "-f", "debussy watch"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode != 0:
+                return
+            for line in result.stdout.strip().split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    pid = int(line)
+                except ValueError:
+                    continue
+                if pid == my_pid:
+                    continue
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    log(f"Killed stale watcher (PID {pid})", "🧹")
+                except OSError:
+                    pass
+        except (subprocess.SubprocessError, OSError):
+            pass
 
     def _release_lock(self):
         try:
@@ -289,6 +327,9 @@ class Watcher:
     def run(self):
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGTERM, self.signal_handler)
+        signal.signal(signal.SIGHUP, self.signal_handler)
+
+        self._kill_stale_watchers()
 
         if not self._acquire_lock():
             log("Another watcher is already running", "🔒")

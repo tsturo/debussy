@@ -184,6 +184,7 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str) -> bool:
         record_event(bead_id, "spawn", stage=stage, agent=agent_name)
         return True
     except (subprocess.SubprocessError, OSError) as e:
+        watcher.used_names.discard(agent_name)
         watcher.failures[bead_id] = watcher.failures.get(bead_id, 0) + 1
         log(f"Spawn failed for {bead_id} ({watcher.failures[bead_id]}/{MAX_RETRIES}): {e}", "💥")
         if worktree_path:
