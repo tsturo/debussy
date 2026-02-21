@@ -81,8 +81,8 @@ def _bead_marker(bead, running, all_beads_by_id):
     if bead_id in running:
         agent = running[bead_id].get("agent", "")
         return f" \U0001f504 {agent}"
-    if bead.get("status") == STATUS_BLOCKED or get_unresolved_deps(bead):
-        deps = get_unresolved_deps(bead)
+    deps = get_unresolved_deps(bead)
+    if bead.get("status") == STATUS_BLOCKED or deps:
         if deps:
             short = [d.replace("bd-", ".") for d in deps]
             return f" \u2298 \u2192{','.join(short)}"
