@@ -107,7 +107,8 @@ class Watcher:
             pass
 
     def _refresh_tmux_cache(self):
-        has_tmux = any(a.tmux for a in self.running.values())
+        use_tmux = get_config().get("use_tmux_windows", False)
+        has_tmux = use_tmux or any(a.tmux for a in self.running.values())
         self._cached_windows = get_tmux_windows() if has_tmux else None
 
     AGENT_ROLES = {"developer", "reviewer", "security-reviewer", "integrator", "tester", "investigator"}
@@ -261,6 +262,7 @@ class Watcher:
         signal.signal(signal.SIGTERM, self.signal_handler)
 
         log(f"Watcher started (poll every {POLL_INTERVAL}s)", "👀")
+        self._kill_orphan_windows()
 
         tick = 0
         while not self.should_exit:

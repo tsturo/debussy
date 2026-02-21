@@ -151,7 +151,7 @@ MAX_TOTAL_SPAWNS = 20
 def spawn_agent(watcher, role: str, bead_id: str, stage: str):
     key = f"{role}:{bead_id}"
 
-    if key in watcher.running and watcher.running[key].is_alive(watcher._cached_windows):
+    if key in watcher.running:
         return
 
     if watcher.failures.get(bead_id, 0) >= MAX_RETRIES:
