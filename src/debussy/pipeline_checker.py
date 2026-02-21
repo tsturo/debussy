@@ -10,7 +10,7 @@ from .config import (
     STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS, STATUS_OPEN,
     log,
 )
-from .spawner import spawn_agent
+from .spawner import MAX_TOTAL_SPAWNS, spawn_agent
 from .transitions import MAX_RETRIES, REJECTION_COOLDOWN, record_event, verify_single_stage
 
 
@@ -144,8 +144,11 @@ def _should_skip_bead(watcher, bead_id, bead, role):
     if cooldown_until and time.time() - cooldown_until < REJECTION_COOLDOWN:
         return "cooldown"
     if watcher.failures.get(bead_id, 0) >= MAX_RETRIES:
-        _block_failed_bead(watcher, bead_id)
+        _block_failed_bead(watcher, bead_id, "failures")
         return "max failures"
+    if watcher.spawn_counts.get(bead_id, 0) >= MAX_TOTAL_SPAWNS:
+        _block_failed_bead(watcher, bead_id, "total spawns")
+        return "max spawns"
     if bead.get("status") == STATUS_BLOCKED:
         return "blocked"
     skip = _check_dependencies(watcher, bead_id, bead, role)
@@ -160,11 +163,11 @@ def _should_skip_bead(watcher, bead_id, bead, role):
     return None
 
 
-def _block_failed_bead(watcher, bead_id):
+def _block_failed_bead(watcher, bead_id, reason="failures"):
     if bead_id in watcher.blocked_failures:
         return
     watcher.blocked_failures.add(bead_id)
-    log(f"Blocked {bead_id}: {MAX_RETRIES} failures, needs conductor", "🚫")
+    log(f"Blocked {bead_id}: max {reason}, needs conductor", "🚫")
     try:
         subprocess.run(
             ["bd", "update", bead_id, "--status", STATUS_BLOCKED],

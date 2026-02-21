@@ -158,7 +158,6 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str) -> bool:
         return False
 
     if watcher.spawn_counts.get(bead_id, 0) >= MAX_TOTAL_SPAWNS:
-        log(f"Blocked {bead_id}: {MAX_TOTAL_SPAWNS} total spawns exceeded", "🚫")
         return False
 
     agent_name = get_agent_name(watcher.used_names, role)
