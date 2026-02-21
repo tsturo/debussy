@@ -59,7 +59,9 @@ def create_agent_worktree(role: str, bead_id: str, agent_name: str) -> str:
             return ""
         return str(wt)
     except (subprocess.SubprocessError, OSError) as e:
-        log(f"Failed to create worktree for {agent_name}: {e}", "⚠️")
+        stderr = getattr(e, "stderr", "") or ""
+        detail = f" — {stderr.strip()}" if stderr.strip() else ""
+        log(f"Failed to create worktree for {agent_name}: {e}{detail}", "⚠️")
         return ""
 
 
