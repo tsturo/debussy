@@ -159,15 +159,12 @@ Investigators research in parallel and document findings. A consolidation step (
 
 ### Creating Tasks
 
-Always create a parent bead first, then child tasks with `--parent`:
-
 ```bash
-bd create "Feature: auth" -d "Parent bead for authentication"                          # → bd-001 (parent)
-bd create "Create User model" -d "..." --parent bd-001                                 # → bd-002
-bd create "Add login endpoint" -d "..." --parent bd-001                                # → bd-003
+bd create "Create User model" -d "..."                                                 # → bd-001
+bd create "Add login endpoint" -d "..."                                                # → bd-002
 ```
 
-Never add a stage label to the parent bead. It auto-closes when all children close.
+Use `--deps` to serialize tasks that must run in order.
 
 ### Releasing Tasks (conductor only)
 ```bash
@@ -177,13 +174,12 @@ bd update <bead-id> --add-label stage:investigating   # investigation task
 
 ### Parallel Investigation (conductor only)
 ```bash
-bd create "Feature: research X" -d "Parent bead for investigation"                     # → bd-001 (parent)
-bd create "Investigate area A" -d "Research details" --parent bd-001                   # → bd-002
-bd create "Investigate area B" -d "Research details" --parent bd-001                   # → bd-003
-bd create "Consolidate findings" -d "Synthesize results" --parent bd-001 --deps "bd-002,bd-003"  # → bd-004
+bd create "Investigate area A" -d "Research details"                                   # → bd-001
+bd create "Investigate area B" -d "Research details"                                   # → bd-002
+bd create "Consolidate findings" -d "Synthesize results" --deps "bd-001,bd-002"        # → bd-003
+bd update bd-001 --add-label stage:investigating
 bd update bd-002 --add-label stage:investigating
-bd update bd-003 --add-label stage:investigating
-bd update bd-004 --add-label stage:consolidating
+bd update bd-003 --add-label stage:consolidating
 ```
 The consolidation bead stays blocked until all investigation beads finish.
 
@@ -225,7 +221,7 @@ src/debussy/
   bead_client.py      # Shared bead query/mutation functions (wraps bd CLI)
   transitions.py      # Stage transition logic (state machine)
   spawner.py          # Agent spawning (tmux windows and background processes)
-  pipeline_checker.py # Pipeline scanning, dependency resolution, parent auto-close
+  pipeline_checker.py # Pipeline scanning and dependency resolution
   board.py            # Kanban board rendering
   metrics.py          # Pipeline analytics and stage duration tracking
   status.py           # Status and debug display

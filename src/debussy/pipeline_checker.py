@@ -32,20 +32,6 @@ def get_unmerged_dep_branches(bead: dict) -> list[str]:
     return unmerged
 
 
-def _get_children(parent_id: str) -> list[dict]:
-    try:
-        result = subprocess.run(
-            ["bd", "list", "--parent", parent_id, "--all", "--limit", "0", "--json"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode != 0 or not result.stdout.strip():
-            return []
-        data = json.loads(result.stdout)
-        return data if isinstance(data, list) else []
-    except (subprocess.SubprocessError, OSError, ValueError):
-        return []
-
-
 def reset_orphaned(watcher):
     try:
         result = subprocess.run(
@@ -241,36 +227,3 @@ def check_pipeline(watcher):
         budget -= _scan_stage(watcher, stage, role, budget)
 
 
-def auto_close_parents(watcher):
-    try:
-        result = subprocess.run(
-            ["bd", "list", "--status", STATUS_OPEN, "--no-parent", "--json"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode != 0 or not result.stdout.strip():
-            return
-        beads = json.loads(result.stdout)
-        if not isinstance(beads, list):
-            return
-    except (subprocess.SubprocessError, OSError, ValueError):
-        return
-
-    for bead in beads:
-        bead_id = bead.get("id")
-        if not bead_id:
-            continue
-        labels = bead.get("labels", [])
-        if any(l.startswith("stage:") for l in labels):
-            continue
-        children = _get_children(bead_id)
-        if not children:
-            continue
-        if all(c.get("status") == STATUS_CLOSED for c in children):
-            try:
-                subprocess.run(
-                    ["bd", "update", bead_id, "--status", STATUS_CLOSED],
-                    capture_output=True, timeout=5,
-                )
-                log(f"Auto-closed parent {bead_id}: all children closed", "📦")
-            except (subprocess.SubprocessError, OSError):
-                pass

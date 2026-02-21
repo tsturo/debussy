@@ -16,7 +16,7 @@ from .config import (
     HEARTBEAT_TICKS, STATUS_IN_PROGRESS, STATUS_OPEN,
     atomic_write, get_config, log,
 )
-from .pipeline_checker import auto_close_parents, check_pipeline, release_ready, reset_orphaned
+from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
 from .tmux import tmux_window_id_names, tmux_window_ids as get_tmux_windows
 from .transitions import (
     MAX_RETRIES,
@@ -350,9 +350,6 @@ class Watcher:
                 self.cleanup_finished()
                 self._kill_orphan_windows()
                 reset_orphaned(self)
-
-                if tick % 3 == 0:
-                    auto_close_parents(self)
 
                 if not get_config().get("paused", False):
                     self._refresh_tmux_cache()
