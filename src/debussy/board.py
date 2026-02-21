@@ -37,13 +37,11 @@ DONE_LIMIT = 5
 STAGE_LIMIT = 50
 
 
-def _categorize_bead(bead, parent_ids: set[str] | None = None):
+def _categorize_bead(bead):
     if bead.get("status") == STATUS_CLOSED:
         return "done"
     for label in bead.get("labels", []):
         if label in BOARD_STAGE_MAP:
-            if parent_ids and bead.get("id") in parent_ids:
-                return "skip"
             return BOARD_STAGE_MAP[label]
     return "backlog"
 
@@ -54,12 +52,8 @@ def _build_buckets(beads, running, all_beads_by_id):
     dev = {k: [] for k in dev_keys}
     inv = {k: [] for k in inv_keys}
 
-    parent_ids = {b.get("parent_id") for b in beads if b.get("parent_id")}
-
     for bead in beads:
-        col = _categorize_bead(bead, parent_ids)
-        if col == "skip":
-            continue
+        col = _categorize_bead(bead)
         if col in dev:
             dev[col].append(bead)
         elif col in inv:
@@ -88,6 +82,10 @@ def _bead_marker(bead, running, all_beads_by_id):
         agent = running[bead_id].get("agent", "")
         return f" \U0001f504 {agent}"
     if bead.get("status") == STATUS_BLOCKED or get_unresolved_deps(bead):
+        deps = get_unresolved_deps(bead)
+        if deps:
+            short = [d.replace("bd-", ".") for d in deps]
+            return f" \u2298 \u2192{','.join(short)}"
         return " \u2298"
     return ""
 
@@ -98,48 +96,16 @@ def _board_truncate(text, width):
     return text[:width - 2] + ".."
 
 
-def _count_children(parent_id, all_beads_by_id):
-    return sum(1 for b in all_beads_by_id.values() if b.get("parent_id") == parent_id)
-
-
-def _group_done_beads(done_beads, all_beads_by_id):
-    groups = {}
-    orphans = []
-    for bead in done_beads:
-        pid = bead.get("parent_id")
-        if pid:
-            groups.setdefault(pid, 0)
-            groups[pid] += 1
-        else:
-            orphans.append(bead)
-
-    result = []
-    for pid, closed_count in groups.items():
-        parent = all_beads_by_id.get(pid)
-        total = _count_children(pid, all_beads_by_id)
-        title = parent.get("title", pid) if parent else pid
-        result.append((pid, title, closed_count, total))
-    result.sort(key=lambda t: t[0], reverse=True)
-    return result, orphans
-
-
-def _render_done_content(done_beads, all_beads_by_id, content_width):
+def _render_done_content(done_beads, content_width):
     if not done_beads:
         return [" " * content_width]
-    groups, orphans = _group_done_beads(done_beads, all_beads_by_id)
     content_lines = []
-    for _pid, title, closed, total in groups[:DONE_LIMIT]:
-        check = "\u2713" if closed == total else ""
-        entry = f"{title} {check} ({closed}/{total})" if check else f"{title} ({closed}/{total})"
-        content_lines.append(_board_truncate(entry, content_width).ljust(content_width))
-    remaining = DONE_LIMIT - len(content_lines)
-    for bead in orphans[:remaining]:
+    for bead in done_beads[:DONE_LIMIT]:
         entry = f"{bead.get('id', '')} {bead.get('title', '')}"
         content_lines.append(_board_truncate(entry, content_width).ljust(content_width))
-    total_items = len(groups) + len(orphans)
-    if total_items > DONE_LIMIT:
-        content_lines.append(f"+{total_items - DONE_LIMIT} more".ljust(content_width))
-    return content_lines or [" " * content_width]
+    if len(done_beads) > DONE_LIMIT:
+        content_lines.append(f"+{len(done_beads) - DONE_LIMIT} more".ljust(content_width))
+    return content_lines
 
 
 def _render_vertical(columns, buckets, running, all_beads_by_id, term_width):
@@ -158,7 +124,7 @@ def _render_vertical(columns, buckets, running, all_beads_by_id, term_width):
         label_cell = label.ljust(label_width)
 
         if key == "done":
-            content_lines = _render_done_content(beads_list, all_beads_by_id, content_width)
+            content_lines = _render_done_content(beads_list, content_width)
         else:
             limit = STAGE_LIMIT
             shown = beads_list[:limit]

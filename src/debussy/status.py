@@ -191,37 +191,10 @@ def print_runtime_info(running):
         print()
 
 
-def _print_parent_progress(all_beads):
-    by_parent = {}
-    parent_beads = {}
-    for bead in all_beads:
-        pid = bead.get("parent_id")
-        if pid:
-            by_parent.setdefault(pid, []).append(bead)
-        bead_id = bead.get("id")
-        if bead_id:
-            parent_beads[bead_id] = bead
-
-    if not by_parent:
-        return
-
-    print("Features:")
-    for pid, children in sorted(by_parent.items()):
-        parent = parent_beads.get(pid)
-        title = parent.get("title", pid) if parent else pid
-        closed = sum(1 for c in children if c.get("status") == STATUS_CLOSED)
-        total = len(children)
-        check = " \u2713" if closed == total else ""
-        print(f"  {title} ({closed}/{total}){check}")
-    print()
-
-
 def cmd_status(args):
     print("\n=== DEBUSSY STATUS ===\n")
     running = get_running_agents()
     print_runtime_info(running)
-    all_beads = get_all_beads()
-    _print_parent_progress(all_beads)
 
 
 def cmd_debug(args):

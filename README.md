@@ -289,7 +289,7 @@ src/debussy/
   bead_client.py      # Shared bead query/mutation functions (wraps bd CLI)
   transitions.py      # Stage transition logic (state machine)
   spawner.py          # Agent spawning (tmux windows and background processes)
-  pipeline_checker.py # Pipeline scanning, dependency resolution, parent auto-close
+  pipeline_checker.py # Pipeline scanning and dependency resolution
   board.py            # Kanban board rendering
   metrics.py          # Pipeline analytics and stage duration tracking
   status.py           # Status and debug display
