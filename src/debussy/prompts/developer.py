@@ -27,5 +27,5 @@ IF BLOCKED — dependencies missing, code you need doesn't exist yet, or require
   Exit immediately. Do NOT set status open with no commits.
 
 IF YOU FIND AN UNRELATED BUG:
-  bd create "Bug: [title]" -d "[details]"
-  Continue with your task. The conductor will triage and release the bug."""
+  bd comment {bead_id} "Unrelated bug: [title] — [details]"
+  Continue with your task. The conductor will triage it."""

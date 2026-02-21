@@ -19,7 +19,7 @@ ALLOWED_STATUSES = {
     "security-reviewer": {"in_progress", "open", "blocked"},
     "tester": {"in_progress", "open", "closed"},
     "investigator": {"in_progress", "closed", "blocked"},
-    "integrator": {"in_progress", "open"},
+    "integrator": {"in_progress", "open", "closed"},
 }
 
 
@@ -34,7 +34,7 @@ def _extract_flag_values(words, flag):
 def _extract_bead_id(command):
     words = command.split()
     for i, word in enumerate(words):
-        if word in ("update", "show") and i + 1 < len(words):
+        if word in ("update", "show", "comment") and i + 1 < len(words):
             return words[i + 1]
     return None
 
@@ -68,6 +68,13 @@ def _validate_singleton_stage(command):
 
     if remaining:
         print(f"Cannot add {adding[0]}: bead {bead_id} already has {remaining[0]}. Remove it first.", file=sys.stderr)
+        sys.exit(2)
+
+
+def _validate_bead_ownership(command, assigned_bead):
+    bead_id = _extract_bead_id(command)
+    if bead_id and bead_id != assigned_bead:
+        print(f"Agent assigned to {assigned_bead} cannot operate on {bead_id}", file=sys.stderr)
         sys.exit(2)
 
 
@@ -114,8 +121,12 @@ def main():
         sys.exit(2)
 
     if "bd create" in command:
-        _validate_labels(command, role)
-        return
+        print("Agents cannot create beads. Use 'bd comment' on your bead to flag issues for the conductor.", file=sys.stderr)
+        sys.exit(2)
+
+    assigned_bead = os.environ.get("DEBUSSY_BEAD")
+    if assigned_bead:
+        _validate_bead_ownership(command, assigned_bead)
 
     if "bd update" in command:
         _validate_labels(command, role)
