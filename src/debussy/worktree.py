@@ -38,11 +38,14 @@ def _symlink_dirs(worktree: Path, repo: Path):
 
 
 def _branch_exists(branch: str) -> bool:
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", branch],
-        capture_output=True, timeout=5,
-    )
-    return result.returncode == 0
+    for ref in (branch, f"refs/remotes/origin/{branch}"):
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", ref],
+            capture_output=True, timeout=5,
+        )
+        if result.returncode == 0:
+            return True
+    return False
 
 
 def _remove_worktree_for_branch(branch: str):
@@ -68,6 +71,8 @@ def create_worktree(agent_name: str, branch: str, start_point: str | None = None
     wt_path = _worktree_path(agent_name)
     repo = _repo_root()
 
+    subprocess.run(["git", "worktree", "prune"], capture_output=True, timeout=10)
+
     if wt_path.exists():
         remove_worktree(agent_name)
 
@@ -89,8 +94,10 @@ def create_worktree(agent_name: str, branch: str, start_point: str | None = None
         cmd = ["git", "worktree", "add", str(wt_path), branch]
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-    if result.returncode != 0 and new_branch and start_point and _branch_exists(branch):
-        subprocess.run(["git", "branch", "-D", branch], capture_output=True, timeout=10)
+    if result.returncode != 0 and new_branch and start_point:
+        subprocess.run(["git", "worktree", "prune"], capture_output=True, timeout=10)
+        if _branch_exists(branch):
+            subprocess.run(["git", "branch", "-D", branch], capture_output=True, timeout=10)
         if wt_path.exists():
             shutil.rmtree(wt_path, ignore_errors=True)
         cmd = ["git", "worktree", "add", "-b", branch, str(wt_path), start_point]
