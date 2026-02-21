@@ -75,6 +75,8 @@ class AgentInfo:
 
 
 class Watcher:
+    LOCK_FILE = Path(".debussy/watcher.lock")
+
     def __init__(self):
         self.running: dict[str, AgentInfo] = {}
         self.queued: set[str] = set()
@@ -92,6 +94,27 @@ class Watcher:
         self._load_rejections()
         cleanup_stale_worktrees()
         cleanup_orphaned_branches()
+
+    def _acquire_lock(self) -> bool:
+        self.LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+        if self.LOCK_FILE.exists():
+            try:
+                pid = int(self.LOCK_FILE.read_text().strip())
+                os.kill(pid, 0)
+                return False
+            except (ValueError, OSError):
+                pass
+        self.LOCK_FILE.write_text(str(os.getpid()))
+        return True
+
+    def _release_lock(self):
+        try:
+            if self.LOCK_FILE.exists():
+                pid = int(self.LOCK_FILE.read_text().strip())
+                if pid == os.getpid():
+                    self.LOCK_FILE.unlink()
+        except (ValueError, OSError):
+            pass
 
     def _load_rejections(self):
         try:
@@ -121,8 +144,12 @@ class Watcher:
         for wid, name in info.items():
             if wid in known_ids:
                 continue
-            role = name.rsplit("-", 1)[0] if "-" in name else ""
-            if role not in self.AGENT_ROLES:
+            matched_role = None
+            for r in self.AGENT_ROLES:
+                if name.startswith(f"{r}-"):
+                    matched_role = r
+                    break
+            if matched_role is None:
                 continue
             try:
                 subprocess.run(["tmux", "kill-window", "-t", wid], capture_output=True)
@@ -191,6 +218,7 @@ class Watcher:
                 remove_worktree(agent.name)
             except (subprocess.SubprocessError, OSError) as e:
                 log(f"Failed to remove worktree for {agent.name}: {e}", "⚠️")
+        self.used_names.discard(agent.name)
         if self._cached_windows is not None:
             if agent.window_id:
                 self._cached_windows.discard(agent.window_id)
@@ -252,6 +280,7 @@ class Watcher:
         log("Stopping agents...", "🛑")
         for agent in self.running.values():
             agent.stop()
+        self._release_lock()
         log("Watcher stopped")
 
     def signal_handler(self, signum, frame):
@@ -261,8 +290,16 @@ class Watcher:
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGTERM, self.signal_handler)
 
+        if not self._acquire_lock():
+            log("Another watcher is already running", "🔒")
+            return
+
         log(f"Watcher started (poll every {POLL_INTERVAL}s)", "👀")
         self._kill_orphan_windows()
+
+        info = tmux_window_id_names()
+        remaining = len(info) if info else 0
+        log(f"Startup: {remaining} tmux window(s) after orphan cleanup", "📊")
 
         tick = 0
         while not self.should_exit:

@@ -148,18 +148,18 @@ def _spawn_background(agent_name, bead_id, role, prompt, stage, worktree_path=""
 MAX_TOTAL_SPAWNS = 20
 
 
-def spawn_agent(watcher, role: str, bead_id: str, stage: str):
+def spawn_agent(watcher, role: str, bead_id: str, stage: str) -> bool:
     key = f"{role}:{bead_id}"
 
     if key in watcher.running:
-        return
+        return False
 
     if watcher.failures.get(bead_id, 0) >= MAX_RETRIES:
-        return
+        return False
 
     if watcher.spawn_counts.get(bead_id, 0) >= MAX_TOTAL_SPAWNS:
         log(f"Blocked {bead_id}: {MAX_TOTAL_SPAWNS} total spawns exceeded", "🚫")
-        return
+        return False
 
     agent_name = get_agent_name(watcher.used_names, role)
     log(f"Spawning {agent_name} for {bead_id}", "🚀")
@@ -182,6 +182,7 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str):
         watcher.spawn_counts[bead_id] = watcher.spawn_counts.get(bead_id, 0) + 1
         watcher.save_state()
         record_event(bead_id, "spawn", stage=stage, agent=agent_name)
+        return True
     except (subprocess.SubprocessError, OSError) as e:
         watcher.failures[bead_id] = watcher.failures.get(bead_id, 0) + 1
         log(f"Spawn failed for {bead_id} ({watcher.failures[bead_id]}/{MAX_RETRIES}): {e}", "💥")
@@ -190,3 +191,4 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str):
                 remove_worktree(agent_name)
             except (subprocess.SubprocessError, OSError):
                 pass
+        return False

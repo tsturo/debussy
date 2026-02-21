@@ -194,37 +194,48 @@ def _queue_bead(watcher, bead_id, reason):
         watcher.queued.add(bead_id)
 
 
-def _scan_stage(watcher, stage, role):
+def _scan_stage(watcher, stage, role, spawn_budget: int) -> int:
+    spawned = 0
     try:
         result = subprocess.run(
             ["bd", "list", "--status", STATUS_OPEN, "--label", stage, "--json"],
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode != 0 or not result.stdout.strip():
-            return
+            return 0
         beads = json.loads(result.stdout)
         if not isinstance(beads, list):
-            return
+            return 0
     except subprocess.TimeoutExpired:
         log(f"Timeout checking {stage}", "⚠️")
-        return
+        return 0
     except (subprocess.SubprocessError, OSError, ValueError) as e:
         log(f"Error checking {stage}: {e}", "⚠️")
-        return
+        return 0
 
     beads.sort(key=lambda b: b.get("issue_type") != "bug")
     for bead in beads:
+        if spawned >= spawn_budget:
+            break
         bead_id = bead.get("id")
         skip = _should_skip_bead(watcher, bead_id, bead, role)
         if skip:
             continue
         watcher.queued.discard(bead_id)
-        spawn_agent(watcher, role, bead_id, stage)
+        if spawn_agent(watcher, role, bead_id, stage):
+            spawned += 1
+    return spawned
+
+
+MAX_SPAWNS_PER_CYCLE = 2
 
 
 def check_pipeline(watcher):
+    budget = MAX_SPAWNS_PER_CYCLE
     for stage, role in STAGE_TO_ROLE.items():
-        _scan_stage(watcher, stage, role)
+        if budget <= 0:
+            break
+        budget -= _scan_stage(watcher, stage, role, budget)
 
 
 def auto_close_parents(watcher):
