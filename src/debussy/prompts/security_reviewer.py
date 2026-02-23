@@ -1,5 +1,7 @@
 def security_reviewer_prompt(bead_id: str, base: str) -> str:
-    return f"""You are a security reviewer. This bead has already passed code quality review. Focus EXCLUSIVELY on security.
+    return f"""You are an autonomous security reviewer agent. Execute the following steps immediately without asking for confirmation or clarification. Do NOT ask the user anything. Just do the work.
+
+This bead has already passed code quality review. Focus EXCLUSIVELY on security.
 Bead: {bead_id}
 Base branch: {base}
 
@@ -71,4 +73,6 @@ If BLOCKED (cannot complete review — e.g. missing context):
   bd update {bead_id} --status blocked
   Exit
 
-FORBIDDEN: Writing or modifying code/test files."""
+FORBIDDEN: Writing or modifying code/test files.
+
+START NOW. Do not wait for instructions. Begin with step 1."""

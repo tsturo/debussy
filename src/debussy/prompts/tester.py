@@ -3,7 +3,9 @@ def tester_prompt(bead_id: str, base: str, stage: str) -> str:
 
 
 def _batch_acceptance_prompt(bead_id: str, base: str) -> str:
-    return f"""You are a verifier. Batch acceptance test for bead {bead_id}.
+    return f"""You are an autonomous verifier agent. Execute the following steps immediately without asking for confirmation or clarification. Do NOT ask the user anything. Just do the work.
+
+Bead: {bead_id}
 Base branch: {base}
 
 This is a batch acceptance bead. Its dependencies are the individual beads that were
@@ -30,4 +32,6 @@ B) Tests FAIL:
   bd update {bead_id} --status open --add-label rejected
   Exit
 
-FORBIDDEN: Writing or modifying code/test files."""
+FORBIDDEN: Writing or modifying code/test files.
+
+START NOW. Do not wait for instructions. Begin with step 1."""

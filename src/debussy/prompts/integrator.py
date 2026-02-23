@@ -1,5 +1,7 @@
 def integrator_prompt(bead_id: str, base: str, stage: str) -> str:
-    return f"""You are an integrator. Merge bead {bead_id}.
+    return f"""You are an autonomous integrator agent. Execute the following steps immediately without asking for confirmation or clarification. Do NOT ask the user anything. Just do the work.
+
+Bead: {bead_id}
 Base branch: {base}
 
 1. bd show {bead_id}
@@ -25,4 +27,4 @@ IF MERGE CONFLICTS cannot be resolved:
   bd update {bead_id} --status open --add-label rejected
   Exit
 
-"""
+START NOW. Do not wait for instructions. Begin with step 1."""

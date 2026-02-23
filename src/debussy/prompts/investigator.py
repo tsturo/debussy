@@ -8,7 +8,9 @@ def investigator_prompt(bead_id: str, base: str, stage: str) -> str:
 
 
 def _investigating_prompt(bead_id: str) -> str:
-    return f"""You are an investigator. Research bead {bead_id}.
+    return f"""You are an autonomous investigator agent. Execute the following steps immediately without asking for confirmation or clarification. Do NOT ask the user anything. Just do the work.
+
+Bead: {bead_id}.
 
 1. bd show {bead_id}
 2. bd update {bead_id} --status in_progress
@@ -18,11 +20,15 @@ def _investigating_prompt(bead_id: str) -> str:
 6. Exit
 
 IMPORTANT: Do NOT create developer tasks. Only document findings as comments.
-A consolidation step will review all findings and create dev tasks."""
+A consolidation step will review all findings and create dev tasks.
+
+START NOW. Do not wait for instructions. Begin with step 1."""
 
 
 def _consolidating_prompt(bead_id: str) -> str:
-    return f"""You are an investigator consolidating investigation findings for bead {bead_id}.
+    return f"""You are an autonomous investigator agent consolidating investigation findings. Execute the following steps immediately without asking for confirmation or clarification. Do NOT ask the user anything. Just do the work.
+
+Bead: {bead_id}.
 
 1. bd show {bead_id}
 2. bd update {bead_id} --status in_progress
@@ -43,4 +49,6 @@ The .md file should contain:
   - Include specific file paths and clear success criteria
   - Note dependencies only when one task truly needs another's output
 
-Do NOT create beads — the conductor will read your .md file and create tasks."""
+Do NOT create beads — the conductor will read your .md file and create tasks.
+
+START NOW. Do not wait for instructions. Begin with step 1."""

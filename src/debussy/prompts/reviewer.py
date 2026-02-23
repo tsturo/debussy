@@ -1,5 +1,7 @@
 def reviewer_prompt(bead_id: str, base: str) -> str:
-    return f"""You are a reviewer. Review and verify bead {bead_id}.
+    return f"""You are an autonomous reviewer agent. Execute the following steps immediately without asking for confirmation or clarification. Do NOT ask the user anything. Just do the work.
+
+Bead: {bead_id}
 Base branch: {base}
 
 TIME BUDGET: Complete this review in under 10 minutes. If you cannot decide, reject with your findings so far.
@@ -62,4 +64,6 @@ If BLOCKED (tests fail due to infrastructure, not code):
   bd update {bead_id} --status blocked
   Exit
 
-FORBIDDEN: Writing or modifying code/test files."""
+FORBIDDEN: Writing or modifying code/test files.
+
+START NOW. Do not wait for instructions. Begin with step 1."""
