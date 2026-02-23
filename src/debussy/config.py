@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -114,7 +115,7 @@ KNOWN_KEYS = {"max_total_agents", "use_tmux_windows", "base_branch", "paused", "
 
 
 def set_config(key: str, value):
-    CONFIG_DIR.mkdir(exist_ok=True)
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     cfg = _read_config_file()
     cfg[key] = value
     atomic_write(CONFIG_FILE, json.dumps(cfg, indent=2))
@@ -143,3 +144,31 @@ def parse_value(value: str) -> str | bool | int:
         return int(value)
     except ValueError:
         return value
+
+
+BACKUP_DIR = CONFIG_DIR / "backups"
+MAX_BACKUPS = 10
+
+
+def backup_beads() -> Path | None:
+    beads_dir = Path(".beads")
+    if not beads_dir.exists():
+        return None
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = BACKUP_DIR / f"beads_{timestamp}"
+    shutil.copytree(beads_dir, backup_path)
+    _prune_backups()
+    return backup_path
+
+
+def _prune_backups():
+    if not BACKUP_DIR.exists():
+        return
+    backups = sorted(
+        [d for d in BACKUP_DIR.iterdir() if d.is_dir() and d.name.startswith("beads_")],
+        key=lambda d: d.name,
+    )
+    while len(backups) > MAX_BACKUPS:
+        old = backups.pop(0)
+        shutil.rmtree(old, ignore_errors=True)

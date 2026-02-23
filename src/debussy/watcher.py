@@ -14,7 +14,7 @@ from .bead_client import get_bead_status
 from .config import (
     AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
     HEARTBEAT_TICKS, STATUS_IN_PROGRESS, STATUS_OPEN,
-    atomic_write, get_config, log,
+    atomic_write, backup_beads, get_config, log,
 )
 from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
 from .tmux import tmux_window_id_names, tmux_window_ids as get_tmux_windows
@@ -264,8 +264,17 @@ class Watcher:
                 self._cached_windows.discard(agent.name)
         del self.running[key]
 
+    def _backup_after_transition(self):
+        try:
+            path = backup_beads()
+            if path:
+                log(f"Backup: {path.name}", "💾")
+        except OSError as e:
+            log(f"Backup failed: {e}", "⚠️")
+
     def cleanup_finished(self):
         cleaned = False
+        transitioned = False
         for key, agent in list(self.running.items()):
             if agent.tmux and agent.is_alive(self._cached_windows):
                 if agent.is_done():
@@ -273,6 +282,7 @@ class Watcher:
                     agent.stop()
                     if ensure_stage_transition(self, agent):
                         self.failures.pop(agent.bead, None)
+                        transitioned = True
                     self._remove_agent(key, agent)
                     cleaned = True
                 continue
@@ -287,6 +297,7 @@ class Watcher:
                 if agent_completed:
                     if ensure_stage_transition(self, agent):
                         self.failures.pop(agent.bead, None)
+                        transitioned = True
                     log(f"{agent.name} finished {agent.bead}", "🛑")
                 else:
                     self.failures[agent.bead] = self.failures.get(agent.bead, 0) + 1
@@ -304,6 +315,8 @@ class Watcher:
 
         if cleaned:
             self.save_state()
+        if transitioned:
+            self._backup_after_transition()
 
     def _log_heartbeat(self):
         active = [(a.name, a.bead) for a in self._alive_agents()]

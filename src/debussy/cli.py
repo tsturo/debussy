@@ -4,13 +4,12 @@ import json
 import os
 import shutil
 import subprocess
-from datetime import datetime
 from pathlib import Path
 
 from .bead_client import get_bead_status
 from .config import (
     SESSION_NAME, STATUS_IN_PROGRESS, STATUS_OPEN,
-    clean_config, get_config, log, parse_value, set_config,
+    backup_beads, clean_config, get_config, log, parse_value, set_config,
 )
 from .tmux import (
     create_tmux_layout, kill_agent, label_panes, send_conductor_prompt,
@@ -137,22 +136,8 @@ def cmd_config(args):
             print(f"  {k} = {v}")
 
 
-def _backup_beads() -> Path | None:
-    beads_dir = Path(".beads")
-    if not beads_dir.exists():
-        return None
-
-    backup_dir = Path(".debussy/backups")
-    backup_dir.mkdir(parents=True, exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = backup_dir / f"beads_{timestamp}"
-    shutil.copytree(beads_dir, backup_path)
-    return backup_path
-
-
 def cmd_backup(args):
-    backup_path = _backup_beads()
+    backup_path = backup_beads()
     if backup_path:
         log(f"Backed up to {backup_path}", "\u2713")
     else:
@@ -174,7 +159,7 @@ def cmd_clear(args):
                 return 1
 
     if beads_dir.exists():
-        backup_path = _backup_beads()
+        backup_path = backup_beads()
         if backup_path:
             log(f"Backed up to {backup_path}", "\U0001f4be")
         shutil.rmtree(beads_dir)
