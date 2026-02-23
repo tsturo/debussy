@@ -27,6 +27,8 @@ STATUS_IN_PROGRESS = "in_progress"
 STATUS_CLOSED = "closed"
 STATUS_BLOCKED = "blocked"
 
+LABEL_PRIORITY = "priority"
+
 CONFIG_DIR = Path(".debussy")
 CONFIG_FILE = CONFIG_DIR / "config.json"
 

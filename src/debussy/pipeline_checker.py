@@ -6,7 +6,7 @@ import time
 
 from .bead_client import get_bead_json, get_unresolved_deps
 from .config import (
-    STAGE_ACCEPTANCE, STAGE_DEVELOPMENT, STAGE_TO_ROLE,
+    LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_DEVELOPMENT, STAGE_TO_ROLE,
     STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS, STATUS_OPEN,
     log,
 )
@@ -202,7 +202,10 @@ def _scan_stage(watcher, stage, role, spawn_budget: int) -> int:
         log(f"Error checking {stage}: {e}", "⚠️")
         return 0
 
-    beads.sort(key=lambda b: b.get("issue_type") != "bug")
+    beads.sort(key=lambda b: (
+        LABEL_PRIORITY not in b.get("labels", []),
+        b.get("issue_type") != "bug",
+    ))
     for bead in beads:
         if spawned >= spawn_budget:
             break

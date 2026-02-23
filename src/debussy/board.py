@@ -4,7 +4,7 @@ import shutil
 
 from .bead_client import get_all_beads, get_unresolved_deps
 from .config import (
-    STAGE_ACCEPTANCE, STAGE_CONSOLIDATING, STAGE_DEVELOPMENT,
+    LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_CONSOLIDATING, STAGE_DEVELOPMENT,
     STAGE_INVESTIGATING, STAGE_MERGING, STAGE_REVIEWING,
     STAGE_SECURITY_REVIEW, STATUS_BLOCKED, STATUS_CLOSED,
 )
@@ -72,8 +72,9 @@ def _sort_key(bead, running, all_beads_by_id):
     bead_id = bead.get("id", "")
     is_running = bead_id in running
     is_blocked = bead.get("status") == STATUS_BLOCKED or bool(get_unresolved_deps(bead))
+    has_priority_label = LABEL_PRIORITY in bead.get("labels", [])
     priority = bead.get("priority", 99)
-    return (not is_running, not is_blocked, priority, bead_id)
+    return (not is_running, not is_blocked, not has_priority_label, priority, bead_id)
 
 
 def _bead_marker(bead, running, all_beads_by_id):
@@ -87,6 +88,8 @@ def _bead_marker(bead, running, all_beads_by_id):
             short = [d.replace("bd-", ".") for d in deps]
             return f" \u2298 \u2192{','.join(short)}"
         return " \u2298"
+    if LABEL_PRIORITY in bead.get("labels", []):
+        return " !"
     return ""
 
 
