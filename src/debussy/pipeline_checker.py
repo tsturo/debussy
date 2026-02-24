@@ -214,7 +214,7 @@ def _scan_stage(watcher, stage, role, spawn_budget: int) -> int:
         if skip:
             continue
         watcher.queued.discard(bead_id)
-        if spawn_agent(watcher, role, bead_id, stage):
+        if spawn_agent(watcher, role, bead_id, stage, labels=bead.get("labels")):
             spawned += 1
     return spawned
 

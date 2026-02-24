@@ -150,7 +150,7 @@ def _spawn_background(agent_name, bead_id, role, prompt, stage, worktree_path=""
 MAX_TOTAL_SPAWNS = 20
 
 
-def spawn_agent(watcher, role: str, bead_id: str, stage: str) -> bool:
+def spawn_agent(watcher, role: str, bead_id: str, stage: str, labels: list[str] | None = None) -> bool:
     key = f"{role}:{bead_id}"
 
     if key in watcher.running:
@@ -166,7 +166,7 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str) -> bool:
     log(f"Spawning {agent_name} for {bead_id}", "🚀")
 
     worktree_path = create_agent_worktree(role, bead_id, agent_name)
-    prompt = get_prompt(role, bead_id, stage)
+    prompt = get_prompt(role, bead_id, stage, labels=labels)
 
     cfg = get_config()
     use_tmux = cfg.get("use_tmux_windows", False) and os.environ.get("TMUX") is not None

@@ -18,22 +18,22 @@ _NO_BRANCH_ERROR = (
 )
 
 _BUILDERS = {
-    "developer": lambda bead_id, base, stage: developer_prompt(bead_id, base),
-    "reviewer": lambda bead_id, base, stage: reviewer_prompt(bead_id, base),
-    "security-reviewer": lambda bead_id, base, stage: security_reviewer_prompt(bead_id, base),
-    "tester": tester_prompt,
-    "integrator": integrator_prompt,
-    "investigator": investigator_prompt,
+    "developer": lambda bead_id, base, stage, labels: developer_prompt(bead_id, base, labels=labels),
+    "reviewer": lambda bead_id, base, stage, labels: reviewer_prompt(bead_id, base),
+    "security-reviewer": lambda bead_id, base, stage, labels: security_reviewer_prompt(bead_id, base),
+    "tester": lambda bead_id, base, stage, labels: tester_prompt(bead_id, base, stage),
+    "integrator": lambda bead_id, base, stage, labels: integrator_prompt(bead_id, base, stage),
+    "investigator": lambda bead_id, base, stage, labels: investigator_prompt(bead_id, base, stage),
 }
 
 
-def get_prompt(role: str, bead_id: str, stage: str) -> str:
+def get_prompt(role: str, bead_id: str, stage: str, labels: list[str] | None = None) -> str:
     base = get_base_branch()
     if not base and role not in ("investigator",):
         return _NO_BRANCH_ERROR
 
     builder = _BUILDERS.get(role)
     if builder:
-        return builder(bead_id, base, stage)
+        return builder(bead_id, base, stage, labels or [])
 
     raise ValueError(f"Unknown role: {role}")
