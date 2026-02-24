@@ -17,7 +17,13 @@ developed, reviewed, and merged. All code is already merged into the base branch
 4. Run the FULL test suite to catch regressions
    - Look for pytest.ini, pyproject.toml [tool.pytest], Makefile test targets, package.json scripts
    - Run all discovered tests
-5. If no test infrastructure exists, verify each dependency bead's feature manually
+5. If playwright.config.ts or playwright.config.js exists:
+   - Start the dev server if package.json has a "dev" or "start" script: npm run dev &
+   - Wait for it to be ready (poll localhost, max 30 seconds)
+   - Run: npx playwright test
+   - Kill the dev server
+   - Include Playwright results in pass/fail determination
+6. If no test infrastructure exists, verify each dependency bead's feature manually
 
 RESULTS:
 
