@@ -46,6 +46,8 @@ Investigation: open → stage:investigating (parallel) → stage:consolidating (
 
 Beads with the `security` label (set by conductor) get routed through an extra security review after the standard code review. The watcher handles this conditionally.
 
+Beads with the `frontend` label (set by conductor) trigger Playwright visual verification during development. The developer starts a dev server, takes screenshots, verifies visually, and writes Playwright tests.
+
 Investigators research in parallel and document findings. A consolidation step (investigator) synthesizes findings into an .md file. Conductor then creates developer tasks.
 
 **Status model:**
@@ -118,6 +120,7 @@ Investigators research in parallel and document findings. A consolidation step (
 
 ### @developer
 - Implements features and fixes bugs
+- For `frontend` beads: starts dev server, verifies UI visually with Playwright screenshots, writes Playwright tests
 - Success: `--status open` (watcher advances to stage:reviewing)
 - Blocked: `--status blocked` (watcher parks for conductor)
 
@@ -250,4 +253,5 @@ bd update <id> --add-label stage:development     # Release task for development
 bd update <id> --add-label stage:investigating   # Release task for investigation
 bd show <id>
 bd list
+For frontend visual testing: npx playwright install (pre-install Playwright browsers)
 ```
