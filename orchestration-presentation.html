@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orchestrating AI Agents: From Chaos to Pipeline</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e4e4e7;
+    --muted: #9ca3af;
+    --accent: #6366f1;
+    --glow: rgba(99, 102, 241, 0.15);
+    --green: #34d399;
+    --orange: #fb923c;
+    --red: #f87171;
+    --cyan: #22d3ee;
+    --visma: #1a2b4a;
+  }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+  }
+  .slide {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: 50px 100px;
+    height: 100vh;
+    animation: fadeIn 0.35s ease;
+  }
+  .slide.active { display: flex; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .slide.center { align-items: center; text-align: center; }
+  h1 {
+    font-size: 3.2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #fff 0%, #6366f1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.8rem;
+    line-height: 1.15;
+  }
+  h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 1.2rem;
+  }
+  h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 0.6rem;
+  }
+  p, li { font-size: 1.15rem; line-height: 1.7; color: var(--muted); }
+  ul { list-style: none; padding: 0; }
+  ul li { position: relative; padding-left: 1.5rem; margin-bottom: 0.6rem; }
+  ul li::before { content: '\2192'; position: absolute; left: 0; color: var(--accent); font-weight: 600; }
+  strong { color: #fff; font-weight: 600; }
+  .subtitle { font-size: 1.4rem; color: var(--muted); margin-bottom: 2rem; }
+  .callout {
+    background: var(--glow);
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.4rem;
+    border-radius: 0 8px 8px 0;
+    margin-top: 1.5rem;
+    font-size: 1.1rem;
+    color: #fff;
+  }
+  .layout { display: flex; gap: 3rem; align-items: center; flex: 1; }
+  .layout .text { flex: 1; }
+  .layout .visual { flex: 1; display: flex; justify-content: center; align-items: center; }
+  .layout .visual svg { width: 100%; height: auto; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+  .col {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.4rem;
+  }
+  .col h3 { margin-top: 0; }
+  .tag {
+    display: inline-block;
+    background: var(--glow);
+    color: var(--accent);
+    padding: 0.15rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-right: 0.3rem;
+  }
+  .tag.green { background: rgba(52, 211, 153, 0.15); color: var(--green); }
+  .tag.orange { background: rgba(251, 146, 60, 0.15); color: var(--orange); }
+  .tag.red { background: rgba(248, 113, 113, 0.15); color: var(--red); }
+  .tag.cyan { background: rgba(34, 211, 238, 0.15); color: var(--cyan); }
+  table { border-collapse: collapse; width: 100%; margin: 0.6rem 0; font-size: 1rem; }
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    font-weight: 600;
+    text-align: left;
+    padding: 0.6rem 1rem;
+    border-bottom: 2px solid var(--accent);
+  }
+  td { padding: 0.5rem 1rem; border-bottom: 1px solid var(--border); color: var(--muted); }
+  tr:hover td { background: rgba(99, 102, 241, 0.05); }
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2rem; margin: 1rem 0; }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+  }
+  .stat .number { font-size: 2.8rem; font-weight: 700; color: var(--accent); line-height: 1; }
+  .stat .label { font-size: 0.9rem; color: var(--muted); margin-top: 0.4rem; }
+  .nav {
+    position: fixed;
+    bottom: 24px;
+    right: 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 100;
+  }
+  .nav button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .nav button:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .nav button:disabled { opacity: 0.3; cursor: default; background: var(--surface); border-color: var(--border); color: var(--text); }
+  .nav .counter { font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent); transition: width 0.3s ease; z-index: 100; }
+  .big-quote {
+    font-size: 1.6rem;
+    color: #fff;
+    font-style: italic;
+    text-align: center;
+    max-width: 700px;
+    line-height: 1.5;
+  }
+  pre {
+    background: #141620;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem 1.2rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0.6rem 0;
+  }
+
+  /* Visma logo in corner */
+  .visma-logo {
+    position: fixed;
+    bottom: 24px;
+    left: 32px;
+    z-index: 100;
+    opacity: 0.85;
+  }
+
+  /* === ANIMATIONS === */
+
+  /* Pipeline token animation */
+  @keyframes tokenMove {
+    0%   { cx: 60; fill: var(--muted); }
+    8%   { cx: 60; fill: var(--muted); }
+    12%  { cx: 217; fill: var(--green); }
+    28%  { cx: 217; fill: var(--green); }
+    32%  { cx: 382; fill: var(--cyan); }
+    48%  { cx: 382; fill: var(--cyan); }
+    52%  { cx: 547; fill: var(--red); }
+    63%  { cx: 547; fill: var(--red); }
+    67%  { cx: 707; fill: var(--orange); }
+    78%  { cx: 707; fill: var(--orange); }
+    82%  { cx: 847; fill: var(--accent); }
+    100% { cx: 847; fill: var(--accent); }
+  }
+
+  @keyframes tokenGlow {
+    0%, 100% { r: 8; opacity: 0.9; }
+    50% { r: 12; opacity: 0.4; }
+  }
+
+  .pipeline-token {
+    animation: tokenMove 6s ease-in-out infinite, tokenGlow 1s ease-in-out infinite;
+  }
+
+  /* Watcher loop rotation */
+  @keyframes loopPulse1 { 0%, 100% { opacity: 0.3; } 0%, 25% { opacity: 1; } }
+  @keyframes loopPulse2 { 0%, 100% { opacity: 0.3; } 25%, 50% { opacity: 1; } }
+  @keyframes loopPulse3 { 0%, 100% { opacity: 0.3; } 50%, 75% { opacity: 1; } }
+  @keyframes loopPulse4 { 0%, 100% { opacity: 0.3; } 75%, 100% { opacity: 1; } }
+  .loop-arc-1 { animation: loopPulse1 3s ease-in-out infinite; }
+  .loop-arc-2 { animation: loopPulse2 3s ease-in-out infinite; }
+  .loop-arc-3 { animation: loopPulse3 3s ease-in-out infinite; }
+  .loop-arc-4 { animation: loopPulse4 3s ease-in-out infinite; }
+
+  @keyframes loopLabelPulse1 { 0%, 100% { opacity: 0.4; transform: scale(1); } 0%, 25% { opacity: 1; transform: scale(1.05); } }
+  @keyframes loopLabelPulse2 { 0%, 100% { opacity: 0.4; transform: scale(1); } 25%, 50% { opacity: 1; transform: scale(1.05); } }
+  @keyframes loopLabelPulse3 { 0%, 100% { opacity: 0.4; transform: scale(1); } 50%, 75% { opacity: 1; transform: scale(1.05); } }
+  @keyframes loopLabelPulse4 { 0%, 100% { opacity: 0.4; transform: scale(1); } 75%, 100% { opacity: 1; transform: scale(1.05); } }
+  .loop-label-1 { animation: loopLabelPulse1 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  .loop-label-2 { animation: loopLabelPulse2 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  .loop-label-3 { animation: loopLabelPulse3 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  .loop-label-4 { animation: loopLabelPulse4 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+
+  /* Watcher center pulse */
+  @keyframes centerPulse {
+    0%, 100% { r: 35; }
+    50% { r: 38; }
+  }
+  .watcher-center { animation: centerPulse 3s ease-in-out infinite; }
+
+  /* Mesh line pulse (chaos) */
+  @keyframes meshPulse {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 0.7; }
+  }
+  .mesh-line { animation: meshPulse 2s ease-in-out infinite; }
+  .mesh-line:nth-child(odd) { animation-delay: 0.5s; }
+  .mesh-line:nth-child(3n) { animation-delay: 1s; }
+
+  /* Hub spoke pulse (orderly) */
+  @keyframes spokePulse {
+    0% { stroke-dashoffset: 20; }
+    100% { stroke-dashoffset: 0; }
+  }
+  .spoke-line {
+    stroke-dasharray: 5 5;
+    animation: spokePulse 1.5s linear infinite;
+  }
+
+  /* Signal flow animation */
+  @keyframes signalFlow {
+    0%   { opacity: 1; cx: 130; }
+    30%  { opacity: 1; cx: 250; }
+    60%  { opacity: 1; cx: 435; }
+    90%  { opacity: 1; cx: 615; }
+    100% { opacity: 0; cx: 680; }
+  }
+  .signal-token {
+    animation: signalFlow 3s ease-in-out infinite;
+  }
+
+  /* Investigation parallel flow */
+  @keyframes investFlow {
+    0% { opacity: 0; transform: translateX(-10px); }
+    20% { opacity: 1; transform: translateX(0); }
+    80% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translateX(10px); }
+  }
+  .invest-row:nth-child(1) { animation: investFlow 3s ease-in-out infinite; animation-delay: 0s; }
+  .invest-row:nth-child(2) { animation: investFlow 3s ease-in-out infinite; animation-delay: 0.3s; }
+  .invest-row:nth-child(3) { animation: investFlow 3s ease-in-out infinite; animation-delay: 0.6s; }
+  .invest-row:nth-child(4) { animation: investFlow 3s ease-in-out infinite; animation-delay: 0.9s; }
+
+  /* Quality gate token */
+  @keyframes gateToken {
+    0%   { cx: 70; fill: var(--green); }
+    15%  { cx: 213; fill: var(--cyan); }
+    30%  { cx: 213; fill: var(--cyan); }
+    45%  { cx: 321; fill: var(--red); }
+    55%  { cx: 321; fill: var(--red); }
+    70%  { cx: 450; fill: var(--orange); }
+    80%  { cx: 578; fill: var(--green); }
+    90%  { cx: 702; fill: var(--accent); }
+    100% { cx: 702; fill: var(--accent); }
+  }
+  .gate-token {
+    animation: gateToken 5s ease-in-out infinite, tokenGlow 1s ease-in-out infinite;
+  }
+
+  /* Stress mark wiggle */
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-5deg); }
+    75% { transform: rotate(5deg); }
+  }
+  .stress { animation: wiggle 0.5s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+
+  /* Slide bullet stagger */
+  .slide.active li { animation: fadeIn 0.35s ease backwards; }
+  .slide.active li:nth-child(1) { animation-delay: 0.1s; }
+  .slide.active li:nth-child(2) { animation-delay: 0.2s; }
+  .slide.active li:nth-child(3) { animation-delay: 0.3s; }
+  .slide.active li:nth-child(4) { animation-delay: 0.4s; }
+  .slide.active li:nth-child(5) { animation-delay: 0.5s; }
+  .slide.active li:nth-child(6) { animation-delay: 0.6s; }
+  .slide.active li:nth-child(7) { animation-delay: 0.7s; }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+
+<!-- Visma logo bottom-left on every slide -->
+<div class="visma-logo">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/7/77/Visma_logo.png" alt="Visma" height="56" style="filter: brightness(2);">
+</div>
+
+<!-- ====== 1. TITLE ====== -->
+<div class="slide active center">
+  <h1>Orchestrating AI Agents</h1>
+  <p class="subtitle">From Chaos to Pipeline</p>
+  <p style="color: #fff; font-size: 1.1rem; margin-top: 1.5rem;">Tomasz Szturo</p>
+  <p style="color: var(--muted); font-size: 0.95rem; margin-top: 0.3rem;">Visma</p>
+  <p style="color: var(--muted); font-size: 0.9rem; margin-top: 2rem;">
+    <span class="tag">&larr;</span> <span class="tag">&rarr;</span> to navigate
+  </p>
+</div>
+
+<!-- ====== 2. THE PROBLEM — visual ====== -->
+<div class="slide">
+  <div class="layout">
+    <div class="text">
+      <h2>The Single-Agent Problem</h2>
+      <p style="font-size: 1.3rem; color: #fff; margin-bottom: 1rem;">One agent doing everything</p>
+      <ul>
+        <li><strong>Context overload</strong> — codebase + tasks + feedback doesn't fit</li>
+        <li><strong>Sequential</strong> — code, review, test, merge on one thread</li>
+        <li><strong>No checks</strong> — the same agent writes and reviews code</li>
+      </ul>
+    </div>
+    <div class="visual">
+      <svg viewBox="0 0 400 400" width="380">
+        <defs>
+          <filter id="g1"><feGaussianBlur stdDeviation="8"/></filter>
+        </defs>
+        <circle cx="200" cy="200" r="60" fill="var(--glow)" stroke="var(--accent)" stroke-width="2"/>
+        <circle cx="200" cy="200" r="30" fill="var(--accent)" opacity="0.6" filter="url(#g1)"/>
+        <text x="200" y="206" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">AGENT</text>
+        <line x1="200" y1="130" x2="200" y2="50" stroke="var(--red)" stroke-width="2" stroke-dasharray="4"/>
+        <line x1="260" y1="160" x2="340" y2="100" stroke="var(--red)" stroke-width="2" stroke-dasharray="4"/>
+        <line x1="260" y1="230" x2="340" y2="300" stroke="var(--red)" stroke-width="2" stroke-dasharray="4"/>
+        <line x1="200" y1="270" x2="200" y2="350" stroke="var(--red)" stroke-width="2" stroke-dasharray="4"/>
+        <line x1="140" y1="230" x2="60" y2="300" stroke="var(--red)" stroke-width="2" stroke-dasharray="4"/>
+        <line x1="140" y1="160" x2="60" y2="100" stroke="var(--red)" stroke-width="2" stroke-dasharray="4"/>
+        <rect x="160" y="28" width="80" height="26" rx="6" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="200" y="46" text-anchor="middle" fill="var(--red)" font-size="11" font-weight="600">CODE</text>
+        <rect x="310" y="78" width="80" height="26" rx="6" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="350" y="96" text-anchor="middle" fill="var(--red)" font-size="11" font-weight="600">REVIEW</text>
+        <rect x="310" y="286" width="80" height="26" rx="6" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="350" y="304" text-anchor="middle" fill="var(--red)" font-size="11" font-weight="600">TEST</text>
+        <rect x="160" y="340" width="80" height="26" rx="6" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="200" y="358" text-anchor="middle" fill="var(--red)" font-size="11" font-weight="600">MERGE</text>
+        <rect x="16" y="286" width="86" height="26" rx="6" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="59" y="304" text-anchor="middle" fill="var(--red)" font-size="11" font-weight="600">SECURITY</text>
+        <rect x="18" y="78" width="82" height="26" rx="6" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="59" y="96" text-anchor="middle" fill="var(--red)" font-size="11" font-weight="600">DEPLOY</text>
+        <text x="180" y="175" fill="var(--red)" font-size="18" opacity="0.8" class="stress">!</text>
+        <text x="215" y="185" fill="var(--red)" font-size="14" opacity="0.6" class="stress">!</text>
+        <text x="190" y="228" fill="var(--red)" font-size="16" opacity="0.7" class="stress">!</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 3. AUDIENCE QUESTION ====== -->
+<div class="slide center">
+  <p class="big-quote">"How many of you have had an agent go off the rails<br>200 lines into a change?"</p>
+</div>
+
+<!-- ====== 4. WHAT IS ORCHESTRATION ====== -->
+<div class="slide">
+  <h2>What Is Agent Orchestration?</h2>
+  <p style="font-size: 1.3rem; color: #fff; margin-bottom: 1.5rem;">Coordinating multiple specialized agents toward a shared goal</p>
+  <ul>
+    <li>Not just "run 5 agents in parallel" — that's <strong>parallelism</strong>, not orchestration</li>
+    <li>Orchestration = <strong>task decomposition</strong> + <strong>dependency management</strong> + <strong>state transitions</strong> + <strong>quality gates</strong></li>
+  </ul>
+  <div class="callout">
+    Like a film production — the director doesn't operate the camera, edit footage, AND act.<br>
+    Each role is specialized. A production pipeline coordinates them.
+  </div>
+</div>
+
+<!-- ====== 5. AGENT TEAMS — visual ====== -->
+<div class="slide">
+  <div class="layout">
+    <div class="text">
+      <h2>Approach 1: Agent Teams</h2>
+      <p style="color: var(--orange); font-weight: 600; margin-bottom: 1rem;">Collaborative, conversational</p>
+      <ul>
+        <li>Agents talk to each other &mdash; brainstorm, negotiate, share discoveries</li>
+        <li>Great for <strong>exploration and problem-solving</strong></li>
+        <li>Flexible &mdash; agents adapt to what they find in real time</li>
+        <li>Harder to audit &mdash; results depend on conversation flow</li>
+      </ul>
+    </div>
+    <div class="visual">
+      <svg viewBox="0 0 360 320" width="340">
+        <rect x="115" y="10" width="130" height="36" rx="8" fill="var(--surface)" stroke="var(--orange)" stroke-width="2"/>
+        <text x="180" y="33" text-anchor="middle" fill="var(--orange)" font-size="12" font-weight="600">ORCHESTRATOR</text>
+        <line x1="150" y1="50" x2="70" y2="100" stroke="var(--orange)" stroke-width="1.5" stroke-dasharray="5"/>
+        <line x1="170" y1="50" x2="140" y2="100" stroke="var(--orange)" stroke-width="1.5" stroke-dasharray="5"/>
+        <line x1="190" y1="50" x2="220" y2="100" stroke="var(--orange)" stroke-width="1.5" stroke-dasharray="5"/>
+        <line x1="210" y1="50" x2="290" y2="100" stroke="var(--orange)" stroke-width="1.5" stroke-dasharray="5"/>
+        <circle cx="70" cy="120" r="22" fill="var(--surface)" stroke="var(--border)" stroke-width="1.5"/>
+        <text x="70" y="125" text-anchor="middle" fill="var(--muted)" font-size="10">A1</text>
+        <circle cx="140" cy="120" r="22" fill="var(--surface)" stroke="var(--border)" stroke-width="1.5"/>
+        <text x="140" y="125" text-anchor="middle" fill="var(--muted)" font-size="10">A2</text>
+        <circle cx="220" cy="120" r="22" fill="var(--surface)" stroke="var(--border)" stroke-width="1.5"/>
+        <text x="220" y="125" text-anchor="middle" fill="var(--muted)" font-size="10">A3</text>
+        <circle cx="290" cy="120" r="22" fill="var(--surface)" stroke="var(--border)" stroke-width="1.5"/>
+        <text x="290" y="125" text-anchor="middle" fill="var(--muted)" font-size="10">A4</text>
+        <line x1="92" y1="120" x2="118" y2="120" stroke="var(--red)" stroke-width="1" stroke-dasharray="3" class="mesh-line"/>
+        <line x1="162" y1="120" x2="198" y2="120" stroke="var(--red)" stroke-width="1" stroke-dasharray="3" class="mesh-line"/>
+        <line x1="242" y1="120" x2="268" y2="120" stroke="var(--red)" stroke-width="1" stroke-dasharray="3" class="mesh-line"/>
+        <line x1="85" y1="140" x2="205" y2="140" stroke="var(--red)" stroke-width="1" stroke-dasharray="3" class="mesh-line"/>
+        <line x1="155" y1="140" x2="275" y2="140" stroke="var(--red)" stroke-width="1" stroke-dasharray="3" class="mesh-line"/>
+        <text x="105" y="170" fill="var(--red)" font-size="20" opacity="0.7" class="stress">?</text>
+        <text x="175" y="175" fill="var(--red)" font-size="16" opacity="0.5" class="stress">?</text>
+        <text x="250" y="168" fill="var(--red)" font-size="18" opacity="0.6" class="stress">?</text>
+        <rect x="20" y="210" width="80" height="90" rx="6" fill="none" stroke="var(--border)" stroke-width="1.5" transform="rotate(-3 60 255)"/>
+        <rect x="110" y="210" width="80" height="90" rx="6" fill="none" stroke="var(--border)" stroke-width="1.5" transform="rotate(2 150 255)"/>
+        <rect x="200" y="210" width="80" height="90" rx="6" fill="none" stroke="var(--border)" stroke-width="1.5" transform="rotate(-5 240 255)"/>
+        <rect x="280" y="210" width="60" height="90" rx="6" fill="none" stroke="var(--border)" stroke-width="1.5" transform="rotate(4 310 255)"/>
+        <text x="180" y="200" text-anchor="middle" fill="var(--muted)" font-size="10">OUTPUTS</text>
+        <text x="180" y="318" text-anchor="middle" fill="var(--orange)" font-size="11" opacity="0.7">flexible but hard to reproduce</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 6. PIPELINE ORCHESTRATION — visual ====== -->
+<div class="slide">
+  <div class="layout">
+    <div class="text">
+      <h2>Approach 2: Pipeline Orchestration</h2>
+      <p style="color: var(--green); font-weight: 600; margin-bottom: 1rem;">Structured, state-machine driven</p>
+      <ul>
+        <li>Conductor monitors and adjusts &mdash; agents work on <strong>atomic tasks</strong></li>
+        <li>Tasks released incrementally with quality gates</li>
+        <li>Reproducible and auditable &mdash; same pipeline every time</li>
+        <li><strong>Debussy takes this approach</strong></li>
+      </ul>
+    </div>
+    <div class="visual">
+      <svg viewBox="0 0 360 320" width="340">
+        <defs>
+          <marker id="arrowG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--green)"/></marker>
+          <marker id="arrowA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--accent)"/></marker>
+        </defs>
+        <circle cx="180" cy="80" r="42" fill="var(--glow)" stroke="var(--green)" stroke-width="2"/>
+        <text x="180" y="76" text-anchor="middle" fill="var(--green)" font-size="10" font-weight="600">CONDUCTOR</text>
+        <text x="180" y="90" text-anchor="middle" fill="var(--green)" font-size="9">watching</text>
+        <path d="M158 108 L80 160" stroke="var(--green)" stroke-width="1.5" fill="none" marker-end="url(#arrowG)"/>
+        <path d="M180 112 L180 160" stroke="var(--green)" stroke-width="1.5" fill="none" marker-end="url(#arrowG)"/>
+        <path d="M202 108 L280 160" stroke="var(--green)" stroke-width="1.5" fill="none" marker-end="url(#arrowG)"/>
+        <path d="M90 160 L162 112" stroke="var(--accent)" stroke-width="1" fill="none" stroke-dasharray="4" marker-end="url(#arrowA)"/>
+        <path d="M186 160 L186 116" stroke="var(--accent)" stroke-width="1" fill="none" stroke-dasharray="4" marker-end="url(#arrowA)"/>
+        <path d="M270 160 L198 112" stroke="var(--accent)" stroke-width="1" fill="none" stroke-dasharray="4" marker-end="url(#arrowA)"/>
+        <circle cx="80" cy="180" r="22" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="80" y="185" text-anchor="middle" fill="#fff" font-size="10">DEV</text>
+        <circle cx="180" cy="180" r="22" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="180" y="185" text-anchor="middle" fill="#fff" font-size="10">REV</text>
+        <circle cx="280" cy="180" r="22" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="280" y="185" text-anchor="middle" fill="#fff" font-size="10">INT</text>
+        <line x1="80" y1="205" x2="80" y2="240" stroke="var(--green)" stroke-width="1.5"/>
+        <line x1="180" y1="205" x2="180" y2="240" stroke="var(--green)" stroke-width="1.5"/>
+        <line x1="280" y1="205" x2="280" y2="240" stroke="var(--green)" stroke-width="1.5"/>
+        <rect x="40" y="245" width="80" height="50" rx="6" fill="none" stroke="var(--green)" stroke-width="1.5" opacity="0.6"/>
+        <rect x="140" y="245" width="80" height="50" rx="6" fill="none" stroke="var(--green)" stroke-width="1.5" opacity="0.6"/>
+        <rect x="240" y="245" width="80" height="50" rx="6" fill="none" stroke="var(--green)" stroke-width="1.5" opacity="0.6"/>
+        <text x="180" y="235" text-anchor="middle" fill="var(--muted)" font-size="10">OUTPUTS</text>
+        <text x="180" y="315" text-anchor="middle" fill="var(--green)" font-size="11">coordinated, incremental delivery</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 7. COMPLEMENTARY TOOLS ====== -->
+<div class="slide center">
+  <h2>Complementary, Not Competing</h2>
+  <div style="display: flex; gap: 3rem; margin-top: 2rem; justify-content: center;">
+    <div class="col" style="max-width: 340px; text-align: left;">
+      <h3 style="color: var(--orange);">Agent Teams</h3>
+      <ul>
+        <li>Exploratory, ill-defined problems</li>
+        <li>Debugging &mdash; need to brainstorm</li>
+        <li>Infrastructure &amp; environment issues</li>
+        <li>When the <strong>solution isn't clear yet</strong></li>
+      </ul>
+    </div>
+    <div class="col" style="max-width: 340px; text-align: left;">
+      <h3 style="color: var(--green);">Pipeline Orchestration</h3>
+      <ul>
+        <li>Structured, decomposable work</li>
+        <li>Needs quality gates &amp; review</li>
+        <li>Large-scale migrations</li>
+        <li>When the <strong>process matters</strong></li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout" style="max-width: 680px; margin-top: 1.5rem;">
+    In the Camunda migration: <strong>Debussy</strong> handled 163 structured tasks &mdash; but when it was time to start the app and debug docker-compose, <strong>agent teams</strong> (brainstorming together) solved it faster.
+  </div>
+</div>
+
+<!-- ====== 8. COMM: PEER TO PEER — visual ====== -->
+<div class="slide">
+  <div class="layout">
+    <div class="text">
+      <h2>Peer-to-Peer Communication</h2>
+      <ul>
+        <li>Agents talk directly &mdash; <strong>brainstorm, share discoveries, adapt</strong></li>
+        <li>Great for debugging &mdash; one agent finds a clue, others build on it</li>
+        <li>Tradeoff: conversations are lossy, hard to audit, don't survive restarts</li>
+      </ul>
+      <p style="margin-top: 1rem; color: var(--orange);">Best when the problem is <strong>fuzzy</strong> and agents need to think together</p>
+    </div>
+    <div class="visual">
+      <svg viewBox="0 0 340 340" width="320">
+        <circle cx="170" cy="50" r="28" fill="var(--surface)" stroke="var(--orange)" stroke-width="2"/>
+        <text x="170" y="55" text-anchor="middle" fill="var(--orange)" font-size="11" font-weight="600">A1</text>
+        <circle cx="290" cy="140" r="28" fill="var(--surface)" stroke="var(--orange)" stroke-width="2"/>
+        <text x="290" y="145" text-anchor="middle" fill="var(--orange)" font-size="11" font-weight="600">A2</text>
+        <circle cx="250" cy="280" r="28" fill="var(--surface)" stroke="var(--orange)" stroke-width="2"/>
+        <text x="250" y="285" text-anchor="middle" fill="var(--orange)" font-size="11" font-weight="600">A3</text>
+        <circle cx="90" cy="280" r="28" fill="var(--surface)" stroke="var(--orange)" stroke-width="2"/>
+        <text x="90" y="285" text-anchor="middle" fill="var(--orange)" font-size="11" font-weight="600">A4</text>
+        <circle cx="50" cy="140" r="28" fill="var(--surface)" stroke="var(--orange)" stroke-width="2"/>
+        <text x="50" y="145" text-anchor="middle" fill="var(--orange)" font-size="11" font-weight="600">A5</text>
+        <line x1="170" y1="78" x2="265" y2="122" stroke="var(--orange)" stroke-width="1" class="mesh-line"/>
+        <line x1="170" y1="78" x2="234" y2="258" stroke="var(--orange)" stroke-width="1" class="mesh-line"/>
+        <line x1="170" y1="78" x2="106" y2="258" stroke="var(--orange)" stroke-width="1" class="mesh-line"/>
+        <line x1="170" y1="78" x2="75" y2="122" stroke="var(--orange)" stroke-width="1" class="mesh-line"/>
+        <line x1="265" y1="155" x2="234" y2="258" stroke="var(--orange)" stroke-width="1" class="mesh-line"/>
+        <line x1="265" y1="155" x2="106" y2="265" stroke="var(--orange)" stroke-width="1" class="mesh-line"/>
+        <line x1="265" y1="155" x2="75" y2="148" stroke="var(--orange)" stroke-width="1" class="mesh-line"/>
+        <line x1="230" y1="270" x2="112" y2="270" stroke="var(--orange)" stroke-width="1" class="mesh-line"/>
+        <line x1="230" y1="265" x2="72" y2="158" stroke="var(--orange)" stroke-width="1" class="mesh-line"/>
+        <line x1="106" y1="262" x2="66" y2="162" stroke="var(--orange)" stroke-width="1" class="mesh-line"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 9. COMM: HUB AND SPOKE — visual ====== -->
+<div class="slide">
+  <div class="layout">
+    <div class="text">
+      <h2>Hub-and-Spoke Communication</h2>
+      <ul>
+        <li>Agents <strong>never talk to each other</strong> &mdash; only through task state</li>
+        <li>Tasks are self-contained, communication through <strong>signals</strong></li>
+        <li>Dead simple to debug &mdash; survives restarts, fully auditable</li>
+      </ul>
+      <p style="margin-top: 1rem; color: var(--green);">Best when the work is <strong>well-decomposed</strong> and needs quality gates</p>
+    </div>
+    <div class="visual">
+      <svg viewBox="0 0 340 340" width="320">
+        <circle cx="170" cy="170" r="45" fill="var(--glow)" stroke="var(--accent)" stroke-width="2"/>
+        <text x="170" y="164" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">WATCHER</text>
+        <text x="170" y="180" text-anchor="middle" fill="var(--accent)" font-size="9">+ tasks</text>
+        <circle cx="170" cy="40" r="24" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="170" y="45" text-anchor="middle" fill="var(--green)" font-size="10" font-weight="600">DEV</text>
+        <circle cx="290" cy="110" r="24" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="290" y="115" text-anchor="middle" fill="var(--green)" font-size="10" font-weight="600">REV</text>
+        <circle cx="290" cy="240" r="24" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="290" y="245" text-anchor="middle" fill="var(--green)" font-size="10" font-weight="600">SEC</text>
+        <circle cx="170" cy="300" r="24" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="170" y="305" text-anchor="middle" fill="var(--green)" font-size="10" font-weight="600">INT</text>
+        <circle cx="50" cy="240" r="24" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="50" y="245" text-anchor="middle" fill="var(--green)" font-size="10" font-weight="600">TEST</text>
+        <circle cx="50" cy="110" r="24" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="50" y="115" text-anchor="middle" fill="var(--green)" font-size="10" font-weight="600">INV</text>
+        <line x1="170" y1="68" x2="170" y2="125" stroke="var(--green)" stroke-width="1.5" class="spoke-line"/>
+        <line x1="268" y1="118" x2="215" y2="152" stroke="var(--green)" stroke-width="1.5" class="spoke-line"/>
+        <line x1="268" y1="234" x2="215" y2="195" stroke="var(--green)" stroke-width="1.5" class="spoke-line"/>
+        <line x1="170" y1="276" x2="170" y2="215" stroke="var(--green)" stroke-width="1.5" class="spoke-line"/>
+        <line x1="72" y1="234" x2="128" y2="195" stroke="var(--green)" stroke-width="1.5" class="spoke-line"/>
+        <line x1="72" y1="118" x2="128" y2="152" stroke="var(--green)" stroke-width="1.5" class="spoke-line"/>
+        <text x="235" y="174" fill="var(--muted)" font-size="9" opacity="0.5">no direct links</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 10. KEY INSIGHT ====== -->
+<div class="slide center">
+  <h2>The Key Insight</h2>
+  <p class="big-quote" style="margin-top: 2rem;">
+    "Match the communication model<br>
+    to the <strong style="color: var(--accent);">nature of the problem</strong>."
+  </p>
+  <p style="margin-top: 2rem; color: var(--muted); font-size: 1.1rem; max-width: 680px;">
+    <strong style="color: var(--orange);">Fuzzy problem?</strong> Let agents talk &mdash; brainstorm, explore, converge on a solution.<br>
+    <strong style="color: var(--green);">Structured work?</strong> Atomic tasks + state machine &mdash; predictable, auditable, scalable.
+  </p>
+  <p style="margin-top: 1.5rem; color: var(--muted); font-size: 1rem;">
+    In practice, you use <strong>both</strong> &mdash; often in the same project.
+  </p>
+</div>
+
+<!-- ====== 11. SEPARATION OF ROLES ====== -->
+<div class="slide">
+  <h2>Separation of Roles</h2>
+  <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem;">
+    <div class="col" style="flex: 1; min-width: 140px; text-align: center;">
+      <svg viewBox="0 0 60 60" width="48"><circle cx="30" cy="30" r="25" fill="var(--glow)" stroke="var(--accent)" stroke-width="1.5"/><text x="30" y="35" text-anchor="middle" fill="var(--accent)" font-size="20">&#9906;</text></svg>
+      <p style="font-size: 0.95rem; color: #fff; font-weight: 600;">Conductor</p>
+      <p style="font-size: 0.85rem; margin-top: 0.2rem;">Creates tasks<br>Monitors progress</p>
+    </div>
+    <div class="col" style="flex: 1; min-width: 140px; text-align: center;">
+      <svg viewBox="0 0 60 60" width="48"><circle cx="30" cy="30" r="25" fill="var(--glow)" stroke="var(--green)" stroke-width="1.5"/><text x="30" y="36" text-anchor="middle" fill="var(--green)" font-size="18">&lt;/&gt;</text></svg>
+      <p style="font-size: 0.95rem; color: #fff; font-weight: 600;">Developer</p>
+      <p style="font-size: 0.85rem; margin-top: 0.2rem;">Writes code<br>Writes tests</p>
+    </div>
+    <div class="col" style="flex: 1; min-width: 140px; text-align: center;">
+      <svg viewBox="0 0 60 60" width="48"><circle cx="30" cy="30" r="25" fill="var(--glow)" stroke="var(--cyan)" stroke-width="1.5"/><text x="30" y="36" text-anchor="middle" fill="var(--cyan)" font-size="18">&#8984;</text></svg>
+      <p style="font-size: 0.95rem; color: #fff; font-weight: 600;">Reviewer</p>
+      <p style="font-size: 0.85rem; margin-top: 0.2rem;">Reviews quality<br><strong>Can't write code</strong></p>
+    </div>
+    <div class="col" style="flex: 1; min-width: 140px; text-align: center;">
+      <svg viewBox="0 0 60 60" width="48"><circle cx="30" cy="30" r="25" fill="var(--glow)" stroke="var(--red)" stroke-width="1.5"/><text x="30" y="36" text-anchor="middle" fill="var(--red)" font-size="18">&#9632;</text></svg>
+      <p style="font-size: 0.95rem; color: #fff; font-weight: 600;">Security</p>
+      <p style="font-size: 0.85rem; margin-top: 0.2rem;">OWASP audit<br><strong>Can't write code</strong></p>
+    </div>
+    <div class="col" style="flex: 1; min-width: 140px; text-align: center;">
+      <svg viewBox="0 0 60 60" width="48"><circle cx="30" cy="30" r="25" fill="var(--glow)" stroke="var(--orange)" stroke-width="1.5"/><text x="30" y="36" text-anchor="middle" fill="var(--orange)" font-size="18">&#8644;</text></svg>
+      <p style="font-size: 0.95rem; color: #fff; font-weight: 600;">Integrator</p>
+      <p style="font-size: 0.85rem; margin-top: 0.2rem;">Merges branches<br><strong>Can't change code</strong></p>
+    </div>
+  </div>
+  <div class="callout" style="margin-top: 1.2rem;">
+    A reviewer that can't write code can only approve or reject — it can't "just fix it," which <strong>forces proper feedback loops</strong>.
+  </div>
+</div>
+
+<!-- ====== 12. WHAT ARE BEADS? ====== -->
+<div class="slide">
+  <h2>Beads: The Unit of Work</h2>
+  <div class="layout">
+    <div class="text">
+      <p style="color: #fff; font-size: 1.15rem; margin-bottom: 1rem;">A <strong>bead</strong> is a small, self-contained task that flows through the pipeline</p>
+      <ul>
+        <li>Has a <strong>unique ID</strong> (bd-001, bd-002, ...)</li>
+        <li>Carries <strong>status</strong> (open, in_progress, closed, blocked)</li>
+        <li>Carries <strong>labels</strong> (stage, security, rejected, frontend)</li>
+        <li>Has a <strong>description</strong> with everything the agent needs</li>
+        <li>Can declare <strong>dependencies</strong> on other beads</li>
+        <li>Tracks history through <strong>comments</strong></li>
+      </ul>
+      <div style="margin-top: 1rem;">
+        <a href="https://github.com/steveyegge/beads" target="_blank" style="color: var(--accent); font-size: 0.95rem; text-decoration: underline;">github.com/steveyegge/beads</a>
+      </div>
+    </div>
+    <div class="visual">
+      <div style="background: var(--surface); border-radius: 12px; padding: 1.2rem 1.5rem; border: 1px solid var(--accent); width: 100%; max-width: 360px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+          <span style="color: var(--accent); font-weight: 700; font-size: 1.1rem;">bd-007</span>
+          <span class="tag green" style="font-size: 0.75rem;">in_progress</span>
+        </div>
+        <div style="color: #fff; font-weight: 600; font-size: 1rem; margin-bottom: 0.5rem;">Migrate DMN decision tables</div>
+        <div style="color: var(--muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 0.8rem;">Convert all .dmn files from Camunda 7 to Camunda 8 format. Update typeRef from integer to number. Verify with unit tests.</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 0.6rem;">
+          <span class="tag" style="font-size: 0.65rem; padding: 2px 8px;">stage:development</span>
+          <span class="tag" style="font-size: 0.65rem; padding: 2px 8px; border-color: var(--red); color: var(--red);">security</span>
+        </div>
+        <div style="color: var(--muted); font-size: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.5rem;">
+          deps: bd-003, bd-005 &nbsp;&bull;&nbsp; branch: feature/bd-007
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 13. ATOMIC TASKS + INTEGRATOR ====== -->
+<div class="slide">
+  <h2>Atomic Tasks &amp; The Integrator Singleton</h2>
+  <div class="two-col">
+    <div class="col">
+      <h3>What Makes a Task "Atomic"?</h3>
+      <ul>
+        <li><strong>Single responsibility</strong> &mdash; one bead, one concern</li>
+        <li><strong>Small &amp; focused</strong> &mdash; an agent can complete it in one session</li>
+        <li><strong>Easily testable</strong> &mdash; clear success criteria in the description</li>
+        <li><strong>Minimal file overlap</strong> &mdash; reduces merge conflicts with parallel work</li>
+        <li><strong>Self-contained</strong> &mdash; everything the agent needs is in the task</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>Why Is the Integrator a Singleton?</h3>
+      <ul>
+        <li>Merging is <strong>inherently sequential</strong> &mdash; two merges to the same branch at once cause conflicts</li>
+        <li>Only <strong>one integrator runs at a time</strong> &mdash; serializes merge operations</li>
+        <li>Prevents <strong>race conditions</strong> on the feature branch</li>
+        <li>If a merge fails &rarr; bead goes back to development &mdash; the integrator never resolves complex conflicts itself</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 14. PHASED EXECUTION ====== -->
+<div class="slide">
+  <h2>Phased Execution: Stop, Test, Continue</h2>
+  <p style="color: var(--muted); margin-bottom: 1rem;">Split large projects into phases &mdash; validate before moving on</p>
+  <div style="display: flex; justify-content: center; margin: 1rem 0;">
+    <svg viewBox="0 0 900 160" width="95%">
+      <!-- Phase 1 -->
+      <rect x="10" y="30" width="180" height="90" rx="12" fill="var(--glow)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="100" y="60" text-anchor="middle" fill="var(--green)" font-size="12" font-weight="700">Phase 1</text>
+      <text x="100" y="78" text-anchor="middle" fill="var(--muted)" font-size="9">Infrastructure</text>
+      <text x="100" y="92" text-anchor="middle" fill="var(--muted)" font-size="9">bd-001 .. bd-010</text>
+      <text x="100" y="108" text-anchor="middle" fill="#fff" font-size="9">dev &rarr; review &rarr; merge</text>
+      <!-- Gate 1 -->
+      <line x1="195" y1="75" x2="235" y2="75" stroke="var(--accent)" stroke-width="1.5"/>
+      <rect x="235" y="50" width="100" height="50" rx="8" fill="var(--surface)" stroke="var(--orange)" stroke-width="2" stroke-dasharray="4"/>
+      <text x="285" y="72" text-anchor="middle" fill="var(--orange)" font-size="10" font-weight="700">ACCEPTANCE</text>
+      <text x="285" y="87" text-anchor="middle" fill="var(--muted)" font-size="8">run full tests</text>
+      <line x1="340" y1="75" x2="380" y2="75" stroke="var(--accent)" stroke-width="1.5"/>
+      <!-- Phase 2 -->
+      <rect x="380" y="30" width="180" height="90" rx="12" fill="var(--glow)" stroke="var(--cyan)" stroke-width="1.5"/>
+      <text x="470" y="60" text-anchor="middle" fill="var(--cyan)" font-size="12" font-weight="700">Phase 2</text>
+      <text x="470" y="78" text-anchor="middle" fill="var(--muted)" font-size="9">Core migration</text>
+      <text x="470" y="92" text-anchor="middle" fill="var(--muted)" font-size="9">bd-011 .. bd-080</text>
+      <text x="470" y="108" text-anchor="middle" fill="#fff" font-size="9">dev &rarr; review &rarr; merge</text>
+      <!-- Gate 2 -->
+      <line x1="565" y1="75" x2="605" y2="75" stroke="var(--accent)" stroke-width="1.5"/>
+      <rect x="605" y="50" width="100" height="50" rx="8" fill="var(--surface)" stroke="var(--orange)" stroke-width="2" stroke-dasharray="4"/>
+      <text x="655" y="72" text-anchor="middle" fill="var(--orange)" font-size="10" font-weight="700">ACCEPTANCE</text>
+      <text x="655" y="87" text-anchor="middle" fill="var(--muted)" font-size="8">run full tests</text>
+      <line x1="710" y1="75" x2="750" y2="75" stroke="var(--accent)" stroke-width="1.5"/>
+      <!-- Phase 3 -->
+      <rect x="750" y="30" width="140" height="90" rx="12" fill="var(--glow)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="820" y="60" text-anchor="middle" fill="var(--accent)" font-size="12" font-weight="700">Phase 3</text>
+      <text x="820" y="78" text-anchor="middle" fill="var(--muted)" font-size="9">Cleanup &amp; polish</text>
+      <text x="820" y="92" text-anchor="middle" fill="var(--muted)" font-size="9">bd-081 .. bd-163</text>
+      <text x="820" y="108" text-anchor="middle" fill="#fff" font-size="9">dev &rarr; review &rarr; merge</text>
+    </svg>
+  </div>
+  <ul>
+    <li><strong>Batch acceptance testing</strong> after each phase &mdash; run the full test suite before moving on</li>
+    <li>Catch integration issues <strong>early</strong> &mdash; don't accumulate 163 beads of untested work</li>
+    <li>Conductor can <strong>re-plan</strong> later phases based on what was learned</li>
+    <li>Failures create <strong>fix beads</strong> in the current phase, not in the next one</li>
+  </ul>
+</div>
+
+<!-- ====== 15. PIPELINE STATE MACHINE — animated ====== -->
+<div class="slide">
+  <h2>Pipeline as a State Machine</h2>
+  <div style="display: flex; justify-content: center; margin: 1.5rem 0;">
+    <svg viewBox="-5 0 910 200" width="95%">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--accent)"/></marker>
+        <marker id="arrR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--red)"/></marker>
+        <filter id="tokenGlow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <!-- stages -->
+      <rect x="10" y="60" width="100" height="44" rx="10" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+      <text x="60" y="87" text-anchor="middle" fill="var(--muted)" font-size="12" font-weight="600">open</text>
+      <line x1="115" y1="82" x2="148" y2="82" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="152" y="60" width="130" height="44" rx="10" fill="var(--glow)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="217" y="87" text-anchor="middle" fill="var(--green)" font-size="12" font-weight="600">development</text>
+      <line x1="287" y1="82" x2="318" y2="82" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="322" y="60" width="120" height="44" rx="10" fill="var(--glow)" stroke="var(--cyan)" stroke-width="1.5"/>
+      <text x="382" y="87" text-anchor="middle" fill="var(--cyan)" font-size="12" font-weight="600">reviewing</text>
+      <line x1="447" y1="82" x2="478" y2="82" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="482" y="60" width="130" height="44" rx="10" fill="var(--glow)" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="4"/>
+      <text x="547" y="80" text-anchor="middle" fill="var(--red)" font-size="11" font-weight="600">security</text>
+      <text x="547" y="95" text-anchor="middle" fill="var(--muted)" font-size="9">(if labeled)</text>
+      <line x1="617" y1="82" x2="648" y2="82" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="652" y="60" width="110" height="44" rx="10" fill="var(--glow)" stroke="var(--orange)" stroke-width="1.5"/>
+      <text x="707" y="87" text-anchor="middle" fill="var(--orange)" font-size="12" font-weight="600">merging</text>
+      <line x1="767" y1="82" x2="798" y2="82" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="802" y="60" width="90" height="44" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+      <text x="847" y="87" text-anchor="middle" fill="var(--accent)" font-size="12" font-weight="700">closed</text>
+      <!-- rejection loop -->
+      <path d="M382 108 C382 165 217 165 217 108" stroke="var(--red)" stroke-width="1.5" fill="none" stroke-dasharray="5" marker-end="url(#arrR)"/>
+      <text x="300" y="158" text-anchor="middle" fill="var(--red)" font-size="10" font-weight="600">rejected &rarr; back to dev</text>
+      <!-- agent labels -->
+      <text x="217" y="50" text-anchor="middle" fill="var(--muted)" font-size="9">developer</text>
+      <text x="382" y="50" text-anchor="middle" fill="var(--muted)" font-size="9">reviewer</text>
+      <text x="547" y="50" text-anchor="middle" fill="var(--muted)" font-size="9">sec-reviewer</text>
+      <text x="707" y="50" text-anchor="middle" fill="var(--muted)" font-size="9">integrator</text>
+      <!-- ANIMATED TOKEN -->
+      <circle cy="82" r="8" fill="var(--green)" filter="url(#tokenGlow)" class="pipeline-token"/>
+    </svg>
+  </div>
+  <ul>
+    <li>Transitions owned by the <strong>watcher</strong>, not by agents</li>
+    <li>Agents signal outcomes — the orchestrator decides what happens next</li>
+    <li>Prevents agents from skipping steps or self-promoting their own work</li>
+  </ul>
+</div>
+
+<!-- ====== 13. KANBAN BOARD VIEW ====== -->
+<div class="slide">
+  <h2>The Board: Beads in Motion</h2>
+  <p style="color: var(--muted); margin-bottom: 1rem;">Each bead flows through columns &mdash; the watcher moves them, agents work them</p>
+  <div style="display: flex; gap: 10px; margin-top: 0.5rem; overflow: hidden;">
+    <!-- Backlog -->
+    <div style="flex: 1; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 10px; border-top: 3px solid var(--muted);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Backlog</div>
+      <div style="background: var(--surface); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; border-left: 3px solid var(--muted); font-size: 0.8rem;">
+        <div style="color: #fff; font-weight: 600;">bd-012</div>
+        <div style="color: var(--muted); font-size: 0.7rem;">Add error handling</div>
+      </div>
+      <div style="background: var(--surface); border-radius: 6px; padding: 8px 10px; border-left: 3px solid var(--muted); font-size: 0.8rem;">
+        <div style="color: #fff; font-weight: 600;">bd-013</div>
+        <div style="color: var(--muted); font-size: 0.7rem;">Update REST client</div>
+      </div>
+    </div>
+    <!-- Development -->
+    <div style="flex: 1; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 10px; border-top: 3px solid var(--green);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Development</div>
+      <div style="background: var(--surface); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; border-left: 3px solid var(--green); font-size: 0.8rem;">
+        <div style="color: #fff; font-weight: 600;">bd-007 <span style="font-size: 0.65rem; color: var(--green); background: rgba(76,175,80,0.15); padding: 1px 5px; border-radius: 3px;">in_progress</span></div>
+        <div style="color: var(--muted); font-size: 0.7rem;">Migrate DMN tables</div>
+      </div>
+      <div style="background: var(--surface); border-radius: 6px; padding: 8px 10px; border-left: 3px solid var(--green); font-size: 0.8rem;">
+        <div style="color: #fff; font-weight: 600;">bd-009 <span style="font-size: 0.65rem; color: var(--green); background: rgba(76,175,80,0.15); padding: 1px 5px; border-radius: 3px;">in_progress</span></div>
+        <div style="color: var(--muted); font-size: 0.7rem;">Convert job workers</div>
+      </div>
+    </div>
+    <!-- Reviewing -->
+    <div style="flex: 1; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 10px; border-top: 3px solid var(--cyan);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: var(--cyan); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Reviewing</div>
+      <div style="background: var(--surface); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; border-left: 3px solid var(--cyan); font-size: 0.8rem;">
+        <div style="color: #fff; font-weight: 600;">bd-005</div>
+        <div style="color: var(--muted); font-size: 0.7rem;">Spring Boot config</div>
+      </div>
+    </div>
+    <!-- Security -->
+    <div style="flex: 1; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 10px; border-top: 3px solid var(--red);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Security</div>
+      <div style="background: var(--surface); border-radius: 6px; padding: 8px 10px; border-left: 3px solid var(--red); font-size: 0.8rem;">
+        <div style="color: #fff; font-weight: 600;">bd-003 <span style="font-size: 0.6rem; color: var(--red); background: rgba(244,67,54,0.15); padding: 1px 5px; border-radius: 3px;">security</span></div>
+        <div style="color: var(--muted); font-size: 0.7rem;">Auth token handling</div>
+      </div>
+    </div>
+    <!-- Merging -->
+    <div style="flex: 1; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 10px; border-top: 3px solid var(--orange);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: var(--orange); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Merging</div>
+      <div style="background: var(--surface); border-radius: 6px; padding: 8px 10px; border-left: 3px solid var(--orange); font-size: 0.8rem;">
+        <div style="color: #fff; font-weight: 600;">bd-002</div>
+        <div style="color: var(--muted); font-size: 0.7rem;">Update pom.xml deps</div>
+      </div>
+    </div>
+    <!-- Closed -->
+    <div style="flex: 1; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 10px; border-top: 3px solid var(--accent);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Closed</div>
+      <div style="background: var(--surface); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; border-left: 3px solid var(--accent); font-size: 0.8rem; opacity: 0.6;">
+        <div style="color: #fff; font-weight: 600;">bd-001 &#10003;</div>
+        <div style="color: var(--muted); font-size: 0.7rem;">Setup Zeebe client</div>
+      </div>
+      <div style="background: var(--surface); border-radius: 6px; padding: 8px 10px; border-left: 3px solid var(--accent); font-size: 0.8rem; opacity: 0.6;">
+        <div style="color: #fff; font-weight: 600;">bd-004 &#10003;</div>
+        <div style="color: var(--muted); font-size: 0.7rem;">Docker-compose v2</div>
+      </div>
+    </div>
+  </div>
+  <div class="callout" style="max-width: 700px; margin-top: 1rem;">
+    The watcher polls this board continuously. When an agent finishes (sets <span class="tag green" style="font-size: 0.8rem;">open</span>), the watcher moves the bead to the next column and spawns the next agent.
+  </div>
+</div>
+
+<!-- ====== 14. WATCHER PATTERN — animated ====== -->
+<div class="slide">
+  <div class="layout">
+    <div class="text">
+      <h2>The Watcher Pattern</h2>
+      <ul>
+        <li>Central loop that <strong>polls task state</strong></li>
+        <li>Spawns agents based on stage labels</li>
+        <li>Agents are <strong>stateless workers</strong></li>
+        <li>Similar to a <strong>Kubernetes reconciliation loop</strong></li>
+      </ul>
+    </div>
+    <div class="visual">
+      <svg viewBox="-15 0 380 340" width="340">
+        <defs>
+          <marker id="arrC" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--accent)"/></marker>
+        </defs>
+        <circle cx="170" cy="170" r="100" fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="4"/>
+        <!-- animated arcs -->
+        <path d="M170 70 A100 100 0 0 1 270 170" stroke="var(--accent)" stroke-width="2.5" fill="none" marker-end="url(#arrC)" class="loop-arc-1"/>
+        <path d="M270 170 A100 100 0 0 1 170 270" stroke="var(--accent)" stroke-width="2.5" fill="none" marker-end="url(#arrC)" class="loop-arc-2"/>
+        <path d="M170 270 A100 100 0 0 1 70 170" stroke="var(--accent)" stroke-width="2.5" fill="none" marker-end="url(#arrC)" class="loop-arc-3"/>
+        <path d="M70 170 A100 100 0 0 1 170 70" stroke="var(--accent)" stroke-width="2.5" fill="none" marker-end="url(#arrC)" class="loop-arc-4"/>
+        <!-- animated labels -->
+        <g class="loop-label-1">
+          <rect x="192" y="48" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
+          <text x="235" y="67" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">1. POLL</text>
+        </g>
+        <g class="loop-label-2">
+          <rect x="272" y="148" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
+          <text x="315" y="167" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">2. DETECT</text>
+        </g>
+        <g class="loop-label-3">
+          <rect x="192" y="270" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
+          <text x="235" y="289" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">3. SPAWN</text>
+        </g>
+        <g class="loop-label-4">
+          <rect x="-8" y="148" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
+          <text x="35" y="167" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">4. SIGNAL</text>
+        </g>
+        <!-- center -->
+        <circle cx="170" cy="170" r="35" fill="var(--glow)" stroke="var(--accent)" stroke-width="2" class="watcher-center"/>
+        <text x="170" y="167" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">WATCHER</text>
+        <text x="170" y="181" text-anchor="middle" fill="var(--accent)" font-size="9">&infin; loop</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 14. WORKTREES PROBLEM — visual ====== -->
+<div class="slide">
+  <div class="layout">
+    <div class="text">
+      <h2>Git Worktrees: The Problem</h2>
+      <p style="color: #fff; font-size: 1.15rem; margin-bottom: 1rem;">The filesystem is a shared mutable resource</p>
+      <ul>
+        <li>Git has <strong>one working directory</strong></li>
+        <li><code style="color: var(--accent)">git checkout</code> switches the entire repo</li>
+        <li>Parallel agents' changes leak into each other</li>
+        <li>Tests run against a <strong>mixed state</strong></li>
+      </ul>
+      <p style="margin-top: 1rem; color: var(--red);">The #1 reason naive multi-agent approaches break</p>
+    </div>
+    <div class="visual">
+      <svg viewBox="0 0 320 280" width="300">
+        <rect x="40" y="10" width="240" height="260" rx="10" fill="var(--surface)" stroke="var(--red)" stroke-width="2"/>
+        <text x="160" y="36" text-anchor="middle" fill="var(--muted)" font-size="11">single working directory</text>
+        <circle cx="90" cy="80" r="20" fill="var(--glow)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="90" y="84" text-anchor="middle" fill="#fff" font-size="9">A1</text>
+        <circle cx="230" cy="80" r="20" fill="var(--glow)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="230" y="84" text-anchor="middle" fill="#fff" font-size="9">A2</text>
+        <line x1="100" y1="100" x2="130" y2="140" stroke="var(--red)" stroke-width="1.5"/>
+        <line x1="220" y1="100" x2="190" y2="140" stroke="var(--red)" stroke-width="1.5"/>
+        <rect x="120" y="140" width="80" height="30" rx="4" fill="#141620" stroke="var(--red)" stroke-width="1.5"/>
+        <text x="160" y="160" text-anchor="middle" fill="var(--red)" font-size="10">UserService.java</text>
+        <text x="160" y="130" text-anchor="middle" fill="var(--red)" font-size="20" font-weight="700" class="stress">&#9889;</text>
+        <rect x="70" y="195" width="180" height="55" rx="6" fill="#141620" stroke="var(--border)" stroke-width="1"/>
+        <text x="160" y="215" text-anchor="middle" fill="var(--red)" font-size="10" font-weight="600">MIXED STATE</text>
+        <text x="160" y="232" text-anchor="middle" fill="var(--muted)" font-size="9">A1's changes + A2's changes</text>
+        <text x="160" y="244" text-anchor="middle" fill="var(--muted)" font-size="9">= broken tests</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 15. WORKTREES SOLUTION — visual ====== -->
+<div class="slide">
+  <div class="layout">
+    <div class="text">
+      <h2>Git Worktrees: The Solution</h2>
+      <pre style="font-size: 0.85rem;">git worktree add ../bd-001 feature/bd-001</pre>
+      <ul>
+        <li>Separate directory per branch</li>
+        <li>Same repo, shared <code style="color: var(--accent)">.git</code></li>
+        <li>Each agent edits, builds, tests in <strong>isolation</strong></li>
+        <li>No file locking needed</li>
+      </ul>
+    </div>
+    <div class="visual">
+      <svg viewBox="0 0 340 280" width="320">
+        <rect x="110" y="5" width="120" height="30" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+        <text x="170" y="25" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">.git (shared)</text>
+        <line x1="140" y1="38" x2="80" y2="70" stroke="var(--green)" stroke-width="1.5"/>
+        <rect x="10" y="70" width="140" height="120" rx="8" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="80" y="92" text-anchor="middle" fill="var(--green)" font-size="10" font-weight="600">worktree/bd-001</text>
+        <circle cx="50" cy="125" r="16" fill="var(--glow)" stroke="var(--green)" stroke-width="1"/>
+        <text x="50" y="129" text-anchor="middle" fill="#fff" font-size="9">A1</text>
+        <rect x="75" y="112" width="65" height="20" rx="3" fill="#141620" stroke="var(--border)" stroke-width="1"/>
+        <text x="108" y="126" text-anchor="middle" fill="var(--muted)" font-size="8">UserService</text>
+        <rect x="75" y="138" width="65" height="20" rx="3" fill="#141620" stroke="var(--border)" stroke-width="1"/>
+        <text x="108" y="152" text-anchor="middle" fill="var(--muted)" font-size="8">tests &#10003;</text>
+        <line x1="200" y1="38" x2="260" y2="70" stroke="var(--green)" stroke-width="1.5"/>
+        <rect x="190" y="70" width="140" height="120" rx="8" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="260" y="92" text-anchor="middle" fill="var(--green)" font-size="10" font-weight="600">worktree/bd-002</text>
+        <circle cx="230" cy="125" r="16" fill="var(--glow)" stroke="var(--green)" stroke-width="1"/>
+        <text x="230" y="129" text-anchor="middle" fill="#fff" font-size="9">A2</text>
+        <rect x="255" y="112" width="65" height="20" rx="3" fill="#141620" stroke="var(--border)" stroke-width="1"/>
+        <text x="288" y="126" text-anchor="middle" fill="var(--muted)" font-size="8">PaymentSvc</text>
+        <rect x="255" y="138" width="65" height="20" rx="3" fill="#141620" stroke="var(--border)" stroke-width="1"/>
+        <text x="288" y="152" text-anchor="middle" fill="var(--muted)" font-size="8">tests &#10003;</text>
+        <text x="170" y="220" text-anchor="middle" fill="var(--green)" font-size="11" font-weight="600">fully isolated &mdash; no conflicts</text>
+        <text x="170" y="250" text-anchor="middle" fill="var(--muted)" font-size="10">Without worktrees: full clones (wasteful) or sequential (slow)</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 16. QUALITY GATES — animated ====== -->
+<div class="slide">
+  <h2>Quality Gates</h2>
+  <div style="display: flex; justify-content: center; margin: 1.5rem 0;">
+    <svg viewBox="0 0 800 160" width="95%">
+      <defs>
+        <filter id="gateGlow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <rect x="10" y="50" width="130" height="50" rx="8" fill="var(--glow)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="75" y="72" text-anchor="middle" fill="var(--green)" font-size="11" font-weight="600">Development</text>
+      <text x="75" y="88" text-anchor="middle" fill="var(--muted)" font-size="9">developer writes code</text>
+      <line x1="145" y1="75" x2="175" y2="75" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="178" y="40" width="70" height="70" rx="8" fill="var(--surface)" stroke="var(--cyan)" stroke-width="2"/>
+      <text x="213" y="70" text-anchor="middle" fill="var(--cyan)" font-size="11" font-weight="700">CODE</text>
+      <text x="213" y="88" text-anchor="middle" fill="var(--cyan)" font-size="9" font-weight="600">REVIEW</text>
+      <line x1="253" y1="75" x2="283" y2="75" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="286" y="40" width="70" height="70" rx="8" fill="var(--surface)" stroke="var(--red)" stroke-width="2" stroke-dasharray="4"/>
+      <text x="321" y="70" text-anchor="middle" fill="var(--red)" font-size="11" font-weight="700">SEC</text>
+      <text x="321" y="88" text-anchor="middle" fill="var(--red)" font-size="9" font-weight="600">REVIEW</text>
+      <text x="321" y="25" text-anchor="middle" fill="var(--muted)" font-size="9">(if labeled)</text>
+      <line x1="361" y1="75" x2="391" y2="75" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="395" y="50" width="110" height="50" rx="8" fill="var(--glow)" stroke="var(--orange)" stroke-width="1.5"/>
+      <text x="450" y="72" text-anchor="middle" fill="var(--orange)" font-size="11" font-weight="600">Merge</text>
+      <text x="450" y="88" text-anchor="middle" fill="var(--muted)" font-size="9">integrator merges</text>
+      <line x1="510" y1="75" x2="540" y2="75" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="543" y="40" width="70" height="70" rx="8" fill="var(--surface)" stroke="var(--green)" stroke-width="2"/>
+      <text x="578" y="70" text-anchor="middle" fill="var(--green)" font-size="11" font-weight="700">ACCEPT</text>
+      <text x="578" y="88" text-anchor="middle" fill="var(--green)" font-size="9" font-weight="600">TEST</text>
+      <line x1="618" y1="75" x2="648" y2="75" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="652" y="50" width="100" height="50" rx="8" fill="var(--accent)" stroke="var(--accent)" stroke-width="1.5" opacity="0.3"/>
+      <text x="702" y="80" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">DONE</text>
+      <!-- rejection arrow -->
+      <path d="M213 114 C213 148 75 148 75 104" stroke="var(--red)" stroke-width="1.5" fill="none" stroke-dasharray="4" marker-end="url(#arrR)"/>
+      <text x="140" y="148" text-anchor="middle" fill="var(--red)" font-size="9">rejected</text>
+      <!-- ANIMATED TOKEN -->
+      <circle cy="75" r="7" fill="var(--green)" filter="url(#gateGlow)" class="gate-token"/>
+    </svg>
+  </div>
+  <ul>
+    <li><strong>Every bead</strong> passes through code review before merge</li>
+    <li><strong>Rejection loops</strong>: failed review goes back to development</li>
+    <li>Batch acceptance testing runs after all beads are merged</li>
+  </ul>
+</div>
+
+<!-- ====== 17. INVESTIGATION PIPELINE — visual ====== -->
+<div class="slide">
+  <h2>Investigation Pipeline</h2>
+  <p style="margin-bottom: 0.8rem;">Research before you code &mdash; parallel investigation, then consolidation</p>
+  <div style="display: flex; justify-content: center; margin: 1rem 0;">
+    <svg viewBox="-15 0 840 200" width="95%">
+      <rect x="10" y="10" width="150" height="36" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="85" y="33" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">Investigate: DMN</text>
+      <rect x="10" y="56" width="150" height="36" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="85" y="79" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">Investigate: BPMN</text>
+      <rect x="10" y="102" width="150" height="36" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="85" y="125" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">Investigate: Tests</text>
+      <rect x="10" y="148" width="150" height="36" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="85" y="171" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">Investigate: Infra</text>
+      <text x="-5" y="105" fill="var(--green)" font-size="10" transform="rotate(-90, -5, 105)">PARALLEL</text>
+      <line x1="165" y1="28" x2="270" y2="90" stroke="var(--accent)" stroke-width="1" opacity="0.5"/>
+      <line x1="165" y1="74" x2="270" y2="90" stroke="var(--accent)" stroke-width="1" opacity="0.5"/>
+      <line x1="165" y1="120" x2="270" y2="100" stroke="var(--accent)" stroke-width="1" opacity="0.5"/>
+      <line x1="165" y1="166" x2="270" y2="105" stroke="var(--accent)" stroke-width="1" opacity="0.5"/>
+      <rect x="275" y="72" width="140" height="50" rx="10" fill="var(--glow)" stroke="var(--green)" stroke-width="2"/>
+      <text x="345" y="95" text-anchor="middle" fill="var(--green)" font-size="11" font-weight="600">Consolidate</text>
+      <text x="345" y="112" text-anchor="middle" fill="var(--muted)" font-size="9">synthesize findings</text>
+      <line x1="420" y1="97" x2="475" y2="97" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="480" y="72" width="110" height="50" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="535" y="95" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">findings.md</text>
+      <text x="535" y="112" text-anchor="middle" fill="var(--muted)" font-size="9">86 findings</text>
+      <line x1="595" y1="97" x2="650" y2="97" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="655" y="60" width="150" height="75" rx="10" fill="var(--glow)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="730" y="85" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">Conductor</text>
+      <text x="730" y="102" text-anchor="middle" fill="var(--muted)" font-size="9">creates informed</text>
+      <text x="730" y="116" text-anchor="middle" fill="var(--muted)" font-size="9">dev tasks</text>
+    </svg>
+  </div>
+  <ul>
+    <li>8 investigators can research <strong>8 areas simultaneously</strong></li>
+    <li>Developers get richer context &mdash; know what patterns to follow, pitfalls to avoid</li>
+  </ul>
+</div>
+
+<!-- ====== 18. BRANCHING MODEL — visual ====== -->
+<div class="slide">
+  <div class="layout">
+    <div class="text">
+      <h2>Branching Model</h2>
+      <ul>
+        <li>Conductor creates the <strong>feature branch</strong></li>
+        <li>Each developer works in an <strong>isolated worktree</strong></li>
+        <li>Integrator merges sub-branches into feature</li>
+        <li><strong>Human merges to master</strong> &mdash; agents never touch it</li>
+      </ul>
+    </div>
+    <div class="visual">
+      <svg viewBox="-60 0 410 320" width="340">
+        <line x1="50" y1="30" x2="50" y2="300" stroke="var(--accent)" stroke-width="3"/>
+        <circle cx="50" cy="30" r="6" fill="var(--accent)"/>
+        <text x="20" y="35" text-anchor="end" fill="var(--accent)" font-size="11" font-weight="700">master</text>
+        <text x="20" y="50" text-anchor="end" fill="var(--muted)" font-size="8">(human only)</text>
+        <circle cx="50" cy="80" r="5" fill="var(--accent)"/>
+        <line x1="55" y1="80" x2="140" y2="80" stroke="var(--green)" stroke-width="2"/>
+        <line x1="140" y1="80" x2="140" y2="290" stroke="var(--green)" stroke-width="2"/>
+        <circle cx="140" cy="80" r="5" fill="var(--green)"/>
+        <text x="145" y="68" fill="var(--green)" font-size="11" font-weight="600">feature/camunda-8</text>
+        <text x="145" y="82" fill="var(--muted)" font-size="8">conductor's branch</text>
+        <circle cx="140" cy="130" r="4" fill="var(--green)"/>
+        <line x1="145" y1="130" x2="260" y2="130" stroke="var(--orange)" stroke-width="1.5"/>
+        <rect x="260" y="118" width="75" height="24" rx="5" fill="var(--surface)" stroke="var(--orange)" stroke-width="1"/>
+        <text x="298" y="134" text-anchor="middle" fill="var(--orange)" font-size="9" font-weight="600">bd-001</text>
+        <circle cx="140" cy="175" r="4" fill="var(--green)"/>
+        <line x1="145" y1="175" x2="260" y2="175" stroke="var(--orange)" stroke-width="1.5"/>
+        <rect x="260" y="163" width="75" height="24" rx="5" fill="var(--surface)" stroke="var(--orange)" stroke-width="1"/>
+        <text x="298" y="179" text-anchor="middle" fill="var(--orange)" font-size="9" font-weight="600">bd-002</text>
+        <circle cx="140" cy="220" r="4" fill="var(--green)"/>
+        <line x1="145" y1="220" x2="260" y2="220" stroke="var(--orange)" stroke-width="1.5"/>
+        <rect x="260" y="208" width="75" height="24" rx="5" fill="var(--surface)" stroke="var(--orange)" stroke-width="1"/>
+        <text x="298" y="224" text-anchor="middle" fill="var(--orange)" font-size="9" font-weight="600">bd-003</text>
+        <path d="M260 136 C220 145 155 145 145 155" stroke="var(--muted)" stroke-width="1" fill="none" stroke-dasharray="3"/>
+        <path d="M260 181 C220 190 155 190 145 200" stroke="var(--muted)" stroke-width="1" fill="none" stroke-dasharray="3"/>
+        <path d="M260 226 C220 235 155 235 145 245" stroke="var(--muted)" stroke-width="1" fill="none" stroke-dasharray="3"/>
+        <text x="210" y="260" text-anchor="middle" fill="var(--muted)" font-size="8">integrator merges back</text>
+        <path d="M140 290 C100 300 60 295 55 280" stroke="var(--accent)" stroke-width="2" fill="none" stroke-dasharray="5"/>
+        <text x="105" y="308" text-anchor="middle" fill="var(--accent)" font-size="9" font-weight="600">human merges</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 19. SIGNAL COMMUNICATION — animated ====== -->
+<div class="slide">
+  <h2>Signal-Based Communication</h2>
+  <p style="margin-bottom: 1rem;">Agents don't talk &mdash; they set status flags. The watcher reads and routes.</p>
+  <div style="display: flex; justify-content: center; margin: 1rem 0;">
+    <svg viewBox="0 0 700 180" width="95%">
+      <rect x="10" y="60" width="120" height="50" rx="8" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="70" y="82" text-anchor="middle" fill="var(--green)" font-size="11" font-weight="600">Agent</text>
+      <text x="70" y="98" text-anchor="middle" fill="var(--muted)" font-size="9">does work</text>
+      <line x1="135" y1="85" x2="175" y2="85" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="180" y="45" width="140" height="80" rx="10" fill="var(--glow)" stroke="var(--accent)" stroke-width="2"/>
+      <text x="250" y="72" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Sets signal</text>
+      <text x="250" y="94" text-anchor="middle" fill="var(--green)" font-size="10">status: open</text>
+      <text x="250" y="112" text-anchor="middle" fill="var(--red)" font-size="10">label: rejected</text>
+      <line x1="325" y1="85" x2="365" y2="85" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="370" y="50" width="130" height="70" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+      <text x="435" y="78" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="700">Watcher</text>
+      <text x="435" y="96" text-anchor="middle" fill="var(--muted)" font-size="9">reads state</text>
+      <text x="435" y="110" text-anchor="middle" fill="var(--muted)" font-size="9">decides next stage</text>
+      <line x1="505" y1="85" x2="545" y2="85" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="550" y="60" width="130" height="50" rx="8" fill="var(--glow)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="615" y="82" text-anchor="middle" fill="var(--green)" font-size="11" font-weight="600">Next Stage</text>
+      <text x="615" y="98" text-anchor="middle" fill="var(--muted)" font-size="9">new agent spawned</text>
+      <!-- ANIMATED SIGNAL TOKEN -->
+      <circle cy="85" r="5" fill="var(--accent)" filter="url(#tokenGlow)" class="signal-token"/>
+    </svg>
+  </div>
+  <div class="two-col" style="margin-top: 0.5rem;">
+    <div class="col" style="padding: 1rem;">
+      <h3 style="font-size: 1rem;">Agent Signals</h3>
+      <p style="font-size: 0.95rem;"><span class="tag green">open</span> = work complete &nbsp; <span class="tag red">rejected</span> = needs rework &nbsp; <span class="tag">blocked</span> = stuck</p>
+    </div>
+    <div class="col" style="padding: 1rem;">
+      <h3 style="font-size: 1rem;">Watcher Response</h3>
+      <p style="font-size: 0.95rem;">open &rarr; next stage &nbsp; rejected &rarr; back to dev &nbsp; blocked &rarr; parked</p>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 20. TECH STACK ====== -->
+<div class="slide">
+  <h2>Under the Hood: Tech Stack</h2>
+  <div class="two-col" style="margin-top: 1rem;">
+    <div class="col" style="padding: 1.2rem;">
+      <h3 style="color: var(--accent);">Core Technologies</h3>
+      <ul>
+        <li><strong>Python</strong> &mdash; CLI, watcher, pipeline logic, prompt builders</li>
+        <li><strong>Claude Code</strong> &mdash; each agent is a Claude Code subprocess</li>
+        <li><strong>tmux</strong> &mdash; session &amp; window management for parallel agents</li>
+        <li><strong>Git worktrees</strong> &mdash; filesystem isolation per agent</li>
+        <li><strong>Beads (bd)</strong> &mdash; lightweight task tracking database</li>
+      </ul>
+    </div>
+    <div class="col" style="padding: 1.2rem;">
+      <h3 style="color: var(--accent);">Project Structure</h3>
+      <div style="font-family: monospace; font-size: 0.85rem; color: var(--muted); line-height: 1.6; background: rgba(0,0,0,0.3); padding: 0.8rem 1rem; border-radius: 8px;">
+        src/debussy/<br/>
+        &nbsp;&nbsp;cli.py &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: var(--green);"># CLI dispatch</span><br/>
+        &nbsp;&nbsp;watcher.py &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: var(--green);"># reconciliation loop</span><br/>
+        &nbsp;&nbsp;transitions.py &nbsp;<span style="color: var(--green);"># state machine</span><br/>
+        &nbsp;&nbsp;spawner.py &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: var(--green);"># tmux + agent spawn</span><br/>
+        &nbsp;&nbsp;worktree.py &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: var(--green);"># git worktree lifecycle</span><br/>
+        &nbsp;&nbsp;prompts/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: var(--green);"># agent prompt templates</span>
+      </div>
+    </div>
+  </div>
+  <div class="callout" style="max-width: 700px; margin-top: 1.2rem;">
+    The watcher is a <strong>Python loop</strong> that polls bead state every few seconds, decides transitions, and spawns Claude Code agents in <strong>tmux windows</strong> &mdash; each with its own worktree and prompt.
+  </div>
+</div>
+
+<!-- ====== 21. AGENT PROMPTS, HOOKS, SKILLS ====== -->
+<div class="slide">
+  <h2>Agent Prompts, Hooks &amp; Skills</h2>
+  <div class="two-col" style="margin-top: 1rem;">
+    <div class="col" style="padding: 1.2rem;">
+      <h3 style="color: var(--accent);">Prompt Engineering</h3>
+      <ul>
+        <li>Each role has a <strong>dedicated prompt builder</strong> (Python)</li>
+        <li>Prompts are <strong>dynamically assembled</strong> &mdash; include bead context, branch info, worktree path</li>
+        <li>Role constraints are <strong>structural</strong>: a reviewer's prompt has no write tools</li>
+        <li>Prompts define exact <strong>signal conventions</strong> &mdash; which status + labels to set</li>
+      </ul>
+    </div>
+    <div class="col" style="padding: 1.2rem;">
+      <h3 style="color: var(--accent);">Hooks &amp; Skills</h3>
+      <ul>
+        <li><strong>Hooks</strong> &mdash; shell commands triggered by Claude Code events (pre-commit validation, label guards)</li>
+        <li><strong>Skills</strong> &mdash; reusable prompt modules loaded by agents (git strategy, bead workflow, code standards)</li>
+        <li><strong>CLAUDE.md</strong> &mdash; project-level instructions read by every agent (pipeline rules, branching model)</li>
+      </ul>
+      <div style="margin-top: 0.8rem; font-size: 0.9rem; color: var(--muted);">
+        Hooks prevent agents from breaking conventions.<br/>Skills teach agents how to follow them.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 22. COMPARISON TABLE ====== -->
+<div class="slide">
+  <h2>Agent Teams vs. Pipeline: Different Strengths</h2>
+  <table>
+    <thead>
+      <tr><th>Aspect</th><th>Agent Teams</th><th>Debussy Pipeline</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Best for</strong></td><td>Exploration, debugging, unknowns</td><td>Structured, decomposable work</td></tr>
+      <tr><td><strong>Coordination</strong></td><td>Agents chat and brainstorm</td><td>State machine + watcher</td></tr>
+      <tr><td><strong>Flexibility</strong></td><td>High &mdash; adapts on the fly</td><td>Constrained &mdash; follows the pipeline</td></tr>
+      <tr><td><strong>Quality gates</strong></td><td>Informal</td><td>Mandatory (review, security, acceptance)</td></tr>
+      <tr><td><strong>Auditability</strong></td><td>Hard &mdash; depends on conversation</td><td>Full &mdash; every transition logged</td></tr>
+      <tr><td><strong>Reproducibility</strong></td><td>Low</td><td>Same pipeline every time</td></tr>
+      <tr><td><strong>Real-world use</strong></td><td>Docker-compose debugging</td><td>163-task Camunda migration</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ====== 21. CASE STUDY INTRO ====== -->
+<div class="slide center">
+  <h2>Case Study</h2>
+  <p class="subtitle">Camunda 7 &rarr; 8 Migration</p>
+  <p style="font-size: 1.1rem; color: var(--muted);">
+    Migrating <strong>vf-onboard-bpm</strong> at Visma:<br>
+    13 BPMN processes &bull; 15 DMN decision tables &bull; 37+ job workers &bull; 321 unit tests
+  </p>
+</div>
+
+<!-- ====== 22. CASE STUDY NUMBERS ====== -->
+<div class="slide">
+  <h2>By the Numbers</h2>
+  <div class="stat-grid">
+    <div class="stat">
+      <div class="number">163</div>
+      <div class="label">Total beads (tasks)</div>
+    </div>
+    <div class="stat">
+      <div class="number">162</div>
+      <div class="label">Closed successfully</div>
+    </div>
+    <div class="stat">
+      <div class="number">307</div>
+      <div class="label">Agents spawned</div>
+    </div>
+    <div class="stat">
+      <div class="number">19K</div>
+      <div class="label">Pipeline events</div>
+    </div>
+  </div>
+  <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="stat">
+      <div class="number" style="color: var(--cyan);">8</div>
+      <div class="label">Parallel investigations</div>
+    </div>
+    <div class="stat">
+      <div class="number" style="color: var(--green);">86</div>
+      <div class="label">Findings before coding</div>
+    </div>
+    <div class="stat">
+      <div class="number" style="color: var(--red);">6</div>
+      <div class="label">Reviewer rejections</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 23. WHAT WORKED ====== -->
+<div class="slide">
+  <h2>What Worked</h2>
+  <ul>
+    <li><strong>Investigation-first</strong>: 8 parallel investigations produced 86 findings that predicted nearly every issue</li>
+    <li><strong>Reviewers caught real bugs</strong>: typeRef changes breaking Java casts, resource leaks, overly invasive test patterns</li>
+    <li><strong>Testing strategy challenge</strong>: reviewer challenged plan to migrate all 44 BPMN tests &mdash; saved ~70 hours</li>
+    <li><strong>Granular decomposition</strong>: one bead per delegate, per DMN file, per test group</li>
+  </ul>
+</div>
+
+<!-- ====== 24. WHAT DIDN'T WORK ====== -->
+<div class="slide">
+  <h2>What Didn't Work</h2>
+  <ul>
+    <li><span class="tag red">Spawn storms</span> Some beads had <strong>3000+ spawn attempts</strong> &mdash; agents failing and retrying on merge conflicts</li>
+    <li><span class="tag red">Blind spots</span> 2 of 8 investigations produced <strong>0 findings</strong> &mdash; wrong scope or missing context</li>
+    <li><span class="tag red">Infrastructure</span> Docker-compose issues all discovered at runtime &mdash; 7 issues that could have been pre-flight</li>
+    <li><span class="tag red">No circuit breaker</span> No automatic escalation after N failures</li>
+  </ul>
+</div>
+
+<!-- ====== 25. LESSONS: DESIGN ====== -->
+<div class="slide">
+  <h2>Lessons: Design Principles</h2>
+  <ul>
+    <li><strong>Constraint is a feature</strong> &mdash; agents do better work when scope is narrow</li>
+    <li><strong>Don't let agents self-evaluate</strong> &mdash; separation of developer and reviewer catches real bugs</li>
+    <li><strong>Rejection loops</strong> are the most important quality mechanism</li>
+    <li><strong>Human stays in the loop</strong> &mdash; conductor sets direction, human merges to master</li>
+    <li><strong>Stateless agents, stateful pipeline</strong> &mdash; agents can crash; pipeline survives</li>
+  </ul>
+</div>
+
+<!-- ====== 26. LESSONS: MIGRATION ====== -->
+<div class="slide">
+  <h2>Lessons: From the Migration</h2>
+  <ul>
+    <li><strong>Investigation pays off massively</strong> &mdash; 86 findings meant developers rarely hit surprises</li>
+    <li><strong>Granularity creates merge pressure</strong> &mdash; 163 beads = parallelism but merge conflicts</li>
+    <li><strong>Reviewers are the unsung hero</strong> &mdash; 6 rejections caught real bugs</li>
+    <li><strong>Need failure budgets, not infinite retries</strong> &mdash; circuit breakers are essential</li>
+    <li><strong>0-finding investigations are a red flag</strong> &mdash; silence means wrong scope</li>
+  </ul>
+</div>
+
+<!-- ====== 27. WHEN ORCHESTRATION ====== -->
+<div class="slide">
+  <h2>When Do You Need Orchestration?</h2>
+  <p style="font-size: 1.2rem; margin-bottom: 1.5rem;">You don't always need it &mdash; single agent is fine for small, well-defined tasks.</p>
+  <h3>Consider orchestration when:</h3>
+  <ul>
+    <li>Multiple files/components need <strong>coordinated changes</strong></li>
+    <li>You want <strong>code review</strong> as part of the automated workflow</li>
+    <li>Tasks have <strong>dependencies</strong> that need ordering</li>
+    <li>You want to <strong>parallelize</strong> work across independent tasks</li>
+    <li>You need <strong>reproducible, auditable</strong> processes</li>
+  </ul>
+</div>
+
+<!-- ====== 28. OPEN QUESTIONS ====== -->
+<div class="slide">
+  <h2>Open Questions</h2>
+  <ul>
+    <li><strong>Granularity sweet spot</strong> &mdash; 163 beads worked, but spawn storms suggest some were too fine-grained</li>
+    <li><strong>Investigation coverage</strong> &mdash; how to detect and re-scope investigations that produce nothing?</li>
+    <li><strong>Failure budgets</strong> &mdash; what's the right spawn limit before escalation?</li>
+    <li><strong>Cross-bead merge conflicts</strong> &mdash; smarter decomposition or file-level locking?</li>
+    <li><strong>Scaling</strong> &mdash; one microservice worked; what changes at 5 or 10?</li>
+  </ul>
+</div>
+
+<!-- ====== 29. WHY "DEBUSSY"? ====== -->
+<div class="slide">
+  <div class="layout">
+    <div class="text">
+      <h2>Why "Debussy"?</h2>
+      <ul>
+        <li>Named after <strong>Claude Debussy</strong> &mdash; the French composer</li>
+        <li>A nod to <strong>Claude</strong> (the AI) that powers the agents</li>
+        <li>Orchestration is the central metaphor &mdash; a <strong>conductor</strong> coordinating specialized performers</li>
+      </ul>
+      <h3 style="margin-top: 1.5rem;">Agents are named after composers too</h3>
+      <p style="font-size: 1.05rem;">Each agent type maps to a role in the orchestra &mdash; specialized, constrained, playing their part in a larger composition.</p>
+    </div>
+    <div class="visual">
+      <svg viewBox="0 0 300 300" width="280">
+        <defs>
+          <filter id="noteGlow"><feGaussianBlur stdDeviation="6"/></filter>
+        </defs>
+        <!-- staff lines -->
+        <line x1="30" y1="80" x2="270" y2="80" stroke="var(--border)" stroke-width="1"/>
+        <line x1="30" y1="100" x2="270" y2="100" stroke="var(--border)" stroke-width="1"/>
+        <line x1="30" y1="120" x2="270" y2="120" stroke="var(--border)" stroke-width="1"/>
+        <line x1="30" y1="140" x2="270" y2="140" stroke="var(--border)" stroke-width="1"/>
+        <line x1="30" y1="160" x2="270" y2="160" stroke="var(--border)" stroke-width="1"/>
+        <!-- notes (agent roles) -->
+        <ellipse cx="70" cy="120" rx="12" ry="9" fill="var(--green)" transform="rotate(-15 70 120)"/>
+        <line x1="82" y1="120" x2="82" y2="75" stroke="var(--green)" stroke-width="2"/>
+        <text x="70" y="180" text-anchor="middle" fill="var(--green)" font-size="9" font-weight="600">DEV</text>
+        <ellipse cx="120" cy="100" rx="12" ry="9" fill="var(--cyan)" transform="rotate(-15 120 100)"/>
+        <line x1="132" y1="100" x2="132" y2="55" stroke="var(--cyan)" stroke-width="2"/>
+        <text x="120" y="180" text-anchor="middle" fill="var(--cyan)" font-size="9" font-weight="600">REV</text>
+        <ellipse cx="170" cy="140" rx="12" ry="9" fill="var(--red)" transform="rotate(-15 170 140)"/>
+        <line x1="182" y1="140" x2="182" y2="95" stroke="var(--red)" stroke-width="2"/>
+        <text x="170" y="180" text-anchor="middle" fill="var(--red)" font-size="9" font-weight="600">SEC</text>
+        <ellipse cx="220" cy="110" rx="12" ry="9" fill="var(--orange)" transform="rotate(-15 220 110)"/>
+        <line x1="232" y1="110" x2="232" y2="65" stroke="var(--orange)" stroke-width="2"/>
+        <text x="220" y="180" text-anchor="middle" fill="var(--orange)" font-size="9" font-weight="600">INT</text>
+        <!-- conductor baton -->
+        <line x1="130" y1="230" x2="200" y2="210" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="200" cy="210" r="4" fill="#fff"/>
+        <!-- label -->
+        <text x="150" y="260" text-anchor="middle" fill="var(--accent)" font-size="13" font-weight="700">Claude Debussy</text>
+        <text x="150" y="280" text-anchor="middle" fill="var(--muted)" font-size="10">composer &bull; Claude &bull; orchestration</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 30. FUTURE PROSPECTS ====== -->
+<div class="slide">
+  <h2>What's Next</h2>
+  <h3>Frontend Reviews with Playwright</h3>
+  <ul>
+    <li>Agent <strong>starts the app</strong>, takes screenshots, verifies UI visually</li>
+    <li>Writes <strong>Playwright tests</strong> as part of the development cycle</li>
+    <li>Reviewer validates the visual output &mdash; not just the code</li>
+  </ul>
+  <h3 style="margin-top: 1.5rem;">Cloud-Based Agents</h3>
+  <ul>
+    <li>Deploy agents to <strong>EC2 instances</strong> instead of running locally</li>
+    <li>Free up developer machines &mdash; pipeline runs in the cloud</li>
+    <li>Scale horizontally &mdash; more agents, more parallelism, no local resource limits</li>
+  </ul>
+</div>
+
+<!-- ====== 31. THANK YOU ====== -->
+<div class="slide center">
+  <h1>Thank You</h1>
+  <p class="subtitle" style="margin-top: 1rem;">Questions?</p>
+  <p style="color: var(--muted); font-size: 1rem; margin-top: 2rem;">Tomasz Szturo &bull; Visma</p>
+</div>
+
+<!-- ====== NAV ====== -->
+<div class="nav">
+  <button id="prev" onclick="navigate(-1)">&lsaquo;</button>
+  <span class="counter" id="counter"></span>
+  <button id="next" onclick="navigate(1)">&rsaquo;</button>
+</div>
+
+<script>
+  let current = 0;
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+
+  function show(i) {
+    slides[current].classList.remove('active');
+    current = Math.max(0, Math.min(total - 1, i));
+    slides[current].classList.add('active');
+    document.getElementById('counter').textContent = (current + 1) + ' / ' + total;
+    document.getElementById('prev').disabled = current === 0;
+    document.getElementById('next').disabled = current === total - 1;
+    document.getElementById('progress').style.width = ((current + 1) / total * 100) + '%';
+  }
+
+  function navigate(d) { show(current + d); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); navigate(1); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); navigate(-1); }
+    if (e.key === 'Home') { e.preventDefault(); show(0); }
+    if (e.key === 'End') { e.preventDefault(); show(total - 1); }
+  });
+
+  show(0);
+</script>
+</body>
+</html>
