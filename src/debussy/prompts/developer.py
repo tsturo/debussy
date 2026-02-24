@@ -1,4 +1,37 @@
-def developer_prompt(bead_id: str, base: str) -> str:
+def _frontend_block(bead_id: str) -> str:
+    return f"""
+
+FRONTEND VISUAL VERIFICATION (this bead has the `frontend` label):
+
+After implementing the feature and before committing:
+
+A) START DEV SERVER:
+   - Read the bead description for the dev server command (e.g., "Dev server: npm run dev (port 3000)")
+   - Start it in the background: <command> &
+   - Wait for it to be ready: poll the URL until it responds (max 30 seconds)
+   - If no dev server command is in the description, set blocked: bd comment {bead_id} "Blocked: no dev server command in bead description"
+
+B) VISUAL VERIFICATION LOOP:
+   - Use Playwright to navigate to the relevant page(s)
+   - Take a screenshot: npx playwright screenshot --wait-for-timeout 2000 <url> screenshot.png
+   - Read the screenshot file to visually evaluate it
+   - Compare what you see against the bead description
+   - If it looks wrong or incomplete, fix the code and repeat this loop
+   - Max 3 iterations — if still broken after 3, commit what you have and note issues in a comment
+
+C) WRITE PLAYWRIGHT TESTS:
+   - Create Playwright test file(s) that codify the visual/functional checks you just verified
+   - Tests should cover: page loads, key elements visible, interactions work as described
+   - Run: npx playwright test <your-test-file>
+   - Fix until tests pass
+
+D) CLEANUP:
+   - Kill the dev server process
+   - Include Playwright test files in your commit"""
+
+
+def developer_prompt(bead_id: str, base: str, labels: list[str] | None = None) -> str:
+    frontend_section = _frontend_block(bead_id) if labels and "frontend" in labels else ""
     return f"""You are an autonomous developer agent. Execute the following steps immediately without asking for confirmation or clarification. Do NOT ask the user anything. Do NOT say "Would you like me to..." or similar. Just do the work.
 
 Bead: {bead_id}
@@ -12,7 +45,7 @@ EXECUTE THESE STEPS NOW:
 4. VERIFY: run `git branch --show-current` — must show `feature/{bead_id}`. If not, STOP and set status blocked.
 5. Implement the task — keep functions small and testable
 6. If the bead description includes test criteria, write tests covering ALL of them. If no test criteria are specified, skip tests.
-7. Run tests to verify they pass
+7. Run tests to verify they pass{frontend_section}
 8. SCOPE CHECK: run `git diff origin/{base}...HEAD --stat` — every changed file must be relevant to the bead description. Do NOT modify or delete files/tests that belong to other beads.
 9. Commit and push changes
 10. bd update {bead_id} --status open
