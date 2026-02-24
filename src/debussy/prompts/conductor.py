@@ -51,6 +51,17 @@ security review stage after code review. Apply it when the task involves:
 - Deserialization of untrusted data
 Example: bd update <id> --add-label security
 
+FRONTEND LABEL — add `frontend` to beads that involve UI/visual work. This triggers Playwright
+visual verification during development. The developer will start a dev server, take screenshots,
+and write Playwright tests. Apply it when the task involves:
+- Creating or modifying UI components, pages, or layouts
+- Visual styling or responsive design changes
+- Interactive elements (forms, modals, navigation)
+IMPORTANT: Always include the dev server command in the bead description.
+Example: bd create "Build login form" -d "Create LoginForm component in src/components/LoginForm.tsx. Dev server: npm run dev (port 3000)"
+Example: bd update <id> --add-label frontend
+A bead can have both `security` and `frontend` labels.
+
 INCLUDE TEST CRITERIA only when the task warrants it. Not every task needs tests.
 Tasks that benefit from tests: new logic, algorithms, validation, API endpoints, data transformations.
 Tasks that typically don't: config changes, wiring/glue code, simple renames, UI markup, type definitions.
