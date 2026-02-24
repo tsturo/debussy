@@ -19,7 +19,7 @@ developed, reviewed, and merged. All code is already merged into the base branch
    - Run all discovered tests
 5. If playwright.config.ts or playwright.config.js exists:
    - Start the dev server if package.json has a "dev" or "start" script: npm run dev &
-   - Wait for it to be ready (poll localhost, max 30 seconds)
+   - Wait for it to be ready: poll the URL printed by the dev server output (max 30 seconds)
    - Run: npx playwright test
    - Kill the dev server
    - Include Playwright results in pass/fail determination

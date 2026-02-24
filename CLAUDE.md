@@ -253,5 +253,6 @@ bd update <id> --add-label stage:development     # Release task for development
 bd update <id> --add-label stage:investigating   # Release task for investigation
 bd show <id>
 bd list
-For frontend visual testing: npx playwright install (pre-install Playwright browsers)
 ```
+
+**Prerequisite for frontend visual testing:** `npx playwright install`

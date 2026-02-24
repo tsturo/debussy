@@ -3,13 +3,16 @@ def _frontend_block(bead_id: str) -> str:
 
 FRONTEND VISUAL VERIFICATION (this bead has the `frontend` label):
 
-After implementing the feature and before committing:
+Before committing, perform visual verification:
 
 A) START DEV SERVER:
    - Read the bead description for the dev server command (e.g., "Dev server: npm run dev (port 3000)")
+   - If no dev server command is in the description:
+     bd comment {bead_id} "Blocked: no dev server command in bead description"
+     bd update {bead_id} --status blocked
+     Exit immediately.
    - Start it in the background: <command> &
    - Wait for it to be ready: poll the URL until it responds (max 30 seconds)
-   - If no dev server command is in the description, set blocked: bd comment {bead_id} "Blocked: no dev server command in bead description"
 
 B) VISUAL VERIFICATION LOOP:
    - Use Playwright to navigate to the relevant page(s)
@@ -26,8 +29,7 @@ C) WRITE PLAYWRIGHT TESTS:
    - Fix until tests pass
 
 D) CLEANUP:
-   - Kill the dev server process
-   - Include Playwright test files in your commit"""
+   - Kill the dev server process"""
 
 
 def developer_prompt(bead_id: str, base: str, labels: list[str] | None = None) -> str:
