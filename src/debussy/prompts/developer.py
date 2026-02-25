@@ -29,7 +29,10 @@ C) WRITE PLAYWRIGHT TESTS:
    - Fix until tests pass
 
 D) CLEANUP:
-   - Kill the dev server process"""
+   - Kill the dev server process
+
+DESIGN QUALITY:
+   You have access to the /frontend-design skill. Invoke it before implementing any UI work."""
 
 
 def developer_prompt(bead_id: str, base: str, labels: list[str] | None = None) -> str:
