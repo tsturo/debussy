@@ -4,6 +4,8 @@
 
 *Named after Claude Debussy, the impressionist composer. Agents are named after composers too (e.g., `developer-beethoven`, `reviewer-chopin`).*
 
+![Architecture](docs/architecture.png)
+
 ---
 
 ## Quick Start
@@ -45,6 +47,8 @@ You ↔ Conductor (plans, creates tasks)
 ### Development Pipeline
 
 Each bead flows through four stages. The watcher advances beads automatically based on agent signals.
+
+![Pipeline](docs/pipeline.png)
 
 ```
 open → stage:development → stage:reviewing → stage:merging → closed
@@ -174,6 +178,8 @@ Agents never merge to master.
 
 ## Agents
 
+![Roles](docs/roles.png)
+
 | Agent | Role | Terminal? |
 |-------|------|-----------|
 | **conductor** | Creates tasks, monitors progress, never writes code | N/A |
@@ -183,6 +189,12 @@ Agents never merge to master.
 | **integrator** | Merges feature branch to conductor's base branch | Yes |
 | **tester** | Batch acceptance testing after all beads merged | Yes |
 | **investigator** | Researches codebase, documents findings. Also handles consolidation | Yes |
+
+---
+
+## Kanban Board
+
+![Board](docs/board.png)
 
 ---
 
@@ -210,7 +222,7 @@ dbs debug                # Troubleshoot pipeline detection
 ```bash
 dbs config                          # Show all
 dbs config max_total_agents 8       # Max concurrent agents (default: 8)
-dbs config use_tmux_windows true    # Spawn agents as tmux windows (default: true)
+dbs config use_tmux_windows true    # Spawn agents as tmux windows (default: false)
 dbs config base_branch feature/foo  # Conductor's base branch
 dbs config agent_timeout 3600       # Agent timeout in seconds (default: 3600)
 ```
