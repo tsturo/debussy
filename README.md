@@ -32,47 +32,15 @@ Debussy has three layers:
 2. **Watcher** - the orchestration engine. Polls beads every 5 seconds, spawns Claude agents based on stage labels, owns all stage transitions.
 3. **Agents** - specialized Claude instances (developer, reviewer, security-reviewer, integrator, tester, investigator) that do the actual work in isolated git worktrees.
 
-```
-You ↔ Conductor (plans, creates tasks)
-              ↓
-         Watcher (polls every 5s, spawns agents, manages transitions)
-              ↓
-     Agents (work in isolated worktrees, signal results via status)
-```
-
 ---
 
 ## Pipelines
 
 ### Development Pipeline
 
-Each bead flows through four stages. The watcher advances beads automatically based on agent signals.
+Each bead flows through four stages. The watcher advances beads automatically based on agent signals. Beads with the `security` label get an extra security review stage. After all beads in a batch are merged, a batch acceptance bead runs.
 
 ![Pipeline](docs/pipeline.png)
-
-```
-open → stage:development → stage:reviewing → stage:merging → closed
-              ↓                  ↓                ↓
-          developer           reviewer        integrator
-              ↑                  │                │
-              └──────────────────┴────────────────┘  (on rejection → back to development)
-```
-
-Beads with the `security` label get an extra stage after code review:
-
-```
-stage:reviewing → stage:security-review → stage:merging
-                        ↓
-                  security-reviewer
-```
-
-After all beads in a batch are merged, a batch acceptance bead runs:
-
-```
-stage:acceptance → closed
-       ↓
-     tester
-```
 
 ### Investigation Pipeline
 
@@ -177,8 +145,6 @@ Agents never merge to master.
 ---
 
 ## Agents
-
-![Roles](docs/roles.png)
 
 | Agent | Role | Terminal? |
 |-------|------|-----------|
