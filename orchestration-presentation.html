@@ -313,13 +313,13 @@
 
 <!-- Visma logo bottom-left on every slide -->
 <div class="visma-logo">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/7/77/Visma_logo.png" alt="Visma" height="56" style="filter: brightness(2);">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/7/77/Visma_logo.png" alt="Visma" height="56" style="filter: brightness(0) invert(1);">
 </div>
 
 <!-- ====== 1. TITLE ====== -->
 <div class="slide active center">
   <h1>Orchestrating AI Agents</h1>
-  <p class="subtitle">From Chaos to Pipeline</p>
+  <p class="subtitle">Lessons from Running 300+ AI Agents on a Real Migration</p>
   <p style="color: #fff; font-size: 1.1rem; margin-top: 1.5rem;">Tomasz Szturo</p>
   <p style="color: var(--muted); font-size: 0.95rem; margin-top: 0.3rem;">Visma</p>
   <p style="color: var(--muted); font-size: 0.9rem; margin-top: 2rem;">
@@ -373,12 +373,7 @@
   </div>
 </div>
 
-<!-- ====== 3. AUDIENCE QUESTION ====== -->
-<div class="slide center">
-  <p class="big-quote">"How many of you have had an agent go off the rails<br>200 lines into a change?"</p>
-</div>
-
-<!-- ====== 4. WHAT IS ORCHESTRATION ====== -->
+<!-- ====== 3. WHAT IS ORCHESTRATION ====== -->
 <div class="slide">
   <h2>What Is Agent Orchestration?</h2>
   <p style="font-size: 1.3rem; color: #fff; margin-bottom: 1.5rem;">Coordinating multiple specialized agents toward a shared goal</p>
@@ -440,82 +435,7 @@
   </div>
 </div>
 
-<!-- ====== 6. PIPELINE ORCHESTRATION — visual ====== -->
-<div class="slide">
-  <div class="layout">
-    <div class="text">
-      <h2>Approach 2: Pipeline Orchestration</h2>
-      <p style="color: var(--green); font-weight: 600; margin-bottom: 1rem;">Structured, state-machine driven</p>
-      <ul>
-        <li>Conductor monitors and adjusts &mdash; agents work on <strong>atomic tasks</strong></li>
-        <li>Tasks released incrementally with quality gates</li>
-        <li>Reproducible and auditable &mdash; same pipeline every time</li>
-        <li><strong>Debussy takes this approach</strong></li>
-      </ul>
-    </div>
-    <div class="visual">
-      <svg viewBox="0 0 360 320" width="340">
-        <defs>
-          <marker id="arrowG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--green)"/></marker>
-          <marker id="arrowA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--accent)"/></marker>
-        </defs>
-        <circle cx="180" cy="80" r="42" fill="var(--glow)" stroke="var(--green)" stroke-width="2"/>
-        <text x="180" y="76" text-anchor="middle" fill="var(--green)" font-size="10" font-weight="600">CONDUCTOR</text>
-        <text x="180" y="90" text-anchor="middle" fill="var(--green)" font-size="9">watching</text>
-        <path d="M158 108 L80 160" stroke="var(--green)" stroke-width="1.5" fill="none" marker-end="url(#arrowG)"/>
-        <path d="M180 112 L180 160" stroke="var(--green)" stroke-width="1.5" fill="none" marker-end="url(#arrowG)"/>
-        <path d="M202 108 L280 160" stroke="var(--green)" stroke-width="1.5" fill="none" marker-end="url(#arrowG)"/>
-        <path d="M90 160 L162 112" stroke="var(--accent)" stroke-width="1" fill="none" stroke-dasharray="4" marker-end="url(#arrowA)"/>
-        <path d="M186 160 L186 116" stroke="var(--accent)" stroke-width="1" fill="none" stroke-dasharray="4" marker-end="url(#arrowA)"/>
-        <path d="M270 160 L198 112" stroke="var(--accent)" stroke-width="1" fill="none" stroke-dasharray="4" marker-end="url(#arrowA)"/>
-        <circle cx="80" cy="180" r="22" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
-        <text x="80" y="185" text-anchor="middle" fill="#fff" font-size="10">DEV</text>
-        <circle cx="180" cy="180" r="22" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
-        <text x="180" y="185" text-anchor="middle" fill="#fff" font-size="10">REV</text>
-        <circle cx="280" cy="180" r="22" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
-        <text x="280" y="185" text-anchor="middle" fill="#fff" font-size="10">INT</text>
-        <line x1="80" y1="205" x2="80" y2="240" stroke="var(--green)" stroke-width="1.5"/>
-        <line x1="180" y1="205" x2="180" y2="240" stroke="var(--green)" stroke-width="1.5"/>
-        <line x1="280" y1="205" x2="280" y2="240" stroke="var(--green)" stroke-width="1.5"/>
-        <rect x="40" y="245" width="80" height="50" rx="6" fill="none" stroke="var(--green)" stroke-width="1.5" opacity="0.6"/>
-        <rect x="140" y="245" width="80" height="50" rx="6" fill="none" stroke="var(--green)" stroke-width="1.5" opacity="0.6"/>
-        <rect x="240" y="245" width="80" height="50" rx="6" fill="none" stroke="var(--green)" stroke-width="1.5" opacity="0.6"/>
-        <text x="180" y="235" text-anchor="middle" fill="var(--muted)" font-size="10">OUTPUTS</text>
-        <text x="180" y="315" text-anchor="middle" fill="var(--green)" font-size="11">coordinated, incremental delivery</text>
-      </svg>
-    </div>
-  </div>
-</div>
-
-<!-- ====== 7. COMPLEMENTARY TOOLS ====== -->
-<div class="slide center">
-  <h2>Complementary, Not Competing</h2>
-  <div style="display: flex; gap: 3rem; margin-top: 2rem; justify-content: center;">
-    <div class="col" style="max-width: 340px; text-align: left;">
-      <h3 style="color: var(--orange);">Agent Teams</h3>
-      <ul>
-        <li>Exploratory, ill-defined problems</li>
-        <li>Debugging &mdash; need to brainstorm</li>
-        <li>Infrastructure &amp; environment issues</li>
-        <li>When the <strong>solution isn't clear yet</strong></li>
-      </ul>
-    </div>
-    <div class="col" style="max-width: 340px; text-align: left;">
-      <h3 style="color: var(--green);">Pipeline Orchestration</h3>
-      <ul>
-        <li>Structured, decomposable work</li>
-        <li>Needs quality gates &amp; review</li>
-        <li>Large-scale migrations</li>
-        <li>When the <strong>process matters</strong></li>
-      </ul>
-    </div>
-  </div>
-  <div class="callout" style="max-width: 680px; margin-top: 1.5rem;">
-    In the Camunda migration: <strong>Debussy</strong> handled 163 structured tasks &mdash; but when it was time to start the app and debug docker-compose, <strong>agent teams</strong> (brainstorming together) solved it faster.
-  </div>
-</div>
-
-<!-- ====== 8. COMM: PEER TO PEER — visual ====== -->
+<!-- ====== 6. COMM: PEER TO PEER — visual ====== -->
 <div class="slide">
   <div class="layout">
     <div class="text">
@@ -554,7 +474,63 @@
   </div>
 </div>
 
-<!-- ====== 9. COMM: HUB AND SPOKE — visual ====== -->
+<!-- ====== 7. AGENT TEAMS IN ACTION ====== -->
+<div class="slide center">
+  <h2>Agent Teams in Action</h2>
+  <p style="color: var(--muted); margin-bottom: 0.8rem;">Two agents collaborating in tmux &mdash; test-writer and coder working in TDD fashion</p>
+  <div style="display: flex; justify-content: center;">
+    <img src="agent-teams-screenshot.png" alt="Agent teams working in tmux" style="max-width: 95%; max-height: 70vh; border-radius: 10px; border: 1px solid var(--border);">
+  </div>
+</div>
+
+<!-- ====== 8. PIPELINE ORCHESTRATION — visual ====== -->
+<div class="slide">
+  <div class="layout">
+    <div class="text">
+      <h2>Approach 2: Pipeline Orchestration</h2>
+      <p style="color: var(--green); font-weight: 600; margin-bottom: 1rem;">Structured, state-machine driven</p>
+      <ul>
+        <li>Conductor monitors and adjusts &mdash; agents work on <strong>atomic tasks</strong></li>
+        <li>Tasks released incrementally with quality gates</li>
+        <li>Reproducible and auditable &mdash; same pipeline every time</li>
+        <li><strong>Debussy takes this approach</strong></li>
+      </ul>
+    </div>
+    <div class="visual">
+      <svg viewBox="0 0 360 320" width="340">
+        <defs>
+          <marker id="arrowG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--green)"/></marker>
+          <marker id="arrowA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--accent)"/></marker>
+        </defs>
+        <circle cx="180" cy="80" r="42" fill="var(--glow)" stroke="var(--green)" stroke-width="2"/>
+        <text x="180" y="76" text-anchor="middle" fill="var(--green)" font-size="10" font-weight="600">CONDUCTOR</text>
+        <text x="180" y="90" text-anchor="middle" fill="var(--green)" font-size="9">watching</text>
+        <path d="M150 110 L96 164" stroke="var(--green)" stroke-width="1.5" fill="none" marker-end="url(#arrowG)"/>
+        <path d="M180 122 L180 158" stroke="var(--green)" stroke-width="1.5" fill="none" marker-end="url(#arrowG)"/>
+        <path d="M210 110 L264 164" stroke="var(--green)" stroke-width="1.5" fill="none" marker-end="url(#arrowG)"/>
+        <path d="M100 166 L154 112" stroke="var(--accent)" stroke-width="1" fill="none" stroke-dasharray="4" marker-end="url(#arrowA)"/>
+        <path d="M184 158 L184 122" stroke="var(--accent)" stroke-width="1" fill="none" stroke-dasharray="4" marker-end="url(#arrowA)"/>
+        <path d="M260 166 L206 112" stroke="var(--accent)" stroke-width="1" fill="none" stroke-dasharray="4" marker-end="url(#arrowA)"/>
+        <circle cx="80" cy="180" r="22" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="80" y="185" text-anchor="middle" fill="#fff" font-size="10">DEV</text>
+        <circle cx="180" cy="180" r="22" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="180" y="185" text-anchor="middle" fill="#fff" font-size="10">REV</text>
+        <circle cx="280" cy="180" r="22" fill="var(--surface)" stroke="var(--green)" stroke-width="1.5"/>
+        <text x="280" y="185" text-anchor="middle" fill="#fff" font-size="10">INT</text>
+        <line x1="80" y1="205" x2="80" y2="240" stroke="var(--green)" stroke-width="1.5"/>
+        <line x1="180" y1="205" x2="180" y2="240" stroke="var(--green)" stroke-width="1.5"/>
+        <line x1="280" y1="205" x2="280" y2="240" stroke="var(--green)" stroke-width="1.5"/>
+        <rect x="40" y="245" width="80" height="50" rx="6" fill="none" stroke="var(--green)" stroke-width="1.5" opacity="0.6"/>
+        <rect x="140" y="245" width="80" height="50" rx="6" fill="none" stroke="var(--green)" stroke-width="1.5" opacity="0.6"/>
+        <rect x="240" y="245" width="80" height="50" rx="6" fill="none" stroke="var(--green)" stroke-width="1.5" opacity="0.6"/>
+        <text x="180" y="235" text-anchor="middle" fill="var(--muted)" font-size="10">OUTPUTS</text>
+        <text x="180" y="315" text-anchor="middle" fill="var(--green)" font-size="11">coordinated, incremental delivery</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 8. COMM: HUB AND SPOKE — visual ====== -->
 <div class="slide">
   <div class="layout">
     <div class="text">
@@ -595,6 +571,34 @@
   </div>
 </div>
 
+<!-- ====== 9. COMPLEMENTARY TOOLS ====== -->
+<div class="slide center">
+  <h2>Complementary, Not Competing</h2>
+  <div style="display: flex; gap: 3rem; margin-top: 2rem; justify-content: center;">
+    <div class="col" style="max-width: 340px; text-align: left;">
+      <h3 style="color: var(--orange);">Agent Teams</h3>
+      <ul>
+        <li>Exploratory, ill-defined problems</li>
+        <li>Debugging &mdash; need to brainstorm</li>
+        <li>Infrastructure &amp; environment issues</li>
+        <li>When the <strong>solution isn't clear yet</strong></li>
+      </ul>
+    </div>
+    <div class="col" style="max-width: 340px; text-align: left;">
+      <h3 style="color: var(--green);">Pipeline Orchestration</h3>
+      <ul>
+        <li>Structured, decomposable work</li>
+        <li>Needs quality gates &amp; review</li>
+        <li>Large-scale migrations</li>
+        <li>When the <strong>process matters</strong></li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout" style="max-width: 680px; margin-top: 1.5rem;">
+    In the Camunda migration: <strong>Debussy</strong> handled 163 structured tasks &mdash; but when it was time to start the app and debug docker-compose, <strong>agent teams</strong> (brainstorming together) solved it faster.
+  </div>
+</div>
+
 <!-- ====== 10. KEY INSIGHT ====== -->
 <div class="slide center">
   <h2>The Key Insight</h2>
@@ -611,7 +615,26 @@
   </p>
 </div>
 
-<!-- ====== 11. SEPARATION OF ROLES ====== -->
+<!-- ====== 11. COMPARISON TABLE ====== -->
+<div class="slide">
+  <h2>Agent Teams vs. Pipeline: Different Strengths</h2>
+  <table>
+    <thead>
+      <tr><th>Aspect</th><th>Agent Teams</th><th>Debussy Pipeline</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Best for</strong></td><td>Exploration, debugging, unknowns</td><td>Structured, decomposable work</td></tr>
+      <tr><td><strong>Coordination</strong></td><td>Agents chat and brainstorm</td><td>State machine + watcher</td></tr>
+      <tr><td><strong>Flexibility</strong></td><td>High &mdash; adapts on the fly</td><td>Constrained &mdash; follows the pipeline</td></tr>
+      <tr><td><strong>Quality gates</strong></td><td>Informal</td><td>Mandatory (review, security, acceptance)</td></tr>
+      <tr><td><strong>Auditability</strong></td><td>Hard &mdash; depends on conversation</td><td>Full &mdash; every transition logged</td></tr>
+      <tr><td><strong>Reproducibility</strong></td><td>Low</td><td>Same pipeline every time</td></tr>
+      <tr><td><strong>Real-world use</strong></td><td>Docker-compose debugging</td><td>163-task Camunda migration</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ====== 12. SEPARATION OF ROLES ====== -->
 <div class="slide">
   <h2>Separation of Roles</h2>
   <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem;">
@@ -639,6 +662,11 @@
       <svg viewBox="0 0 60 60" width="48"><circle cx="30" cy="30" r="25" fill="var(--glow)" stroke="var(--orange)" stroke-width="1.5"/><text x="30" y="36" text-anchor="middle" fill="var(--orange)" font-size="18">&#8644;</text></svg>
       <p style="font-size: 0.95rem; color: #fff; font-weight: 600;">Integrator</p>
       <p style="font-size: 0.85rem; margin-top: 0.2rem;">Merges branches<br><strong>Can't change code</strong></p>
+    </div>
+    <div class="col" style="flex: 1; min-width: 140px; text-align: center;">
+      <svg viewBox="0 0 60 60" width="48"><circle cx="30" cy="30" r="25" fill="var(--glow)" stroke="#ab47bc" stroke-width="1.5"/><text x="30" y="36" text-anchor="middle" fill="#ab47bc" font-size="18">&#10003;</text></svg>
+      <p style="font-size: 0.95rem; color: #fff; font-weight: 600;">Tester</p>
+      <p style="font-size: 0.85rem; margin-top: 0.2rem;">Acceptance tests<br><strong>Can't fix failures</strong></p>
     </div>
   </div>
   <div class="callout" style="margin-top: 1.2rem;">
@@ -760,7 +788,7 @@
 <div class="slide">
   <h2>Pipeline as a State Machine</h2>
   <div style="display: flex; justify-content: center; margin: 1.5rem 0;">
-    <svg viewBox="-5 0 910 200" width="95%">
+    <svg viewBox="-5 0 910 240" width="95%">
       <defs>
         <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--accent)"/></marker>
         <marker id="arrR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--red)"/></marker>
@@ -785,9 +813,13 @@
       <line x1="767" y1="82" x2="798" y2="82" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
       <rect x="802" y="60" width="90" height="44" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
       <text x="847" y="87" text-anchor="middle" fill="var(--accent)" font-size="12" font-weight="700">closed</text>
-      <!-- rejection loop -->
-      <path d="M382 108 C382 165 217 165 217 108" stroke="var(--red)" stroke-width="1.5" fill="none" stroke-dasharray="5" marker-end="url(#arrR)"/>
-      <text x="300" y="158" text-anchor="middle" fill="var(--red)" font-size="10" font-weight="600">rejected &rarr; back to dev</text>
+      <!-- rejection loops -->
+      <path d="M382 108 C382 155 217 155 217 108" stroke="var(--red)" stroke-width="1.5" fill="none" stroke-dasharray="5" marker-end="url(#arrR)"/>
+      <path d="M547 108 C547 185 217 185 217 108" stroke="var(--red)" stroke-width="1.5" fill="none" stroke-dasharray="5" marker-end="url(#arrR)"/>
+      <path d="M707 108 C707 215 217 215 217 108" stroke="var(--red)" stroke-width="1.5" fill="none" stroke-dasharray="5" marker-end="url(#arrR)"/>
+      <text x="300" y="148" text-anchor="middle" fill="var(--red)" font-size="9">rejected</text>
+      <text x="382" y="180" text-anchor="middle" fill="var(--red)" font-size="9">rejected</text>
+      <text x="462" y="210" text-anchor="middle" fill="var(--red)" font-size="9">conflict</text>
       <!-- agent labels -->
       <text x="217" y="50" text-anchor="middle" fill="var(--muted)" font-size="9">developer</text>
       <text x="382" y="50" text-anchor="middle" fill="var(--muted)" font-size="9">reviewer</text>
@@ -888,7 +920,7 @@
       </ul>
     </div>
     <div class="visual">
-      <svg viewBox="-15 0 380 340" width="340">
+      <svg viewBox="-40 -5 430 350" width="340">
         <defs>
           <marker id="arrC" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--accent)"/></marker>
         </defs>
@@ -900,20 +932,20 @@
         <path d="M70 170 A100 100 0 0 1 170 70" stroke="var(--accent)" stroke-width="2.5" fill="none" marker-end="url(#arrC)" class="loop-arc-4"/>
         <!-- animated labels -->
         <g class="loop-label-1">
-          <rect x="192" y="48" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
-          <text x="235" y="67" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">1. POLL</text>
+          <rect x="192" y="25" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
+          <text x="235" y="44" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">1. POLL</text>
         </g>
         <g class="loop-label-2">
-          <rect x="272" y="148" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
-          <text x="315" y="167" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">2. DETECT</text>
+          <rect x="290" y="148" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
+          <text x="333" y="167" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">2. DETECT</text>
         </g>
         <g class="loop-label-3">
-          <rect x="192" y="270" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
-          <text x="235" y="289" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">3. SPAWN</text>
+          <rect x="192" y="290" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
+          <text x="235" y="309" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">3. SPAWN</text>
         </g>
         <g class="loop-label-4">
-          <rect x="-8" y="148" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
-          <text x="35" y="167" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">4. SIGNAL</text>
+          <rect x="-30" y="148" width="86" height="28" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
+          <text x="13" y="167" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="600">4. SIGNAL</text>
         </g>
         <!-- center -->
         <circle cx="170" cy="170" r="35" fill="var(--glow)" stroke="var(--accent)" stroke-width="2" class="watcher-center"/>
@@ -948,7 +980,7 @@
         <text x="230" y="84" text-anchor="middle" fill="#fff" font-size="9">A2</text>
         <line x1="100" y1="100" x2="130" y2="140" stroke="var(--red)" stroke-width="1.5"/>
         <line x1="220" y1="100" x2="190" y2="140" stroke="var(--red)" stroke-width="1.5"/>
-        <rect x="120" y="140" width="80" height="30" rx="4" fill="#141620" stroke="var(--red)" stroke-width="1.5"/>
+        <rect x="105" y="140" width="110" height="30" rx="4" fill="#141620" stroke="var(--red)" stroke-width="1.5"/>
         <text x="160" y="160" text-anchor="middle" fill="var(--red)" font-size="10">UserService.java</text>
         <text x="160" y="130" text-anchor="middle" fill="var(--red)" font-size="20" font-weight="700" class="stress">&#9889;</text>
         <rect x="70" y="195" width="180" height="55" rx="6" fill="#141620" stroke="var(--border)" stroke-width="1"/>
@@ -1000,51 +1032,6 @@
       </svg>
     </div>
   </div>
-</div>
-
-<!-- ====== 16. QUALITY GATES — animated ====== -->
-<div class="slide">
-  <h2>Quality Gates</h2>
-  <div style="display: flex; justify-content: center; margin: 1.5rem 0;">
-    <svg viewBox="0 0 800 160" width="95%">
-      <defs>
-        <filter id="gateGlow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      </defs>
-      <rect x="10" y="50" width="130" height="50" rx="8" fill="var(--glow)" stroke="var(--green)" stroke-width="1.5"/>
-      <text x="75" y="72" text-anchor="middle" fill="var(--green)" font-size="11" font-weight="600">Development</text>
-      <text x="75" y="88" text-anchor="middle" fill="var(--muted)" font-size="9">developer writes code</text>
-      <line x1="145" y1="75" x2="175" y2="75" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
-      <rect x="178" y="40" width="70" height="70" rx="8" fill="var(--surface)" stroke="var(--cyan)" stroke-width="2"/>
-      <text x="213" y="70" text-anchor="middle" fill="var(--cyan)" font-size="11" font-weight="700">CODE</text>
-      <text x="213" y="88" text-anchor="middle" fill="var(--cyan)" font-size="9" font-weight="600">REVIEW</text>
-      <line x1="253" y1="75" x2="283" y2="75" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
-      <rect x="286" y="40" width="70" height="70" rx="8" fill="var(--surface)" stroke="var(--red)" stroke-width="2" stroke-dasharray="4"/>
-      <text x="321" y="70" text-anchor="middle" fill="var(--red)" font-size="11" font-weight="700">SEC</text>
-      <text x="321" y="88" text-anchor="middle" fill="var(--red)" font-size="9" font-weight="600">REVIEW</text>
-      <text x="321" y="25" text-anchor="middle" fill="var(--muted)" font-size="9">(if labeled)</text>
-      <line x1="361" y1="75" x2="391" y2="75" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
-      <rect x="395" y="50" width="110" height="50" rx="8" fill="var(--glow)" stroke="var(--orange)" stroke-width="1.5"/>
-      <text x="450" y="72" text-anchor="middle" fill="var(--orange)" font-size="11" font-weight="600">Merge</text>
-      <text x="450" y="88" text-anchor="middle" fill="var(--muted)" font-size="9">integrator merges</text>
-      <line x1="510" y1="75" x2="540" y2="75" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
-      <rect x="543" y="40" width="70" height="70" rx="8" fill="var(--surface)" stroke="var(--green)" stroke-width="2"/>
-      <text x="578" y="70" text-anchor="middle" fill="var(--green)" font-size="11" font-weight="700">ACCEPT</text>
-      <text x="578" y="88" text-anchor="middle" fill="var(--green)" font-size="9" font-weight="600">TEST</text>
-      <line x1="618" y1="75" x2="648" y2="75" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr)"/>
-      <rect x="652" y="50" width="100" height="50" rx="8" fill="var(--accent)" stroke="var(--accent)" stroke-width="1.5" opacity="0.3"/>
-      <text x="702" y="80" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">DONE</text>
-      <!-- rejection arrow -->
-      <path d="M213 114 C213 148 75 148 75 104" stroke="var(--red)" stroke-width="1.5" fill="none" stroke-dasharray="4" marker-end="url(#arrR)"/>
-      <text x="140" y="148" text-anchor="middle" fill="var(--red)" font-size="9">rejected</text>
-      <!-- ANIMATED TOKEN -->
-      <circle cy="75" r="7" fill="var(--green)" filter="url(#gateGlow)" class="gate-token"/>
-    </svg>
-  </div>
-  <ul>
-    <li><strong>Every bead</strong> passes through code review before merge</li>
-    <li><strong>Rejection loops</strong>: failed review goes back to development</li>
-    <li>Batch acceptance testing runs after all beads are merged</li>
-  </ul>
 </div>
 
 <!-- ====== 17. INVESTIGATION PIPELINE — visual ====== -->
@@ -1231,25 +1218,6 @@
   </div>
 </div>
 
-<!-- ====== 22. COMPARISON TABLE ====== -->
-<div class="slide">
-  <h2>Agent Teams vs. Pipeline: Different Strengths</h2>
-  <table>
-    <thead>
-      <tr><th>Aspect</th><th>Agent Teams</th><th>Debussy Pipeline</th></tr>
-    </thead>
-    <tbody>
-      <tr><td><strong>Best for</strong></td><td>Exploration, debugging, unknowns</td><td>Structured, decomposable work</td></tr>
-      <tr><td><strong>Coordination</strong></td><td>Agents chat and brainstorm</td><td>State machine + watcher</td></tr>
-      <tr><td><strong>Flexibility</strong></td><td>High &mdash; adapts on the fly</td><td>Constrained &mdash; follows the pipeline</td></tr>
-      <tr><td><strong>Quality gates</strong></td><td>Informal</td><td>Mandatory (review, security, acceptance)</td></tr>
-      <tr><td><strong>Auditability</strong></td><td>Hard &mdash; depends on conversation</td><td>Full &mdash; every transition logged</td></tr>
-      <tr><td><strong>Reproducibility</strong></td><td>Low</td><td>Same pipeline every time</td></tr>
-      <tr><td><strong>Real-world use</strong></td><td>Docker-compose debugging</td><td>163-task Camunda migration</td></tr>
-    </tbody>
-  </table>
-</div>
-
 <!-- ====== 21. CASE STUDY INTRO ====== -->
 <div class="slide center">
   <h2>Case Study</h2>
@@ -1338,6 +1306,7 @@
     <li><strong>Investigation pays off massively</strong> &mdash; 86 findings meant developers rarely hit surprises</li>
     <li><strong>Granularity creates merge pressure</strong> &mdash; 163 beads = parallelism but merge conflicts</li>
     <li><strong>Reviewers are the unsung hero</strong> &mdash; 6 rejections caught real bugs</li>
+    <li><strong>Integration is the bottleneck</strong> &mdash; the singleton integrator serializes all merges, stalling parallel work</li>
     <li><strong>Need failure budgets, not infinite retries</strong> &mdash; circuit breakers are essential</li>
     <li><strong>0-finding investigations are a red flag</strong> &mdash; silence means wrong scope</li>
   </ul>
@@ -1431,6 +1400,12 @@
     <li>Deploy agents to <strong>EC2 instances</strong> instead of running locally</li>
     <li>Free up developer machines &mdash; pipeline runs in the cloud</li>
     <li>Scale horizontally &mdash; more agents, more parallelism, no local resource limits</li>
+  </ul>
+  <h3 style="margin-top: 1.5rem;">Pipeline Metrics &amp; Observability</h3>
+  <ul>
+    <li>Track <strong>token usage</strong> per bead, per agent role, per pipeline run</li>
+    <li>Measure <strong>agent performance</strong> &mdash; success rates, rejection rates, time per stage</li>
+    <li>Cost visibility &mdash; know exactly what each migration costs in API tokens</li>
   </ul>
 </div>
 
