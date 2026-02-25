@@ -387,6 +387,21 @@
   </div>
 </div>
 
+<!-- ====== ANTHROPIC AGENT TEAMS ====== -->
+<div class="slide">
+  <h2>Anthropic Ships Agent Teams</h2>
+  <p style="font-size: 0.95rem; margin-bottom: 1rem;">February 5, 2026 &mdash; alongside Opus 4.6, Anthropic released native <strong>Agent Teams</strong> in Claude Code (research preview).</p>
+  <ul style="font-size: 0.9rem; margin-bottom: 1rem;">
+    <li>Multiple agents working <strong>simultaneously</strong> on different parts of the codebase</li>
+    <li>Sub-agents can be <strong>taken over interactively</strong>, including via tmux</li>
+    <li>A productization of patterns the community has been building</li>
+  </ul>
+  <div class="callout" style="margin-bottom: 1rem;">
+    The community noted: Anthropic first adopted <strong>Beads as Tasks</strong>, and now multi-agent coordination as <strong>TeammateTool / Agent Teams</strong>.
+  </div>
+  <p style="font-size: 0.9rem; color: var(--muted);">What started as community experiments is now a first-party feature &mdash; but how should agents actually coordinate?</p>
+</div>
+
 <!-- ====== 5. AGENT TEAMS — visual ====== -->
 <div class="slide">
   <div class="layout">
@@ -1481,6 +1496,19 @@
   <div class="callout" style="margin-top: 1.2rem;">
     The watcher is essentially a <strong>multi-agent, multi-stage Ralph Wiggum Loop</strong> &mdash; same core insight applied across a pipeline.
   </div>
+</div>
+
+<!-- ====== THIRD-PARTY ALTERNATIVES ====== -->
+<div class="slide">
+  <h2>The Ecosystem</h2>
+  <p style="font-size: 0.9rem; margin-bottom: 0.8rem;">New tools emerging alongside Anthropic's native solution:</p>
+  <ul style="font-size: 0.85rem;">
+    <li><strong>Multiclaude</strong> (Dan Lorenc) &mdash; Go-based orchestrator with "Brownian ratchet" philosophy: if CI passes, every PR merges automatically. Singleplayer (auto-merge) and multiplayer (team review) modes</li>
+    <li><strong>Conductor</strong> (Melty Labs) &mdash; macOS app for parallel Claude Code / Codex agents, each in isolated git worktrees, central dashboard</li>
+    <li><strong>Vibe Kanban</strong> (Bloop AI) &mdash; cross-platform CLI + web UI with Kanban board. Supports Claude Code, Gemini CLI, Codex. Visual code review with diffs</li>
+    <li><strong>Claude Squad</strong> &mdash; spawns multiple Claude Code instances in tmux panes. Dead simple starting point</li>
+    <li><strong>Code Conductor</strong> &mdash; GitHub-native: tasks are GitHub Issues, agents claim them, work in branches, auto-open PRs</li>
+  </ul>
 </div>
 
 <!-- ====== 29. WHY "DEBUSSY"? ====== -->
