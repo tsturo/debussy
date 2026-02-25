@@ -1430,6 +1430,59 @@
   </ul>
 </div>
 
+<!-- ====== INSPIRATION: GASTOWN ====== -->
+<div class="slide">
+  <h2>Inspiration: Gastown</h2>
+  <p style="margin-bottom: 0.6rem; font-size: 0.95rem;">Debussy was inspired by <a href="https://github.com/steveyegge/gastown" target="_blank" style="color: var(--cyan);">Gastown</a> &mdash; Steve Yegge's multi-agent orchestration framework.</p>
+  <p style="margin-bottom: 1rem; font-size: 0.9rem;">Same building blocks, different philosophy:</p>
+  <table style="font-size: 0.85rem;">
+    <thead>
+      <tr><th>Aspect</th><th>Debussy</th><th>Gastown</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Orchestration</strong></td><td>Active conducting &mdash; watcher polls &amp; owns transitions</td><td>Mayor delegates, agents self-organize</td></tr>
+      <tr><td><strong>Communication</strong></td><td>Hub-and-spoke &mdash; agents never talk to each other</td><td>Peer-to-peer &mdash; agents can communicate</td></tr>
+      <tr><td><strong>Task tracking</strong></td><td>Beads</td><td>Beads</td></tr>
+      <tr><td><strong>Isolation</strong></td><td>Git worktrees</td><td>Git worktrees</td></tr>
+      <tr><td><strong>Quality gates</strong></td><td>Mandatory review, security review, acceptance</td><td>Less formalized</td></tr>
+      <tr><td><strong>Scale</strong></td><td>Up to 8 concurrent (configurable)</td><td>20&ndash;30 parallel agents</td></tr>
+      <tr><td><strong>Philosophy</strong></td><td>Constraint is a feature &mdash; rigid pipeline</td><td>Trust agent autonomy &mdash; flexible</td></tr>
+    </tbody>
+  </table>
+  <div class="callout" style="margin-top: 0.8rem;">
+    Opposite ends of the <strong>control vs. autonomy</strong> spectrum &mdash; both valid depending on task coupling.
+  </div>
+</div>
+
+<!-- ====== RALPH WIGGUM LOOP ====== -->
+<div class="slide">
+  <h2>The Ralph Wiggum Loop</h2>
+  <p style="margin-bottom: 0.8rem; font-size: 0.95rem;">A pattern by <a href="https://ghuntley.com/loop/" target="_blank" style="color: var(--cyan);">Geoffrey Huntley</a>: run an AI agent in a loop against external checks until the job passes. Each iteration starts with <strong>fresh context</strong>.</p>
+  <div style="display: flex; gap: 2rem; margin-top: 1rem;">
+    <div style="flex: 1;">
+      <h3 style="color: var(--orange); font-size: 1rem; margin-bottom: 0.5rem;">What they share</h3>
+      <ul style="font-size: 0.9rem;">
+        <li><strong>Stateless agents</strong> &mdash; each run starts clean, no accumulated history</li>
+        <li><strong>External signals</strong> &mdash; tests/status determine pass or fail</li>
+        <li><strong>Retry on failure</strong> &mdash; loop re-runs until success</li>
+        <li><strong>Human distance</strong> &mdash; set it running, walk away</li>
+      </ul>
+    </div>
+    <div style="flex: 1;">
+      <h3 style="color: var(--accent); font-size: 1rem; margin-bottom: 0.5rem;">Where Debussy goes further</h3>
+      <ul style="font-size: 0.9rem;">
+        <li><strong>Multi-agent</strong> &mdash; parallel agents on different tasks</li>
+        <li><strong>Pipeline stages</strong> &mdash; dev &rarr; review &rarr; merge, not just "retry"</li>
+        <li><strong>Quality gates</strong> &mdash; separate reviewer and security agents</li>
+        <li><strong>Dependencies</strong> &mdash; task ordering and batch acceptance</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout" style="margin-top: 1.2rem;">
+    The watcher is essentially a <strong>multi-agent, multi-stage Ralph Wiggum Loop</strong> &mdash; same core insight applied across a pipeline.
+  </div>
+</div>
+
 <!-- ====== 29. WHY "DEBUSSY"? ====== -->
 <div class="slide">
   <div class="layout">
