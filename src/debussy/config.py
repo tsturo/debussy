@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import tempfile
 from datetime import datetime
@@ -12,8 +13,10 @@ HEARTBEAT_TICKS = 12
 CLAUDE_STARTUP_DELAY = 6
 COMMENT_TRUNCATE_LEN = 80
 YOLO_MODE = True
+
+
 def _derive_session_name() -> str:
-    name = Path.cwd().name.replace(".", "-").replace(":", "-").replace(" ", "-")
+    name = re.sub(r'[^a-zA-Z0-9_-]', '-', Path.cwd().name)
     return f"debussy-{name}"
 
 

@@ -4,7 +4,7 @@ import json
 import subprocess
 import time
 
-from .bead_client import get_bead_json, get_unresolved_deps
+from .bead_client import get_bead_json, get_bead_status, get_unresolved_deps
 from .config import (
     LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_DEVELOPMENT, STAGE_TO_ROLE,
     STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS, STATUS_OPEN,
@@ -15,9 +15,6 @@ from .transitions import MAX_RETRIES, REJECTION_COOLDOWN, record_event, verify_s
 
 
 def get_unmerged_dep_branches(bead: dict) -> list[str]:
-    from .bead_client import get_bead_status
-    from .config import STATUS_CLOSED
-
     unmerged = []
     for dep in bead.get("dependencies", []):
         dep_id = dep.get("depends_on_id") or dep.get("id")
