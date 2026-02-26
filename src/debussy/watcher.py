@@ -119,30 +119,15 @@ class Watcher:
         return True
 
     def _kill_stale_watchers(self):
-        my_pid = os.getpid()
+        if not self.LOCK_FILE.exists():
+            return
         try:
-            result = subprocess.run(
-                ["pgrep", "-f", "debussy watch"],
-                capture_output=True, text=True, timeout=5,
-            )
-            if result.returncode != 0:
+            pid = int(self.LOCK_FILE.read_text().strip())
+            if pid == os.getpid():
                 return
-            for line in result.stdout.strip().split('\n'):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    pid = int(line)
-                except ValueError:
-                    continue
-                if pid == my_pid:
-                    continue
-                try:
-                    os.kill(pid, signal.SIGTERM)
-                    log(f"Killed stale watcher (PID {pid})", "🧹")
-                except OSError:
-                    pass
-        except (subprocess.SubprocessError, OSError):
+            os.kill(pid, signal.SIGTERM)
+            log(f"Killed stale watcher (PID {pid})", "🧹")
+        except (ValueError, OSError):
             pass
 
     def _release_lock(self):

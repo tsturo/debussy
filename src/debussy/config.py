@@ -12,7 +12,12 @@ HEARTBEAT_TICKS = 12
 CLAUDE_STARTUP_DELAY = 6
 COMMENT_TRUNCATE_LEN = 80
 YOLO_MODE = True
-SESSION_NAME = "debussy"
+def _derive_session_name() -> str:
+    name = Path.cwd().name.replace(".", "-").replace(":", "-").replace(" ", "-")
+    return f"debussy-{name}"
+
+
+SESSION_NAME = _derive_session_name()
 AGENT_TIMEOUT = 3600
 
 STAGE_DEVELOPMENT = "stage:development"
