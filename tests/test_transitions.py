@@ -5,7 +5,7 @@ import pytest
 from debussy.transitions import (
     MAX_REJECTIONS, MAX_RETRIES, TransitionResult,
     _compute_next_stage, _dispatch_transition, _handle_advance,
-    _handle_empty_branch,
+    _handle_empty_branch, _is_terminal_stage,
 )
 
 
@@ -244,6 +244,109 @@ class TestComputeNextStage:
     def test_acceptance_is_terminal(self):
         agent = _make_agent(spawned_stage="stage:acceptance")
         assert _compute_next_stage(agent, []) is None
+
+
+class TestPrematureClose:
+    @patch("debussy.transitions._branch_has_commits", return_value=True)
+    @patch("debussy.transitions.record_event")
+    def test_developer_close_reopens_and_advances(self, mock_event, mock_commits):
+        watcher = _make_watcher()
+        agent = _make_agent(spawned_stage="stage:development")
+        bead = {"status": "closed", "labels": ["stage:development"]}
+
+        result = _dispatch_transition(watcher, agent, bead)
+
+        assert result.status == "open"
+        assert result.add_labels == ["stage:reviewing"]
+        assert "stage:development" in result.remove_labels
+
+    @patch("debussy.transitions._branch_has_commits", return_value=True)
+    @patch("debussy.transitions.record_event")
+    def test_reviewer_close_reopens_and_advances(self, mock_event, mock_commits):
+        watcher = _make_watcher()
+        agent = _make_agent(spawned_stage="stage:reviewing")
+        bead = {"status": "closed", "labels": ["stage:reviewing"]}
+
+        result = _dispatch_transition(watcher, agent, bead)
+
+        assert result.status == "open"
+        assert result.add_labels == ["stage:merging"]
+        assert "stage:reviewing" in result.remove_labels
+
+    @patch("debussy.transitions._branch_has_commits", return_value=True)
+    @patch("debussy.transitions.record_event")
+    def test_security_reviewer_close_reopens_and_advances(self, mock_event, mock_commits):
+        watcher = _make_watcher()
+        agent = _make_agent(spawned_stage="stage:security-review")
+        bead = {"status": "closed", "labels": ["stage:security-review"]}
+
+        result = _dispatch_transition(watcher, agent, bead)
+
+        assert result.status == "open"
+        assert result.add_labels == ["stage:merging"]
+        assert "stage:security-review" in result.remove_labels
+
+    @patch("debussy.transitions._branch_has_commits", return_value=False)
+    @patch("debussy.transitions.record_event")
+    @patch("debussy.transitions.get_config", return_value={"base_branch": "master"})
+    def test_developer_close_with_empty_branch_retries(self, mock_cfg, mock_event, mock_commits):
+        watcher = _make_watcher()
+        agent = _make_agent(spawned_stage="stage:development")
+        bead = {"status": "closed", "labels": ["stage:development"]}
+
+        result = _dispatch_transition(watcher, agent, bead)
+
+        assert result.add_labels == ["stage:development"]
+        assert result.status == "open"
+
+
+class TestMergeVerification:
+    @patch("debussy.transitions._verify_merge_landed", return_value=True)
+    @patch("debussy.transitions.delete_branch")
+    @patch("debussy.transitions.record_event")
+    def test_verified_merge_closes(self, mock_event, mock_delete, mock_verify):
+        watcher = _make_watcher()
+        agent = _make_agent(spawned_stage="stage:merging")
+        bead = {"status": "closed", "labels": ["stage:merging"]}
+
+        result = _dispatch_transition(watcher, agent, bead)
+
+        assert result.status is None
+        assert "stage:merging" in result.remove_labels
+        mock_delete.assert_called_once()
+
+    @patch("debussy.transitions._verify_merge_landed", return_value=False)
+    @patch("debussy.transitions.record_event")
+    def test_unverified_merge_retries(self, mock_event, mock_verify):
+        watcher = _make_watcher()
+        agent = _make_agent(spawned_stage="stage:merging")
+        bead = {"status": "closed", "labels": ["stage:merging"]}
+
+        result = _dispatch_transition(watcher, agent, bead)
+
+        assert result.status == "open"
+        assert result.add_labels == ["stage:merging"]
+        assert "stage:merging" in result.remove_labels
+
+
+class TestTerminalStage:
+    def test_development_is_not_terminal(self):
+        assert not _is_terminal_stage("stage:development")
+
+    def test_reviewing_is_not_terminal(self):
+        assert not _is_terminal_stage("stage:reviewing")
+
+    def test_security_review_is_not_terminal(self):
+        assert not _is_terminal_stage("stage:security-review")
+
+    def test_merging_is_terminal(self):
+        assert _is_terminal_stage("stage:merging")
+
+    def test_acceptance_is_terminal(self):
+        assert _is_terminal_stage("stage:acceptance")
+
+    def test_investigating_is_terminal(self):
+        assert _is_terminal_stage("stage:investigating")
 
 
 class TestTransitionResult:

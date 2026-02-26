@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING
 from .bead_client import get_bead_json
 from .config import (
     NEXT_STAGE, SECURITY_NEXT_STAGE, STAGE_ACCEPTANCE, STAGE_DEVELOPMENT,
-    STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS, STATUS_OPEN,
-    get_config, log,
+    STAGE_MERGING, STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS,
+    STATUS_OPEN, get_config, log,
 )
 from .worktree import delete_branch
 
@@ -57,6 +57,33 @@ class TransitionResult:
     @property
     def has_changes(self) -> bool:
         return self.status is not None or bool(self.add_labels) or bool(self.remove_labels)
+
+
+def _is_terminal_stage(stage: str) -> bool:
+    return NEXT_STAGE.get(stage) is None
+
+
+def _verify_merge_landed(bead_id: str) -> bool:
+    base = get_config().get("base_branch", "master")
+    try:
+        subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=30)
+    except (subprocess.SubprocessError, OSError):
+        return True
+    try:
+        ref_check = subprocess.run(
+            ["git", "rev-parse", "--verify", f"origin/feature/{bead_id}"],
+            capture_output=True, timeout=5,
+        )
+        if ref_check.returncode != 0:
+            return True
+        result = subprocess.run(
+            ["git", "merge-base", "--is-ancestor",
+             f"origin/feature/{bead_id}", f"origin/{base}"],
+            capture_output=True, timeout=10,
+        )
+        return result.returncode == 0
+    except (subprocess.SubprocessError, OSError):
+        return True
 
 
 def _handle_in_progress_reset(agent: AgentInfo, stage_labels: list[str]) -> TransitionResult:
@@ -109,6 +136,25 @@ def _handle_rejection(watcher: Watcher, agent: AgentInfo, stage_labels: list[str
     watcher._save_rejections()
     record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": STAGE_DEVELOPMENT})
     return result
+
+
+def _handle_premature_close(watcher: Watcher, agent: AgentInfo, labels: list[str], stage_labels: list[str]) -> TransitionResult:
+    log(f"Agent closed {agent.bead} at non-terminal {agent.spawned_stage}, reopening and advancing", "⚠️")
+    record_event(agent.bead, "premature_close", stage=agent.spawned_stage)
+    result = _handle_advance(watcher, agent, labels, stage_labels)
+    if result.status is None:
+        result.status = STATUS_OPEN
+    return result
+
+
+def _handle_unverified_merge(agent: AgentInfo, stage_labels: list[str]) -> TransitionResult:
+    log(f"Merge not verified on base branch for {agent.bead}, retrying merge", "⚠️")
+    record_event(agent.bead, "unverified_merge", stage=agent.spawned_stage)
+    return TransitionResult(
+        status=STATUS_OPEN,
+        remove_labels=stage_labels,
+        add_labels=[STAGE_MERGING],
+    )
 
 
 def _handle_closed(watcher: Watcher, agent: AgentInfo, stage_labels: list[str]) -> TransitionResult:
@@ -226,6 +272,10 @@ def _dispatch_transition(watcher: Watcher, agent: AgentInfo, bead: dict) -> Tran
     if has_rejected:
         return _handle_rejection(watcher, agent, stage_labels)
     if status == STATUS_CLOSED:
+        if not _is_terminal_stage(agent.spawned_stage):
+            return _handle_premature_close(watcher, agent, labels, stage_labels)
+        if agent.spawned_stage == STAGE_MERGING and not _verify_merge_landed(agent.bead):
+            return _handle_unverified_merge(agent, stage_labels)
         return _handle_closed(watcher, agent, stage_labels)
     if status == STATUS_BLOCKED:
         return _handle_blocked(agent, stage_labels)
