@@ -179,15 +179,13 @@ def cleanup_orphaned_branches():
             continue
         bead_id = branch.removeprefix("feature/")
         if bead_id in closed:
-            subprocess.run(
-                ["git", "push", "origin", "--delete", branch],
-                capture_output=True, timeout=15,
-            )
-            subprocess.run(
-                ["git", "branch", "-D", branch],
-                capture_output=True, timeout=10,
-            )
-            log(f"Deleted stale remote branch: {branch}", "🧹")
+            if _delete_remote_branch(branch):
+                _delete_tracking_ref(branch)
+                subprocess.run(
+                    ["git", "branch", "-D", branch],
+                    capture_output=True, timeout=10,
+                )
+                log(f"Deleted stale remote branch: {branch}", "🧹")
 
 
 def cleanup_stale_worktrees():
@@ -213,17 +211,33 @@ def cleanup_stale_worktrees():
             log(f"Cleaned stale worktree: {child.name}", "🧹")
 
 
+def _delete_remote_branch(branch: str) -> bool:
+    result = subprocess.run(
+        ["git", "push", "origin", "--delete", branch],
+        capture_output=True, text=True, timeout=15,
+    )
+    if result.returncode == 0:
+        return True
+    if "remote ref does not exist" in result.stderr:
+        return True
+    log(f"Failed to delete remote branch {branch}: {result.stderr.strip()}", "⚠️")
+    return False
+
+
+def _delete_tracking_ref(branch: str):
+    subprocess.run(
+        ["git", "update-ref", "-d", f"refs/remotes/origin/{branch}"],
+        capture_output=True, timeout=5,
+    )
+
+
 def delete_branch(branch: str):
     subprocess.run(
         ["git", "branch", "-D", branch],
         capture_output=True, timeout=10,
     )
-    result = subprocess.run(
-        ["git", "push", "origin", "--delete", branch],
-        capture_output=True, text=True, timeout=15,
-    )
-    if result.returncode != 0:
-        log(f"Failed to delete remote branch {branch}: {result.stderr.strip()}", "⚠️")
+    _delete_remote_branch(branch)
+    _delete_tracking_ref(branch)
 
 
 def remove_all_worktrees():
