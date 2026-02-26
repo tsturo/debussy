@@ -374,6 +374,7 @@ class Watcher:
                 tick += 1
                 if tick % HEARTBEAT_TICKS == 0:
                     self._log_heartbeat()
+                    cleanup_orphaned_branches()
             except Exception as e:
                 log(f"Error: {e}", "⚠️")
             time.sleep(POLL_INTERVAL)

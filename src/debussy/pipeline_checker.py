@@ -15,10 +15,16 @@ from .transitions import MAX_RETRIES, REJECTION_COOLDOWN, record_event, verify_s
 
 
 def get_unmerged_dep_branches(bead: dict) -> list[str]:
+    from .bead_client import get_bead_status
+    from .config import STATUS_CLOSED
+
     unmerged = []
     for dep in bead.get("dependencies", []):
         dep_id = dep.get("depends_on_id") or dep.get("id")
         if not dep_id:
+            continue
+        dep_status = dep.get("status") or get_bead_status(dep_id)
+        if dep_status == STATUS_CLOSED:
             continue
         try:
             result = subprocess.run(

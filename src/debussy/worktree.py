@@ -218,10 +218,12 @@ def delete_branch(branch: str):
         ["git", "branch", "-D", branch],
         capture_output=True, timeout=10,
     )
-    subprocess.run(
+    result = subprocess.run(
         ["git", "push", "origin", "--delete", branch],
-        capture_output=True, timeout=15,
+        capture_output=True, text=True, timeout=15,
     )
+    if result.returncode != 0:
+        log(f"Failed to delete remote branch {branch}: {result.stderr.strip()}", "⚠️")
 
 
 def remove_all_worktrees():
