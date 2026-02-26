@@ -213,7 +213,7 @@ def cleanup_stale_worktrees():
 
 def _delete_remote_branch(branch: str) -> bool:
     result = subprocess.run(
-        ["git", "push", "origin", "--delete", branch],
+        ["git", "push", "--no-verify", "origin", "--delete", branch],
         capture_output=True, text=True, timeout=15,
     )
     if result.returncode == 0:
