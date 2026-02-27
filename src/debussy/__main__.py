@@ -49,7 +49,7 @@ def main():
     p = subparsers.add_parser("backup", help="Backup beads database")
     p.set_defaults(func=cli.cmd_backup)
 
-    p = subparsers.add_parser("pause", help="Pause pipeline, kill agents, keep watcher running")
+    p = subparsers.add_parser("pause", help="Pause pipeline, kill agents")
     p.set_defaults(func=cli.cmd_pause)
 
     p = subparsers.add_parser("resume", help="Resume paused pipeline")

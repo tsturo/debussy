@@ -108,7 +108,8 @@ def cmd_restart(args):
         if result != 0:
             return result
 
-    cmd_pause(args)
+    set_config("paused", True)
+    _kill_all_agents()
     set_config("paused", False)
 
     cwd = os.getcwd()
@@ -222,9 +223,7 @@ def _delete_orphan_branches(paused_beads: set[str]):
         log(f"Failed to clean branches: {e}", "\u26a0\ufe0f")
 
 
-def cmd_pause(args):
-    set_config("paused", True)
-
+def _kill_all_agents():
     state_file = Path(".debussy/watcher_state.json")
     state = {}
     if state_file.exists():
@@ -248,7 +247,13 @@ def cmd_pause(args):
     if state_file.exists():
         state_file.unlink()
 
+
+def cmd_pause(args):
+    set_config("paused", True)
+    _kill_all_agents()
     log("Pipeline paused", "\u23f8")
+
+
 
 
 def cmd_resume(args):
