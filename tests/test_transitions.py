@@ -129,9 +129,11 @@ class TestInProgressReset:
 
 
 class TestClosed:
+    @patch("debussy.transitions.validate_bead_pipeline", return_value=(True, "bd-001: ok"))
+    @patch("debussy.transitions._verify_merge_landed", return_value=True)
     @patch("debussy.transitions.delete_branch")
     @patch("debussy.transitions.record_event")
-    def test_closed_removes_stage(self, mock_event, mock_delete):
+    def test_closed_removes_stage(self, mock_event, mock_delete, mock_verify, mock_audit):
         watcher = _make_watcher()
         agent = _make_agent(spawned_stage="stage:merging")
         bead = {"status": "closed", "labels": ["stage:merging"]}
@@ -142,9 +144,11 @@ class TestClosed:
         assert "stage:merging" in result.remove_labels
         mock_delete.assert_called_once_with("feature/bd-001")
 
+    @patch("debussy.transitions.validate_bead_pipeline", return_value=(True, "bd-001: ok"))
+    @patch("debussy.transitions._verify_merge_landed", return_value=True)
     @patch("debussy.transitions.delete_branch")
     @patch("debussy.transitions.record_event")
-    def test_closed_clears_rejections(self, mock_event, mock_delete):
+    def test_closed_clears_rejections(self, mock_event, mock_delete, mock_verify, mock_audit):
         watcher = _make_watcher()
         watcher.rejections["bd-001"] = 3
         agent = _make_agent(spawned_stage="stage:merging")
@@ -301,10 +305,11 @@ class TestPrematureClose:
 
 
 class TestMergeVerification:
+    @patch("debussy.transitions.validate_bead_pipeline", return_value=(True, "bd-001: ok"))
     @patch("debussy.transitions._verify_merge_landed", return_value=True)
     @patch("debussy.transitions.delete_branch")
     @patch("debussy.transitions.record_event")
-    def test_verified_merge_closes(self, mock_event, mock_delete, mock_verify):
+    def test_verified_merge_closes(self, mock_event, mock_delete, mock_verify, mock_audit):
         watcher = _make_watcher()
         agent = _make_agent(spawned_stage="stage:merging")
         bead = {"status": "closed", "labels": ["stage:merging"]}
@@ -327,6 +332,34 @@ class TestMergeVerification:
         assert result.status == "open"
         assert result.add_labels == ["stage:merging"]
         assert "stage:merging" in result.remove_labels
+
+    @patch("debussy.transitions.subprocess.run")
+    @patch("debussy.transitions.validate_bead_pipeline", return_value=(False, "bd-001: missing stages: reviewing"))
+    @patch("debussy.transitions._verify_merge_landed", return_value=True)
+    @patch("debussy.transitions.record_event")
+    def test_incomplete_pipeline_blocks(self, mock_event, mock_verify, mock_audit, mock_run):
+        watcher = _make_watcher()
+        agent = _make_agent(spawned_stage="stage:merging")
+        bead = {"status": "closed", "labels": ["stage:merging"]}
+
+        result = _dispatch_transition(watcher, agent, bead)
+
+        assert result.status == "blocked"
+        assert "stage:merging" in result.remove_labels
+        assert result.add_labels == []
+
+    @patch("debussy.transitions.subprocess.run")
+    @patch("debussy.transitions.validate_bead_pipeline", return_value=(False, "bd-001 (security): missing stages: security-review"))
+    @patch("debussy.transitions._verify_merge_landed", return_value=True)
+    @patch("debussy.transitions.record_event")
+    def test_incomplete_security_pipeline_blocks(self, mock_event, mock_verify, mock_audit, mock_run):
+        watcher = _make_watcher()
+        agent = _make_agent(spawned_stage="stage:merging")
+        bead = {"status": "closed", "labels": ["stage:merging", "security"]}
+
+        result = _dispatch_transition(watcher, agent, bead)
+
+        assert result.status == "blocked"
 
 
 class TestTerminalStage:

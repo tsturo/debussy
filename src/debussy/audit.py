@@ -74,6 +74,30 @@ def audit_dep_bead(bead_id: str, events: list[dict]) -> tuple[bool, str]:
     return True, f"{bead_id}: ok"
 
 
+def validate_bead_pipeline(bead_id: str) -> tuple[bool, str]:
+    bead = get_bead_json(bead_id)
+    labels = bead.get("labels", []) if bead else []
+    has_security = "security" in labels
+
+    all_events = _load_all_events()
+    by_bead = _partition_by_bead(all_events)
+    bead_events = by_bead.get(bead_id, [])
+
+    if not bead_events:
+        return False, f"{bead_id}: no pipeline events found"
+
+    completed = get_completed_stages(bead_events)
+    required = expected_stages(has_security) - {STAGE_MERGING}
+    missing = required - completed
+
+    if missing:
+        tag = " (security)" if has_security else ""
+        names = ", ".join(sorted(s.replace("stage:", "") for s in missing))
+        return False, f"{bead_id}{tag}: missing stages: {names}"
+
+    return True, f"{bead_id}: ok"
+
+
 def audit_acceptance(bead_id: str) -> tuple[bool, str]:
     bead = get_bead_json(bead_id)
     if not bead:

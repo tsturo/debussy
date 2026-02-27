@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .audit import validate_bead_pipeline
 from .bead_client import get_bead_json
 from .config import (
     NEXT_STAGE, SECURITY_NEXT_STAGE, STAGE_ACCEPTANCE, STAGE_DEVELOPMENT,
@@ -147,6 +148,22 @@ def _handle_premature_close(watcher: Watcher, agent: AgentInfo, labels: list[str
     return result
 
 
+def _handle_incomplete_pipeline(agent: AgentInfo, stage_labels: list[str], detail: str) -> TransitionResult:
+    log(f"Incomplete pipeline for {agent.bead}: {detail}, blocking for conductor", "🚫")
+    record_event(agent.bead, "incomplete_pipeline", stage=agent.spawned_stage, detail=detail)
+    try:
+        subprocess.run(
+            ["bd", "comment", agent.bead, f"Blocked: incomplete pipeline — {detail}"],
+            capture_output=True, timeout=5,
+        )
+    except (subprocess.SubprocessError, OSError):
+        pass
+    return TransitionResult(
+        status=STATUS_BLOCKED,
+        remove_labels=stage_labels,
+    )
+
+
 def _handle_unverified_merge(agent: AgentInfo, stage_labels: list[str]) -> TransitionResult:
     log(f"Merge not verified on base branch for {agent.bead}, retrying merge", "⚠️")
     record_event(agent.bead, "unverified_merge", stage=agent.spawned_stage)
@@ -274,8 +291,12 @@ def _dispatch_transition(watcher: Watcher, agent: AgentInfo, bead: dict) -> Tran
     if status == STATUS_CLOSED:
         if not _is_terminal_stage(agent.spawned_stage):
             return _handle_premature_close(watcher, agent, labels, stage_labels)
-        if agent.spawned_stage == STAGE_MERGING and not _verify_merge_landed(agent.bead):
-            return _handle_unverified_merge(agent, stage_labels)
+        if agent.spawned_stage == STAGE_MERGING:
+            if not _verify_merge_landed(agent.bead):
+                return _handle_unverified_merge(agent, stage_labels)
+            passed, detail = validate_bead_pipeline(agent.bead)
+            if not passed:
+                return _handle_incomplete_pipeline(agent, stage_labels, detail)
         return _handle_closed(watcher, agent, stage_labels)
     if status == STATUS_BLOCKED:
         return _handle_blocked(agent, stage_labels)

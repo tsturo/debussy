@@ -4,6 +4,7 @@ import pytest
 
 from debussy.audit import (
     audit_acceptance, audit_dep_bead, expected_stages, get_completed_stages,
+    validate_bead_pipeline,
 )
 from debussy.config import (
     STAGE_DEVELOPMENT, STAGE_MERGING, STAGE_REVIEWING, STAGE_SECURITY_REVIEW,
@@ -173,3 +174,55 @@ class TestAuditAcceptance:
 
         ok, report = audit_acceptance("bd-010")
         assert ok
+
+
+class TestValidateBeadPipeline:
+    @patch("debussy.audit.get_bead_json", return_value={"labels": []})
+    @patch("debussy.audit._load_all_events")
+    def test_complete_pipeline_passes(self, mock_events, _):
+        mock_events.return_value = [
+            {"event": "advance", "from": STAGE_DEVELOPMENT, "to": STAGE_REVIEWING, "bead": "bd-001", "ts": 1.0},
+            {"event": "advance", "from": STAGE_REVIEWING, "to": STAGE_MERGING, "bead": "bd-001", "ts": 2.0},
+        ]
+        ok, detail = validate_bead_pipeline("bd-001")
+        assert ok
+
+    @patch("debussy.audit.get_bead_json", return_value={"labels": []})
+    @patch("debussy.audit._load_all_events")
+    def test_missing_reviewing_fails(self, mock_events, _):
+        mock_events.return_value = [
+            {"event": "advance", "from": STAGE_DEVELOPMENT, "to": STAGE_MERGING, "bead": "bd-001", "ts": 1.0},
+        ]
+        ok, detail = validate_bead_pipeline("bd-001")
+        assert not ok
+        assert "reviewing" in detail
+
+    @patch("debussy.audit.get_bead_json", return_value={"labels": ["security"]})
+    @patch("debussy.audit._load_all_events")
+    def test_security_bead_missing_security_review_fails(self, mock_events, _):
+        mock_events.return_value = [
+            {"event": "advance", "from": STAGE_DEVELOPMENT, "to": STAGE_REVIEWING, "bead": "bd-001", "ts": 1.0},
+            {"event": "advance", "from": STAGE_REVIEWING, "to": STAGE_MERGING, "bead": "bd-001", "ts": 2.0},
+        ]
+        ok, detail = validate_bead_pipeline("bd-001")
+        assert not ok
+        assert "security-review" in detail
+
+    @patch("debussy.audit.get_bead_json", return_value={"labels": ["security"]})
+    @patch("debussy.audit._load_all_events")
+    def test_security_bead_complete_passes(self, mock_events, _):
+        mock_events.return_value = [
+            {"event": "advance", "from": STAGE_DEVELOPMENT, "to": STAGE_REVIEWING, "bead": "bd-001", "ts": 1.0},
+            {"event": "advance", "from": STAGE_REVIEWING, "to": STAGE_SECURITY_REVIEW, "bead": "bd-001", "ts": 2.0},
+            {"event": "advance", "from": STAGE_SECURITY_REVIEW, "to": STAGE_MERGING, "bead": "bd-001", "ts": 3.0},
+        ]
+        ok, detail = validate_bead_pipeline("bd-001")
+        assert ok
+
+    @patch("debussy.audit.get_bead_json", return_value={"labels": []})
+    @patch("debussy.audit._load_all_events")
+    def test_no_events_fails(self, mock_events, _):
+        mock_events.return_value = []
+        ok, detail = validate_bead_pipeline("bd-001")
+        assert not ok
+        assert "no pipeline events" in detail
