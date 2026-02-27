@@ -138,11 +138,27 @@ def _get_closed_bead_ids() -> set[str]:
         return set()
 
 
+def _worktree_branches() -> set[str]:
+    try:
+        result = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            capture_output=True, text=True, timeout=10,
+        )
+        branches = set()
+        for line in result.stdout.split("\n"):
+            if line.startswith("branch "):
+                branches.add(line.split(" ", 1)[1].replace("refs/heads/", ""))
+        return branches
+    except (subprocess.SubprocessError, OSError):
+        return set()
+
+
 def cleanup_orphaned_branches():
     subprocess.run(["git", "fetch", "--prune"], capture_output=True, timeout=30)
 
     base_branch = get_config().get("base_branch", "")
     closed = _get_closed_bead_ids()
+    in_use = _worktree_branches()
 
     result = subprocess.run(
         ["git", "branch", "--list", "feature/*"],
@@ -151,7 +167,7 @@ def cleanup_orphaned_branches():
     if result.returncode == 0:
         for line in result.stdout.strip().splitlines():
             branch = line.strip().lstrip("+* ")
-            if not branch:
+            if not branch or branch in in_use:
                 continue
             remote_check = subprocess.run(
                 ["git", "rev-parse", "--verify", f"origin/{branch}"],

@@ -15,6 +15,7 @@ Bead: {bead_id}.
 1. bd show {bead_id}
 2. bd update {bead_id} --status in_progress
 3. Research the codebase, understand the problem
+   - Use web search when investigating external APIs, libraries, or patterns
 4. Document findings as bead comments: bd comment {bead_id} "Finding: [details]"
 5. bd update {bead_id} --status closed
 6. Exit

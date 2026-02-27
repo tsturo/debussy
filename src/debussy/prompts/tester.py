@@ -23,7 +23,13 @@ developed, reviewed, and merged. All code is already merged into the base branch
    - Run: npx playwright test
    - Kill the dev server
    - Include Playwright results in pass/fail determination
-6. If no test infrastructure exists, verify each dependency bead's feature manually
+6. If no test infrastructure exists, use Playwright MCP for visual verification:
+   - Start the dev server if one exists: npm run dev &
+   - browser_navigate to the application URL
+   - browser_take_screenshot to verify each dependency bead's feature visually
+   - browser_click, browser_fill_form to test interactive features
+   - browser_close when done
+   - Kill the dev server
 
 RESULTS:
 

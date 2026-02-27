@@ -14,12 +14,12 @@ A) START DEV SERVER:
    - Start it in the background: <command> &
    - Wait for it to be ready: poll the URL until it responds (max 30 seconds)
 
-B) VISUAL VERIFICATION LOOP:
-   - Use Playwright to navigate to the relevant page(s)
-   - Take a screenshot: npx playwright screenshot --wait-for-timeout 2000 <url> screenshot.png
-   - Read the screenshot file to visually evaluate it
-   - Compare what you see against the bead description
-   - If it looks wrong or incomplete, fix the code and repeat this loop
+B) VISUAL VERIFICATION LOOP (use Playwright MCP):
+   - browser_navigate to the relevant page URL
+   - browser_take_screenshot to capture the current state
+   - Evaluate the screenshot against the bead description
+   - Use browser_click, browser_fill_form, browser_hover to test interactions
+   - If it looks wrong or incomplete, fix the code and repeat
    - Max 3 iterations — if still broken after 3, commit what you have and note issues in a comment
 
 C) WRITE PLAYWRIGHT TESTS:
@@ -29,10 +29,12 @@ C) WRITE PLAYWRIGHT TESTS:
    - Fix until tests pass
 
 D) CLEANUP:
+   - browser_close to close the Playwright browser
    - Kill the dev server process
 
-DESIGN QUALITY:
-   You have access to the /frontend-design skill. Invoke it before implementing any UI work."""
+SKILLS:
+   - Invoke /frontend-design before implementing any UI work
+   - Use Playwright MCP tools (browser_navigate, browser_take_screenshot, browser_click, browser_fill_form) for all visual verification — do NOT use npx playwright screenshot"""
 
 
 def developer_prompt(bead_id: str, base: str, labels: list[str] | None = None) -> str:
