@@ -177,7 +177,34 @@ def _check_dependencies(watcher, bead_id, bead, role):
         if unmerged:
             _queue_bead(watcher, bead_id, f"{len(unmerged)} dep branch(es) still unmerged on origin")
             return "unmerged deps"
+        skip = _check_pipeline_audit(bead_id)
+        if skip:
+            return skip
     return None
+
+
+def _check_pipeline_audit(bead_id: str) -> str | None:
+    from .audit import audit_acceptance
+    passed, report = audit_acceptance(bead_id)
+    if not passed:
+        _block_audit_failure(bead_id, report)
+        return "audit failed"
+    return None
+
+
+def _block_audit_failure(bead_id: str, report: str):
+    log(f"Pipeline audit failed for {bead_id}", "🔍")
+    try:
+        subprocess.run(
+            ["bd", "comment", bead_id, f"Pipeline audit failed:\n{report}"],
+            capture_output=True, timeout=5,
+        )
+        subprocess.run(
+            ["bd", "update", bead_id, "--status", STATUS_BLOCKED],
+            capture_output=True, timeout=5,
+        )
+    except (subprocess.SubprocessError, OSError):
+        pass
 
 
 def _queue_bead(watcher, bead_id, reason):

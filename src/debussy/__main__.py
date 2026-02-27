@@ -64,6 +64,10 @@ def main():
     p = subparsers.add_parser("metrics", help="Show pipeline metrics")
     p.set_defaults(func=cmd_metrics)
 
+    p = subparsers.add_parser("audit", help="Audit pipeline completeness for acceptance bead")
+    p.add_argument("bead_id", help="Acceptance bead ID")
+    p.set_defaults(func=cli.cmd_audit)
+
     args = parser.parse_args()
 
     if not args.command:

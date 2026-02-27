@@ -28,6 +28,9 @@ CODE QUALITY (review each changed file carefully):
 - Names must reveal intent. Reject cryptic abbreviations or misleading names.
 - Match existing codebase patterns. Read neighboring files to check conventions.
 - No dead code, commented-out blocks, or leftover debug statements.
+- Files must not exceed 500 lines. Flag and reject if a file crosses this limit.
+- New modules/packages must have a CLAUDE.md or a docstring explaining their responsibility.
+- Test names must be descriptive behavioral specs, not generic (test_invoice_overdue_sends_notification, not test_invoice).
 
 CORRECTNESS:
 - Does the logic actually solve what the bead describes? Trace through the code.
