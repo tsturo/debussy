@@ -15,6 +15,8 @@ A) START DEV SERVER:
    - Wait for it to be ready: poll the URL until it responds (max 30 seconds)
 
 B) VISUAL VERIFICATION LOOP (use Playwright MCP):
+   - If the bead description mentions mobile, responsive, or mobile-first:
+     browser_resize with width=390, height=844 (iPhone 14) before navigating
    - browser_navigate to the relevant page URL
    - browser_take_screenshot to capture the current state
    - Evaluate the screenshot against the bead description
@@ -25,6 +27,7 @@ B) VISUAL VERIFICATION LOOP (use Playwright MCP):
 C) WRITE PLAYWRIGHT TESTS:
    - Create Playwright test file(s) that codify the visual/functional checks you just verified
    - Tests should cover: page loads, key elements visible, interactions work as described
+   - For mobile/responsive beads: use devices['iPhone 14'] preset from @playwright/test
    - Run: npx playwright test <your-test-file>
    - Fix until tests pass
 
