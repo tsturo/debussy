@@ -44,6 +44,8 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 DEFAULTS = {
     "max_total_agents": 8,
     "use_tmux_windows": False,
+    "agent_provider": "claude",
+    "role_models": {},
 }
 
 STAGE_TO_ROLE = {
@@ -119,7 +121,10 @@ def _read_config_file() -> dict:
         return {}
 
 
-KNOWN_KEYS = {"max_total_agents", "use_tmux_windows", "base_branch", "paused", "agent_timeout"}
+KNOWN_KEYS = {
+    "max_total_agents", "use_tmux_windows", "base_branch",
+    "paused", "agent_timeout", "agent_provider", "role_models",
+}
 
 
 def set_config(key: str, value):

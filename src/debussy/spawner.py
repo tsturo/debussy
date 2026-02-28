@@ -68,12 +68,19 @@ def create_agent_worktree(role: str, bead_id: str, agent_name: str) -> str:
 def _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path=""):
     from .watcher import AgentInfo
 
-    claude_cmd = "claude"
-    if YOLO_MODE:
-        claude_cmd += " --dangerously-skip-permissions"
+    cfg = get_config()
+    agent_provider = cfg.get("agent_provider", "claude")
+    role_models = cfg.get("role_models", {})
+    model = role_models.get(role)
+
+    cli_cmd = agent_provider
+    if agent_provider == "claude" and YOLO_MODE:
+        cli_cmd += " --dangerously-skip-permissions"
+    if model:
+        cli_cmd += f" --model {shlex.quote(model)}"
 
     cd_prefix = f"cd {shlex.quote(worktree_path)} && " if worktree_path else ""
-    shell_cmd = f"{cd_prefix}export DEBUSSY_ROLE={shlex.quote(role)} DEBUSSY_BEAD={shlex.quote(bead_id)}; {claude_cmd}"
+    shell_cmd = f"{cd_prefix}export DEBUSSY_ROLE={shlex.quote(role)} DEBUSSY_BEAD={shlex.quote(bead_id)}; {cli_cmd}"
 
     window_created = False
     window_id = ""
@@ -117,9 +124,16 @@ def _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path=""):
 def _spawn_background(agent_name, bead_id, role, prompt, stage, worktree_path=""):
     from .watcher import AgentInfo
 
-    cmd = ["claude"]
-    if YOLO_MODE:
+    cfg = get_config()
+    agent_provider = cfg.get("agent_provider", "claude")
+    role_models = cfg.get("role_models", {})
+    model = role_models.get(role)
+
+    cmd = [agent_provider]
+    if agent_provider == "claude" and YOLO_MODE:
         cmd.append("--dangerously-skip-permissions")
+    if model:
+        cmd.extend(["--model", model])
     cmd.extend(["--print", prompt])
 
     logs_dir = Path(".debussy/logs")
