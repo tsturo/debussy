@@ -10,14 +10,14 @@ from pathlib import Path
 
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
-from .bead_client import get_bead_status
+from .bead_client import get_all_beads, get_bead_status
 from .config import (
     AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
-    HEARTBEAT_TICKS, STATUS_IN_PROGRESS, STATUS_OPEN,
+    HEARTBEAT_TICKS, STATUS_BLOCKED, STATUS_IN_PROGRESS, STATUS_OPEN,
     atomic_write, backup_beads, get_config, log,
 )
 from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
-from .tmux import tmux_window_id_names, tmux_window_ids as get_tmux_windows
+from .tmux import send_keys, tmux_window_id_names, tmux_window_ids as get_tmux_windows
 from .transitions import (
     MAX_RETRIES,
     ensure_stage_transition, record_event,
@@ -91,6 +91,7 @@ class Watcher:
         self.state_file = Path(".debussy/watcher_state.json")
         self._rejections_file = Path(".debussy/rejections.json")
         self._cached_windows: set[str] | None = None
+        self.last_notified_beads: str = ""
         self._load_rejections()
         cleanup_stale_worktrees()
         cleanup_orphaned_branches()
@@ -303,6 +304,58 @@ class Watcher:
         if transitioned:
             self._backup_after_transition()
 
+    def _notify_conductor(self):
+        try:
+            beads = get_all_beads()
+            messages = []
+            needs_attention = set()
+
+            blocked = []
+            rejected = []
+            needs_stage = []
+
+            for bead in beads:
+                status = bead.get("status")
+                labels = bead.get("labels", [])
+                bead_id = bead.get("id")
+                if not bead_id:
+                    continue
+
+                if status == STATUS_BLOCKED:
+                    blocked.append(bead_id)
+                    needs_attention.add(f"{bead_id}_blocked")
+                elif status == STATUS_OPEN:
+                    if "rejected" in labels:
+                        rejected.append(bead_id)
+                        needs_attention.add(f"{bead_id}_rejected")
+                    elif not any(l.startswith("stage:") for l in labels):
+                        needs_stage.append(bead_id)
+                        needs_attention.add(f"{bead_id}_needs_stage")
+
+            if blocked:
+                messages.append(f"{', '.join(blocked)} (blocked)")
+            if rejected:
+                messages.append(f"{', '.join(rejected)} (rejected)")
+            if needs_stage:
+                messages.append(f"{', '.join(needs_stage)} (needs stage)")
+
+            if not messages:
+                self.last_notified_beads = ""
+                return
+
+            notify_state = ",".join(sorted(needs_attention))
+            if notify_state == self.last_notified_beads:
+                return
+
+            self.last_notified_beads = notify_state
+
+            msg = f"Beads needing attention: {'; '.join(messages)}"
+            log(msg, "📢")
+            send_keys(f"{SESSION_NAME}:main.0", msg, literal=True)
+
+        except Exception as e:
+            log(f"Failed to notify conductor: {e}", "⚠️")
+
     def _log_heartbeat(self):
         active = [(a.name, a.bead) for a in self._alive_agents()]
         if active:
@@ -358,6 +411,7 @@ class Watcher:
 
                 tick += 1
                 if tick % HEARTBEAT_TICKS == 0:
+                    self._notify_conductor()
                     self._log_heartbeat()
                     cleanup_orphaned_branches()
             except Exception as e:

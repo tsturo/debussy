@@ -77,6 +77,13 @@ def _sort_key(bead, running, all_beads_by_id):
     return (not is_running, not is_blocked, not has_priority_label, priority, bead_id)
 
 
+def _priority_tag(bead):
+    pri = bead.get("priority")
+    if pri is None:
+        return ""
+    return f" P{pri}"
+
+
 def _bead_marker(bead, running, all_beads_by_id):
     bead_id = bead.get("id", "")
     if bead_id in running:
@@ -141,7 +148,8 @@ def _render_vertical(columns, buckets, running, all_beads_by_id, term_width):
                     bead_id = bead.get("id", "")
                     bead_title = bead.get("title", "")
                     marker = _bead_marker(bead, running, all_beads_by_id)
-                    entry = f"{bead_id} {bead_title}{marker}"
+                    pri = _priority_tag(bead)
+                    entry = f"{bead_id}{pri} {bead_title}{marker}"
                     content_lines.append(_board_truncate(entry, content_width).ljust(content_width))
                 if overflow > 0:
                     content_lines.append(f"+{overflow} more".ljust(content_width))
