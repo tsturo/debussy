@@ -56,6 +56,12 @@ def expected_stages(has_security: bool) -> set[str]:
 
 def audit_dep_bead(bead_id: str, events: list[dict]) -> tuple[bool, str]:
     bead = get_bead_json(bead_id)
+    if not bead:
+        return False, f"{bead_id}: bead not found"
+
+    if bead.get("status") == "closed":
+        return True, f"{bead_id}: ok (closed)"
+
     labels = bead.get("labels", []) if bead else []
     has_security = "security" in labels
 

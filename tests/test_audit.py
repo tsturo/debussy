@@ -115,11 +115,22 @@ class TestAuditDepBead:
         ok, detail = audit_dep_bead("bd-001", events)
         assert ok
 
-    @patch("debussy.audit.get_bead_json", return_value={"labels": []})
+    @patch("debussy.audit.get_bead_json", return_value={"labels": [], "status": "open"})
     def test_no_events_fails(self, _):
         ok, detail = audit_dep_bead("bd-001", [])
         assert not ok
         assert "no pipeline events" in detail
+
+    @patch("debussy.audit.get_bead_json", return_value={"labels": [], "status": "closed"})
+    def test_closed_bead_passes_without_events(self, _):
+        ok, detail = audit_dep_bead("bd-001", [])
+        assert ok
+
+    @patch("debussy.audit.get_bead_json", return_value=None)
+    def test_bead_not_found_fails(self, _):
+        ok, detail = audit_dep_bead("bd-001", [])
+        assert not ok
+        assert "not found" in detail
 
 
 class TestAuditAcceptance:
@@ -144,7 +155,7 @@ class TestAuditAcceptance:
         def bead_lookup(bead_id):
             if bead_id == "bd-010":
                 return {"dependencies": [{"depends_on_id": "bd-001"}]}
-            return {"labels": []}
+            return {"labels": [], "status": "open"}
         mock_bead.side_effect = bead_lookup
         mock_events.return_value = []
 
