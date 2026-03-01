@@ -261,8 +261,3 @@ def cmd_resume(args):
     log("Pipeline resumed", "\u25b6")
 
 
-def cmd_audit(args):
-    from .audit import audit_acceptance
-    passed, report = audit_acceptance(args.bead_id)
-    status = "PASS" if passed else "FAIL"
-    print(f"Pipeline audit [{status}] for {args.bead_id}:\n{report}")
