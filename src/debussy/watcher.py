@@ -351,7 +351,9 @@ class Watcher:
 
             msg = f"Beads needing attention: {'; '.join(messages)}"
             log(msg, "📢")
-            send_keys(f"{SESSION_NAME}:main.0", msg, literal=True)
+            target = f"{SESSION_NAME}:main.0"
+            send_keys(target, msg, literal=True)
+            send_keys(target, "Enter")
 
         except Exception as e:
             log(f"Failed to notify conductor: {e}", "⚠️")
