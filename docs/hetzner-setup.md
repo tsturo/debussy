@@ -7,7 +7,7 @@ Server: CX33 (4 vCPU x86, 8 GB RAM, 80 GB disk), Ubuntu 24.04
 ```bash
 ssh debussy
 apt update && apt upgrade -y
-apt install -y git tmux python3 python3-pip python3-venv build-essential
+apt install -y git tmux python3 python3-pip python3-venv pipx build-essential
 ```
 
 ## 2. Install Node.js
@@ -22,7 +22,7 @@ apt install -y nodejs
 ```bash
 npm install -g @anthropic-ai/claude-code
 npm install -g vercel
-npm install -g supabase
+curl -sSL https://supabase.com/install.sh | bash
 ```
 
 ## 4. Install bd (beads CLI)
@@ -71,8 +71,7 @@ git clone git@github.com:tsturo/piklr.git
 ## 8. Install Debussy
 
 ```bash
-cd ~/projects/debussy
-pip install -e .
+pipx install -e ~/projects/debussy
 ```
 
 ## 9. Environment variables

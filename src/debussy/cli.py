@@ -94,10 +94,15 @@ def cmd_upgrade(args):
     ])
     if result.returncode == 0:
         new_ver = subprocess.run(
-            ["debussy", "--version"],
+            ["pipx", "runpip", "debussy", "show", "debussy"],
             capture_output=True, text=True
         )
-        log(f"Upgraded to: {new_ver.stdout.strip()}", "\u2713")
+        ver = ""
+        for line in new_ver.stdout.splitlines():
+            if line.startswith("Version:"):
+                ver = line.split(":", 1)[1].strip()
+                break
+        log(f"Upgraded to: {ver}", "\u2713")
     else:
         log("Upgrade failed", "\u2717")
     return result.returncode
