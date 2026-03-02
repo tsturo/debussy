@@ -12,9 +12,9 @@ os.environ.pop("ANTHROPIC_API_KEY", None)
 
 from .bead_client import get_all_beads, get_bead_status
 from .config import (
-    AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
+    AGENT_TIMEOUT, CONFIG_FILE, POLL_INTERVAL, SESSION_NAME,
     HEARTBEAT_TICKS, STATUS_BLOCKED, STATUS_IN_PROGRESS, STATUS_OPEN,
-    atomic_write, backup_beads, get_config, log,
+    _read_config_file, atomic_write, backup_beads, get_config, log,
 )
 from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
 from .tmux import send_keys, tmux_window_id_names, tmux_window_ids as get_tmux_windows
@@ -22,6 +22,7 @@ from .transitions import (
     MAX_RETRIES,
     ensure_stage_transition, record_event,
 )
+from .prompts import get_conductor_prompt
 from .worktree import cleanup_orphaned_branches, cleanup_stale_worktrees, remove_worktree
 
 MIN_AGENT_RUNTIME = 30
@@ -88,6 +89,7 @@ class Watcher:
         self.spawn_counts: dict[str, int] = {}
         self.blocked_failures: set[str] = set()
         self.should_exit = False
+        self._conductor_prompted = False
         self.state_file = Path(".debussy/watcher_state.json")
         self._rejections_file = Path(".debussy/rejections.json")
         self._cached_windows: set[str] | None = None
@@ -367,6 +369,31 @@ class Watcher:
         else:
             log("Idle", "💤")
 
+    def _init_conductor(self):
+        if self._conductor_prompted:
+            return
+        target = f"{SESSION_NAME}:main.0"
+        result = subprocess.run(
+            ["tmux", "display-message", "-t", target, "-p", "#{pane_current_command}"],
+            capture_output=True, text=True,
+        )
+        cmd = result.stdout.strip()
+        if not cmd or cmd in ("bash", "zsh"):
+            return
+        prompt = get_conductor_prompt()
+        requirement = get_config().get("requirement")
+        if requirement:
+            prompt = f"{prompt}\n\nUser requirement: {requirement}"
+        send_keys(target, prompt, literal=True)
+        time.sleep(0.5)
+        subprocess.run(["tmux", "send-keys", "-t", target, "Enter"], check=True)
+        self._conductor_prompted = True
+        if requirement:
+            cfg = _read_config_file()
+            cfg.pop("requirement", None)
+            atomic_write(CONFIG_FILE, json.dumps(cfg, indent=2))
+        log("Sent conductor prompt", "🎹")
+
     def _shutdown(self):
         log("Stopping agents...", "🛑")
         for agent in self.running.values():
@@ -398,6 +425,7 @@ class Watcher:
         tick = 0
         while not self.should_exit:
             try:
+                self._init_conductor()
                 self._refresh_tmux_cache()
                 self._check_timeouts()
                 self.cleanup_finished()

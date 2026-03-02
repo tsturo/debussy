@@ -3,11 +3,9 @@
 import os
 import signal
 import subprocess
-import time
 from pathlib import Path
 
-from .config import CLAUDE_STARTUP_DELAY, SESSION_NAME, YOLO_MODE
-from .prompts import get_conductor_prompt
+from .config import SESSION_NAME, YOLO_MODE
 
 
 def run_tmux(*args, check=True):
@@ -89,31 +87,6 @@ def label_panes():
     run_tmux("select-window", "-t", f"{SESSION_NAME}:main")
     run_tmux("select-pane", "-t", f"{t}.0")
 
-
-def _wait_for_claude(target: str, timeout: int = 30) -> bool:
-    for _ in range(timeout):
-        result = subprocess.run(
-            ["tmux", "display-message", "-t", target, "-p", "#{pane_current_command}"],
-            capture_output=True, text=True,
-        )
-        cmd = result.stdout.strip()
-        if cmd and cmd != "bash" and cmd != "zsh":
-            return True
-        time.sleep(1)
-    return False
-
-
-def send_conductor_prompt(requirement: str | None):
-    prompt = get_conductor_prompt()
-    if requirement:
-        prompt = f"{prompt}\n\nUser requirement: {requirement}"
-
-    target = f"{SESSION_NAME}:main.0"
-    if not _wait_for_claude(target):
-        print("WARNING: Claude not ready after 30s, sending prompt anyway")
-    send_keys(target, prompt, literal=True)
-    time.sleep(0.5)
-    subprocess.run(["tmux", "send-keys", "-t", target, "Enter"], check=True)
 
 
 def stop_watcher():

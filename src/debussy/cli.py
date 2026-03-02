@@ -13,7 +13,6 @@ from .config import (
 )
 from .tmux import (
     create_tmux_layout, kill_agent, label_panes, list_debussy_sessions,
-    send_conductor_prompt,
 )
 from .worktree import remove_worktree, remove_all_worktrees
 
@@ -44,8 +43,10 @@ def cmd_start(args):
         set_config("paused", True)
     else:
         set_config("paused", False)
+    requirement = getattr(args, "requirement", None)
+    if requirement:
+        set_config("requirement", requirement)
     create_tmux_layout()
-    send_conductor_prompt(getattr(args, "requirement", None))
     label_panes()
 
     print("\U0001f3bc Debussy started")

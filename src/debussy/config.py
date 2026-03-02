@@ -10,7 +10,7 @@ from pathlib import Path
 
 POLL_INTERVAL = 5
 HEARTBEAT_TICKS = 12
-CLAUDE_STARTUP_DELAY = 10
+CLAUDE_STARTUP_DELAY = 6
 COMMENT_TRUNCATE_LEN = 80
 YOLO_MODE = True
 
@@ -124,7 +124,7 @@ def _read_config_file() -> dict:
 KNOWN_KEYS = {
     "max_total_agents", "use_tmux_windows", "base_branch",
     "paused", "agent_timeout", "agent_provider", "role_models",
-    "docs_path",
+    "docs_path", "requirement",
 }
 
 
