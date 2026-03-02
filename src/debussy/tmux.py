@@ -66,13 +66,11 @@ def tmux_window_id_names() -> dict[str, str]:
 def create_tmux_layout():
     run_tmux("kill-session", "-t", SESSION_NAME, check=False)
     run_tmux("new-session", "-d", "-s", SESSION_NAME, "-n", "main")
-    run_tmux("set-option", "-t", SESSION_NAME, "window-size", "manual")
-    run_tmux("resize-window", "-t", f"{SESSION_NAME}:main", "-x", "200", "-y", "50")
 
     t = f"{SESSION_NAME}:main"
-    run_tmux("split-window", "-h", "-p", "33", "-t", t)
-    run_tmux("split-window", "-h", "-p", "50", "-t", f"{t}.0")
-    run_tmux("split-window", "-v", "-p", "50", "-t", f"{t}.0")
+    run_tmux("split-window", "-h", "-t", t)
+    run_tmux("split-window", "-h", "-t", f"{t}.0")
+    run_tmux("split-window", "-v", "-t", f"{t}.0")
 
     Path(".debussy").mkdir(parents=True, exist_ok=True)
 
