@@ -173,9 +173,13 @@ def cmd_clear(args):
                     item.unlink()
         log("Cleared .debussy (kept backups)", "\U0001f5d1")
 
-    result = subprocess.run(["bd", "init"], capture_output=True)
-    if result.returncode != 0:
-        log("Failed to init beads", "\u2717")
+    try:
+        result = subprocess.run(["bd", "init"], capture_output=True, timeout=15)
+        if result.returncode != 0:
+            log("Failed to init beads", "\u2717")
+            return 1
+    except subprocess.TimeoutExpired:
+        log("bd init timed out (dolt may not be running)", "\u2717")
         return 1
     log("Initialized fresh beads", "\u2713")
 
