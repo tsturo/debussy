@@ -271,3 +271,39 @@ def cmd_sessions(args):
         print(f"  {s['session']}    {s['path']}")
 
 
+def _find_session(sessions: list[dict], name: str) -> dict | None:
+    target = f"debussy-{name}" if not name.startswith("debussy-") else name
+    for s in sessions:
+        if s["session"] == target:
+            return s
+    return None
+
+
+def cmd_connect(args):
+    sessions = list_debussy_sessions()
+    if not sessions:
+        print("No active sessions")
+        return 1
+
+    name = getattr(args, "name", None)
+
+    if not name:
+        if len(sessions) == 1:
+            session = sessions[0]
+        else:
+            print("Multiple sessions running. Specify a name:")
+            for s in sessions:
+                print(f"  {s['session']}    {s['path']}")
+            return 1
+    else:
+        session = _find_session(sessions, name)
+        if not session:
+            print(f"Session '{name}' not found. Active sessions:")
+            for s in sessions:
+                print(f"  {s['session']}    {s['path']}")
+            return 1
+
+    os.chdir(session["path"])
+    os.execvp("tmux", ["tmux", "attach-session", "-t", session["session"]])
+
+
