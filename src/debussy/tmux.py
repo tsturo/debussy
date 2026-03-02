@@ -65,7 +65,8 @@ def tmux_window_id_names() -> dict[str, str]:
 
 def create_tmux_layout():
     run_tmux("kill-session", "-t", SESSION_NAME, check=False)
-    run_tmux("new-session", "-d", "-s", SESSION_NAME, "-n", "main", "-x", "200", "-y", "50")
+    run_tmux("set-option", "-g", "default-size", "200x50", check=False)
+    run_tmux("new-session", "-d", "-s", SESSION_NAME, "-n", "main")
 
     t = f"{SESSION_NAME}:main"
     run_tmux("split-window", "-h", "-p", "33", "-t", t)
