@@ -90,13 +90,26 @@ def label_panes():
     run_tmux("select-pane", "-t", f"{t}.0")
 
 
+def _wait_for_claude(target: str, timeout: int = 30) -> bool:
+    for _ in range(timeout):
+        result = subprocess.run(
+            ["tmux", "capture-pane", "-t", target, "-p"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0 and ">" in result.stdout:
+            return True
+        time.sleep(1)
+    return False
+
+
 def send_conductor_prompt(requirement: str | None):
     prompt = get_conductor_prompt()
     if requirement:
         prompt = f"{prompt}\n\nUser requirement: {requirement}"
 
     target = f"{SESSION_NAME}:main.0"
-    time.sleep(CLAUDE_STARTUP_DELAY)
+    if not _wait_for_claude(target):
+        print("WARNING: Claude not ready after 30s, sending prompt anyway")
     send_keys(target, prompt, literal=True)
     time.sleep(0.5)
     subprocess.run(["tmux", "send-keys", "-t", target, "Enter"], check=True)
