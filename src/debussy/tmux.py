@@ -105,6 +105,26 @@ def stop_watcher():
     )
 
 
+def list_debussy_sessions() -> list[dict]:
+    result = subprocess.run(
+        ["tmux", "list-sessions", "-F", "#{session_name}"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return []
+    sessions = []
+    for name in result.stdout.strip().split('\n'):
+        if not name.startswith("debussy-"):
+            continue
+        path_result = subprocess.run(
+            ["tmux", "display-message", "-t", f"{name}:main.0", "-p", "#{pane_current_path}"],
+            capture_output=True, text=True,
+        )
+        path = path_result.stdout.strip() if path_result.returncode == 0 else "unknown"
+        sessions.append({"session": name, "path": path})
+    return sessions
+
+
 def kill_agent(agent: dict, agent_name: str):
     if agent.get("tmux"):
         subprocess.run(
