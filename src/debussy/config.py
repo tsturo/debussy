@@ -12,7 +12,7 @@ POLL_INTERVAL = 5
 HEARTBEAT_TICKS = 12
 CLAUDE_STARTUP_DELAY = 6
 COMMENT_TRUNCATE_LEN = 80
-YOLO_MODE = True and os.geteuid() != 0
+YOLO_MODE = True
 
 
 def _derive_session_name() -> str:
