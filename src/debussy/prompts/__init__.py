@@ -41,10 +41,9 @@ def _docs_block(role: str, docs_path: str) -> str:
     if not focus:
         return ""
     return (
-        f"\n\nDOCUMENTATION REVIEW (do this before implementation):\n"
-        f"Review project documentation at: {docs_path}\n"
-        f"As a {role}, focus on: {focus}.\n"
-        f"List the directory, then read the most relevant files."
+        f"\n\nPROJECT DOCUMENTATION (reference when needed):\n"
+        f"Documentation is available at: {docs_path}\n"
+        f"As a {role}, relevant areas: {focus}."
     )
 
 

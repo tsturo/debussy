@@ -128,6 +128,7 @@ def cmd_restart(args):
 
 
 def cmd_config(args):
+    from .config import KNOWN_KEYS
     if args.key and args.value is not None:
         value = parse_value(args.value)
         set_config(args.key, value)
@@ -141,6 +142,12 @@ def cmd_config(args):
         print("Current config:")
         for k, v in cfg.items():
             print(f"  {k} = {v}")
+        print("")
+        print("Available keys:")
+        for k in sorted(KNOWN_KEYS):
+            val = cfg.get(k)
+            status = f" = {val}" if val is not None else ""
+            print(f"  {k}{status}")
 
 
 def cmd_backup(args):
