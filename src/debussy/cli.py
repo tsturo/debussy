@@ -36,6 +36,8 @@ def _preflight_check() -> bool:
 
 
 def cmd_start(args):
+    if os.geteuid() == 0:
+        raise SystemExit("Debussy cannot run as root. Create a non-root user instead.")
     if not _preflight_check():
         return 1
     clean_config()
@@ -44,9 +46,7 @@ def cmd_start(args):
     else:
         set_config("paused", False)
     requirement = getattr(args, "requirement", None)
-    if requirement:
-        set_config("requirement", requirement)
-    create_tmux_layout()
+    create_tmux_layout(requirement)
     label_panes()
 
     print("\U0001f3bc Debussy started")

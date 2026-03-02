@@ -5,7 +5,10 @@ import signal
 import subprocess
 from pathlib import Path
 
+import shlex
+
 from .config import SESSION_NAME, YOLO_MODE
+from .prompts import get_conductor_prompt
 
 
 def run_tmux(*args, check=True):
@@ -61,7 +64,7 @@ def tmux_window_id_names() -> dict[str, str]:
     return info
 
 
-def create_tmux_layout():
+def create_tmux_layout(requirement: str | None = None):
     run_tmux("kill-session", "-t", SESSION_NAME, check=False)
     run_tmux("new-session", "-d", "-s", SESSION_NAME, "-n", "main")
 
@@ -72,7 +75,11 @@ def create_tmux_layout():
 
     Path(".debussy").mkdir(parents=True, exist_ok=True)
 
+    prompt = get_conductor_prompt()
+    if requirement:
+        prompt = f"{prompt}\n\nUser requirement: {requirement}"
     claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
+    claude_cmd += f" {shlex.quote(prompt)}"
     send_keys(f"{t}.0", claude_cmd)
     send_keys(f"{t}.2", "watch -n 5 'debussy board'")
     send_keys(f"{t}.3", "debussy watch")
