@@ -93,10 +93,11 @@ def label_panes():
 def _wait_for_claude(target: str, timeout: int = 30) -> bool:
     for _ in range(timeout):
         result = subprocess.run(
-            ["tmux", "capture-pane", "-t", target, "-p"],
+            ["tmux", "display-message", "-t", target, "-p", "#{pane_current_command}"],
             capture_output=True, text=True,
         )
-        if result.returncode == 0 and ">" in result.stdout:
+        cmd = result.stdout.strip()
+        if cmd and cmd != "bash" and cmd != "zsh":
             return True
         time.sleep(1)
     return False
