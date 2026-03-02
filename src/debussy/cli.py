@@ -12,7 +12,8 @@ from .config import (
     backup_beads, clean_config, get_config, log, parse_value, set_config,
 )
 from .tmux import (
-    create_tmux_layout, kill_agent, label_panes, send_conductor_prompt,
+    create_tmux_layout, kill_agent, label_panes, list_debussy_sessions,
+    send_conductor_prompt,
 )
 from .worktree import remove_worktree, remove_all_worktrees
 
@@ -259,5 +260,14 @@ def cmd_pause(args):
 def cmd_resume(args):
     set_config("paused", False)
     log("Pipeline resumed", "\u25b6")
+
+
+def cmd_sessions(args):
+    sessions = list_debussy_sessions()
+    if not sessions:
+        print("No active sessions")
+        return 0
+    for s in sessions:
+        print(f"  {s['session']}    {s['path']}")
 
 
