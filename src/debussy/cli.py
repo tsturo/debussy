@@ -108,24 +108,6 @@ def cmd_upgrade(args):
     return result.returncode
 
 
-def cmd_restart(args):
-    if args.upgrade:
-        result = cmd_upgrade(args)
-        if result != 0:
-            return result
-
-    set_config("paused", True)
-    _kill_all_agents()
-    set_config("paused", False)
-
-    cwd = os.getcwd()
-    subprocess.Popen(
-        ["bash", "-c",
-         f"sleep 1 && tmux kill-session -t {SESSION_NAME} 2>/dev/null && sleep 1 && cd {cwd} && debussy start"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
-    log("Restarting in background...", "\U0001f504")
-
 
 def cmd_config(args):
     from .config import KNOWN_KEYS

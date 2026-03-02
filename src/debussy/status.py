@@ -5,11 +5,11 @@ import subprocess
 import time
 from pathlib import Path
 
-from .bead_client import get_all_beads, get_unresolved_deps
+from .bead_client import get_unresolved_deps
 from .config import (
     COMMENT_TRUNCATE_LEN, STAGE_TO_ROLE,
-    STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS, STATUS_OPEN,
-    get_config, log,
+    STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS,
+    get_config,
 )
 from .metrics import fmt_duration
 
@@ -191,49 +191,3 @@ def print_runtime_info(running):
         print()
 
 
-def cmd_status(args):
-    print("\n=== DEBUSSY STATUS ===\n")
-    running = get_running_agents()
-    print_runtime_info(running)
-
-
-def cmd_debug(args):
-    print("=== DEBUSSY DEBUG ===\n")
-
-    all_beads = get_all_beads()
-
-    by_status = {}
-    by_stage = {}
-    for bead in all_beads:
-        status = bead.get("status", "unknown")
-        by_status.setdefault(status, []).append(bead)
-        for label in bead.get("labels", []):
-            if label.startswith("stage:"):
-                by_stage.setdefault(label, []).append(bead)
-
-    print("By status:")
-    for status in (STATUS_OPEN, STATUS_IN_PROGRESS, STATUS_CLOSED, STATUS_BLOCKED):
-        beads = by_status.get(status, [])
-        print(f"  {status}: {len(beads)}")
-    print()
-
-    print("By stage label:")
-    for stage in STAGE_TO_ROLE:
-        beads = by_stage.get(stage, [])
-        print(f"  {stage}: {len(beads)}")
-        for bead in beads[:3]:
-            print(f"    \u2192 {bead.get('id')} {bead.get('title', '')}")
-    print()
-
-    print("Checking .debussy directory...")
-    debussy_dir = Path(".debussy")
-    if debussy_dir.exists():
-        for item in debussy_dir.iterdir():
-            if item.is_dir():
-                count = len(list(item.iterdir()))
-                print(f"  {item.name}/: {count} files")
-            else:
-                print(f"  {item.name}: {item.stat().st_size} bytes")
-    else:
-        print("  .debussy directory doesn't exist")
-    print()

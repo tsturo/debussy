@@ -7,7 +7,6 @@ import sys
 from . import cli, __version__
 from .board import cmd_board
 from .metrics import cmd_metrics
-from .status import cmd_status, cmd_debug
 
 
 def main():
@@ -27,15 +26,8 @@ def main():
     p = subparsers.add_parser("watch", help="Run watcher")
     p.set_defaults(func=cli.cmd_watch)
 
-    p = subparsers.add_parser("status", help="Show status")
-    p.set_defaults(func=cmd_status)
-
     p = subparsers.add_parser("upgrade", help="Upgrade to latest")
     p.set_defaults(func=cli.cmd_upgrade)
-
-    p = subparsers.add_parser("restart", help="Restart session (optionally upgrade first)")
-    p.add_argument("-u", "--upgrade", action="store_true", help="Upgrade before restart")
-    p.set_defaults(func=cli.cmd_restart)
 
     p = subparsers.add_parser("config", help="View or set config")
     p.add_argument("key", nargs="?", help="Config key (max_total_agents, use_tmux_windows, base_branch, paused)")
@@ -58,9 +50,6 @@ def main():
     p = subparsers.add_parser("board", help="Show kanban board")
     p.set_defaults(func=cmd_board)
 
-    p = subparsers.add_parser("debug", help="Debug watcher pipeline")
-    p.set_defaults(func=cmd_debug)
-
     p = subparsers.add_parser("metrics", help="Show pipeline metrics")
     p.set_defaults(func=cmd_metrics)
 
@@ -77,7 +66,7 @@ def main():
         parser.print_help()
         print("\nExamples:")
         print("  debussy start              # Start system")
-        print("  debussy status             # Show status")
+        print("  debussy board              # Show kanban board")
         print('  bd create "task" -d "details"  # Create task')
         return 1
 

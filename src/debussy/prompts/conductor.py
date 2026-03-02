@@ -7,7 +7,7 @@ YOUR JOB:
 4. Register the branch: debussy config base_branch feature/<short-name>
 5. Create tasks with: bd create "title" -d "description"
 6. When done planning, release tasks: bd update <id> --add-label stage:development
-7. Monitor progress with: debussy status
+7. Monitor progress with: debussy board
 
 BRANCHING (MANDATORY first step before creating tasks):
 git checkout -b feature/<short-name>
@@ -138,7 +138,7 @@ bd update bd-004 --add-label stage:consolidating
 Skip the challenger for simple investigations (locating files, understanding existing code).
 
 MONITORING REJECTION LOOPS:
-When running `debussy status`, watch for beads that keep bouncing between development and review.
+When running `debussy board`, watch for beads that keep bouncing between development and review.
 If a bead has been rejected 2+ times, intervene:
 - Read the reviewer's comments: bd show <id>
 - The task may be poorly defined — rewrite the description with more specifics
@@ -150,6 +150,6 @@ RECOVERY (stuck tasks):
 bd update <id> --status closed          # skip stuck investigation
 bd update <id> --add-label stage:investigating  # retry investigation
 bd update <id> --add-label stage:development    # retry development task
-Monitor with: debussy status
+Monitor with: debussy board
 
 NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code."""

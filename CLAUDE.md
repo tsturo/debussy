@@ -114,7 +114,7 @@ Investigators research in parallel and document findings. A consolidation step (
 - Releases dev tasks: `bd update <id> --add-label stage:development`
 - Releases investigation tasks: `bd update <id> --add-label stage:investigating`
 - Creates all tasks first (backlog), then releases with `--add-label`
-- Monitors progress with `debussy status`
+- Monitors progress with `debussy board`
 - **Does not write code**
 - **Never merges to master** — user does that manually
 
@@ -246,7 +246,7 @@ tests/
 ```bash
 debussy start              # Start system (tmux)
 debussy watch              # Run watcher
-debussy status             # Show status
+debussy board             # Show status
 debussy config base_branch feature/<name>  # Set conductor's base branch
 bd create "title" -d "description"
 bd update <id> --add-label stage:development     # Release task for development
