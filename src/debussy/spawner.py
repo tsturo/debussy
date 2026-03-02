@@ -4,10 +4,9 @@ import os
 import random
 import shlex
 import subprocess
-import time
 from pathlib import Path
 
-from .config import CLAUDE_STARTUP_DELAY, SESSION_NAME, YOLO_MODE, get_config, log
+from .config import SESSION_NAME, YOLO_MODE, get_config, log
 from .prompts import get_prompt
 from .transitions import MAX_RETRIES, record_event
 from .worktree import create_worktree, remove_worktree
@@ -78,6 +77,7 @@ def _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path=""):
         cli_cmd += " --dangerously-skip-permissions"
     if model:
         cli_cmd += f" --model {shlex.quote(model)}"
+    cli_cmd += f" {shlex.quote(prompt)}"
 
     cd_prefix = f"cd {shlex.quote(worktree_path)} && " if worktree_path else ""
     shell_cmd = f"{cd_prefix}export DEBUSSY_ROLE={shlex.quote(role)} DEBUSSY_BEAD={shlex.quote(bead_id)}; {cli_cmd}"
@@ -92,18 +92,6 @@ def _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path=""):
         ], check=True, capture_output=True, text=True)
         window_created = True
         window_id = create_result.stdout.strip()
-
-        target = window_id if window_id else f"{SESSION_NAME}:{agent_name}"
-        time.sleep(CLAUDE_STARTUP_DELAY)
-        subprocess.run(
-            ["tmux", "send-keys", "-l", "-t", target, prompt],
-            check=True,
-        )
-        time.sleep(0.5)
-        subprocess.run(
-            ["tmux", "send-keys", "-t", target, "Enter"],
-            check=True,
-        )
 
         return AgentInfo(
             bead=bead_id, role=role, name=agent_name,
