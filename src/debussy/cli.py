@@ -139,15 +139,12 @@ def cmd_config(args):
         print(f"{args.key} = {val}")
     else:
         cfg = get_config()
-        print("Current config:")
-        for k, v in cfg.items():
-            print(f"  {k} = {v}")
-        print("")
-        print("Available keys:")
         for k in sorted(KNOWN_KEYS):
             val = cfg.get(k)
-            status = f" = {val}" if val is not None else ""
-            print(f"  {k}{status}")
+            if val is not None:
+                print(f"  {k} = {val}")
+            else:
+                print(f"  {k} -")
 
 
 def cmd_backup(args):
