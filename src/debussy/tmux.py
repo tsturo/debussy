@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from .config import CLAUDE_STARTUP_DELAY, SESSION_NAME, YOLO_MODE
-from .prompts import CONDUCTOR_PROMPT
+from .prompts import get_conductor_prompt
 
 
 def run_tmux(*args, check=True):
@@ -87,7 +87,7 @@ def label_panes():
 
 
 def send_conductor_prompt(requirement: str | None):
-    prompt = CONDUCTOR_PROMPT
+    prompt = get_conductor_prompt()
     if requirement:
         prompt = f"{prompt}\n\nUser requirement: {requirement}"
 
