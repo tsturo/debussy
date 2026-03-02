@@ -64,6 +64,13 @@ def main():
     p = subparsers.add_parser("metrics", help="Show pipeline metrics")
     p.set_defaults(func=cmd_metrics)
 
+    p = subparsers.add_parser("sessions", help="List running debussy sessions")
+    p.set_defaults(func=cli.cmd_sessions)
+
+    p = subparsers.add_parser("connect", help="Attach to a running session")
+    p.add_argument("name", nargs="?", help="Session name (e.g. piklr)")
+    p.set_defaults(func=cli.cmd_connect)
+
     args = parser.parse_args()
 
     if not args.command:
