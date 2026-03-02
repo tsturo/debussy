@@ -13,8 +13,8 @@ from .prompts import get_conductor_prompt
 def run_tmux(*args, check=True):
     result = subprocess.run(["tmux", *args], capture_output=True, text=True)
     if check and result.returncode != 0:
-        msg = result.stderr.strip() or f"tmux {args[0]} failed"
-        raise subprocess.CalledProcessError(result.returncode, ["tmux", *args], result.stdout, msg)
+        err = result.stderr.strip() or "unknown error"
+        raise RuntimeError(f"tmux {' '.join(str(a) for a in args)} failed: {err}")
     return result
 
 
