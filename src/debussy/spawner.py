@@ -6,8 +6,8 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from .config import SESSION_NAME, YOLO_MODE, get_config, log
-from .prompts import get_prompt
+from .config import SESSION_NAME, YOLO_MODE, get_base_branch, get_config, log
+from .prompts import get_prompt_file, get_user_message
 from .transitions import MAX_RETRIES, record_event
 from .worktree import create_worktree, remove_worktree
 
@@ -64,7 +64,7 @@ def create_agent_worktree(role: str, bead_id: str, agent_name: str) -> str:
         return ""
 
 
-def _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path=""):
+def _spawn_tmux(agent_name, bead_id, role, prompt_file, user_message, stage, worktree_path=""):
     from .watcher import AgentInfo
 
     cfg = get_config()
@@ -77,7 +77,7 @@ def _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path=""):
         cli_cmd += " --dangerously-skip-permissions"
     if model:
         cli_cmd += f" --model {shlex.quote(model)}"
-    cli_cmd += f" {shlex.quote(prompt)}"
+    cli_cmd += f" --system-prompt-file {shlex.quote(str(prompt_file))} {shlex.quote(user_message)}"
 
     cd_prefix = f"cd {shlex.quote(worktree_path)} && " if worktree_path else ""
     shell_cmd = f"{cd_prefix}export DEBUSSY_ROLE={shlex.quote(role)} DEBUSSY_BEAD={shlex.quote(bead_id)}; {cli_cmd}"
@@ -109,7 +109,7 @@ def _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path=""):
         raise
 
 
-def _spawn_background(agent_name, bead_id, role, prompt, stage, worktree_path=""):
+def _spawn_background(agent_name, bead_id, role, prompt_file, user_message, stage, worktree_path=""):
     from .watcher import AgentInfo
 
     cfg = get_config()
@@ -122,7 +122,7 @@ def _spawn_background(agent_name, bead_id, role, prompt, stage, worktree_path=""
         cmd.append("--dangerously-skip-permissions")
     if model:
         cmd.extend(["--model", model])
-    cmd.extend(["--print", prompt])
+    cmd.extend(["--system-prompt-file", str(prompt_file), "--print", user_message])
 
     logs_dir = Path(".debussy/logs")
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -168,16 +168,18 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str, labels: list[str] 
     log(f"Spawning {agent_name} for {bead_id}", "🚀")
 
     worktree_path = create_agent_worktree(role, bead_id, agent_name)
-    prompt = get_prompt(role, bead_id, stage, labels=labels)
+    base = get_base_branch()
+    prompt_file = get_prompt_file(role, stage)
+    user_message = get_user_message(role, bead_id, base, stage, labels=labels)
 
     cfg = get_config()
     use_tmux = cfg.get("use_tmux_windows", False) and os.environ.get("TMUX") is not None
 
     try:
         if use_tmux:
-            agent_info = _spawn_tmux(agent_name, bead_id, role, prompt, stage, worktree_path)
+            agent_info = _spawn_tmux(agent_name, bead_id, role, prompt_file, user_message, stage, worktree_path)
         else:
-            agent_info = _spawn_background(agent_name, bead_id, role, prompt, stage, worktree_path)
+            agent_info = _spawn_background(agent_name, bead_id, role, prompt_file, user_message, stage, worktree_path)
         watcher.running[key] = agent_info
         if agent_info.tmux and watcher._cached_windows is not None:
             cache_id = agent_info.window_id if agent_info.window_id else agent_name
