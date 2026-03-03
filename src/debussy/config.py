@@ -48,6 +48,8 @@ DEFAULTS = {
         "conductor": "claude-opus-4-6",
         "developer": "claude-sonnet-4-6",
         "reviewer": "claude-opus-4-6",
+        "security-reviewer": "claude-opus-4-6",
+        "investigator": "claude-opus-4-6",
         "integrator": "claude-sonnet-4-6",
         "tester": "claude-sonnet-4-6",
     },
