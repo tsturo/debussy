@@ -17,7 +17,7 @@ from .config import (
     atomic_write, backup_beads, get_config, log,
 )
 from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
-from .tmux import send_keys, tmux_window_id_names, tmux_window_ids as get_tmux_windows
+from .tmux import send_keys, run_tmux, tmux_window_id_names, tmux_window_ids as get_tmux_windows
 from .transitions import (
     MAX_RETRIES,
     ensure_stage_transition, record_event,
@@ -305,6 +305,8 @@ class Watcher:
             self._backup_after_transition()
 
     def _notify_conductor(self):
+        if not get_config().get("notify_conductor", False):
+            return
         try:
             beads = get_all_beads()
             messages = []
@@ -353,7 +355,7 @@ class Watcher:
             log(msg, "📢")
             target = f"{SESSION_NAME}:main.0"
             send_keys(target, msg, literal=True)
-            send_keys(target, "Enter")
+            run_tmux("send-keys", "-t", target, "Enter")
 
         except Exception as e:
             log(f"Failed to notify conductor: {e}", "⚠️")

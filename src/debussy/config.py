@@ -45,6 +45,7 @@ DEFAULTS = {
     "use_tmux_windows": False,
     "agent_provider": "claude",
     "role_models": {},
+    "notify_conductor": False,
 }
 
 STAGE_TO_ROLE = {
@@ -123,7 +124,7 @@ def _read_config_file() -> dict:
 KNOWN_KEYS = {
     "max_total_agents", "use_tmux_windows", "base_branch",
     "paused", "agent_timeout", "agent_provider", "role_models",
-    "docs_path",
+    "docs_path", "notify_conductor",
 }
 
 
