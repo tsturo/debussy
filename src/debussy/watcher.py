@@ -25,6 +25,7 @@ from .transitions import (
 from .worktree import cleanup_orphaned_branches, cleanup_stale_worktrees, remove_worktree
 
 MIN_AGENT_RUNTIME = 30
+BACKUP_MIN_INTERVAL = 300
 
 
 @dataclass
@@ -92,6 +93,7 @@ class Watcher:
         self._rejections_file = Path(".debussy/rejections.json")
         self._cached_windows: set[str] | None = None
         self.last_notified_beads: str = ""
+        self.last_backup_at: float = 0.0
         self._load_rejections()
         cleanup_stale_worktrees()
         cleanup_orphaned_branches()
@@ -251,9 +253,13 @@ class Watcher:
         del self.running[key]
 
     def _backup_after_transition(self):
+        now = time.time()
+        if now - self.last_backup_at < BACKUP_MIN_INTERVAL:
+            return
         try:
             path = backup_beads()
             if path:
+                self.last_backup_at = now
                 log(f"Backup: {path.name}", "💾")
         except OSError as e:
             log(f"Backup failed: {e}", "⚠️")
@@ -284,7 +290,7 @@ class Watcher:
                     if ensure_stage_transition(self, agent):
                         self.failures.pop(agent.bead, None)
                         transitioned = True
-                    log(f"{agent.name} finished {agent.bead}", "🛑")
+                    log(f"{agent.name} finished {agent.bead}", "✔️")
                 else:
                     self.failures[agent.bead] = self.failures.get(agent.bead, 0) + 1
                     log(f"{agent.name} died on {agent.bead} after {int(elapsed)}s, status={bead_status} (attempt {self.failures[agent.bead]}/{MAX_RETRIES})", "💥")
