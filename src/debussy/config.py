@@ -44,7 +44,13 @@ DEFAULTS = {
     "max_total_agents": 8,
     "use_tmux_windows": False,
     "agent_provider": "claude",
-    "role_models": {},
+    "role_models": {
+        "conductor": "claude-opus-4-6",
+        "developer": "claude-sonnet-4-6",
+        "reviewer": "claude-opus-4-6",
+        "integrator": "claude-sonnet-4-6",
+        "tester": "claude-sonnet-4-6",
+    },
     "notify_conductor": False,
 }
 
