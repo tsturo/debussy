@@ -170,7 +170,7 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str, labels: list[str] 
     worktree_path = create_agent_worktree(role, bead_id, agent_name)
     base = get_base_branch()
     prompt_file = get_prompt_file(role, stage)
-    user_message = get_user_message(role, bead_id, base, stage, labels=labels)
+    user_message = get_user_message(role, bead_id, base, labels=labels)
 
     cfg = get_config()
     use_tmux = cfg.get("use_tmux_windows", False) and os.environ.get("TMUX") is not None

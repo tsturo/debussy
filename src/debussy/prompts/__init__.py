@@ -13,7 +13,6 @@ _ROLE_FILES = {
     "integrator": "integrator.md",
     "tester": "tester.md",
     "investigator": "investigator.md",
-    "consolidator": "consolidator.md",
 }
 
 _ROLE_DOC_FOCUS = {
@@ -43,14 +42,15 @@ def get_prompt_file(role: str, stage: str) -> Path:
     return _PROMPTS_DIR / filename
 
 
-def get_user_message(role: str, bead_id: str, base: str, stage: str, labels: list[str] | None = None) -> str:
+def get_user_message(role: str, bead_id: str, base: str, labels: list[str] | None = None) -> str:
     if not base and role not in ("investigator",):
         return _NO_BRANCH_ERROR
     parts = [f"Bead: {bead_id}"]
     if base:
         parts.append(f"Base branch: {base}")
-    if labels:
-        parts.append(f"Labels: {', '.join(labels)}")
+    semantic_labels = [l for l in (labels or []) if not l.startswith("stage:")]
+    if semantic_labels:
+        parts.append(f"Labels: {', '.join(semantic_labels)}")
     docs_path = get_config().get("docs_path")
     if docs_path:
         focus = _ROLE_DOC_FOCUS.get(role, "")
