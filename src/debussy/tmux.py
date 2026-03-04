@@ -8,7 +8,7 @@ from pathlib import Path
 import shlex
 
 from .config import SESSION_NAME, YOLO_MODE, get_config
-from .prompts import get_conductor_system_prompt, get_conductor_user_message
+from .prompts import get_conductor_prompt_path, get_conductor_user_message
 
 
 def run_tmux(*args, check=True):
@@ -74,14 +74,14 @@ def create_tmux_layout(requirement: str | None = None):
 
     Path(".debussy").mkdir(parents=True, exist_ok=True)
 
-    system_prompt = get_conductor_system_prompt()
+    prompt_path = get_conductor_prompt_path()
     user_message = get_conductor_user_message(requirement)
     cfg = get_config()
     conductor_model = cfg.get("role_models", {}).get("conductor")
     claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
     if conductor_model:
         claude_cmd += f" --model {shlex.quote(conductor_model)}"
-    claude_cmd += f" --system-prompt {shlex.quote(system_prompt)} {shlex.quote(user_message)}"
+    claude_cmd += f" --system-prompt \"$(cat {shlex.quote(str(prompt_path))})\" {shlex.quote(user_message)}"
     send_keys(f"{t}.0", claude_cmd)
     send_keys(f"{t}.1", "watch -n 5 'debussy board'")
     send_keys(f"{t}.2", "debussy watch")

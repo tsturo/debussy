@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 from .config import SESSION_NAME, YOLO_MODE, get_base_branch, get_config, log
-from .prompts import get_system_prompt, get_user_message
+from .prompts import get_prompt_path, get_system_prompt, get_user_message
 from .transitions import MAX_RETRIES, record_event
 from .worktree import create_worktree, remove_worktree
 
@@ -64,7 +64,7 @@ def create_agent_worktree(role: str, bead_id: str, agent_name: str) -> str:
         return ""
 
 
-def _spawn_tmux(agent_name, bead_id, role, system_prompt, user_message, stage, worktree_path=""):
+def _spawn_tmux(agent_name, bead_id, role, prompt_path, user_message, stage, worktree_path=""):
     from .watcher import AgentInfo
 
     cfg = get_config()
@@ -77,7 +77,7 @@ def _spawn_tmux(agent_name, bead_id, role, system_prompt, user_message, stage, w
         cli_cmd += " --dangerously-skip-permissions"
     if model:
         cli_cmd += f" --model {shlex.quote(model)}"
-    cli_cmd += f" --system-prompt {shlex.quote(system_prompt)} {shlex.quote(user_message)}"
+    cli_cmd += f" --system-prompt \"$(cat {shlex.quote(str(prompt_path))})\" {shlex.quote(user_message)}"
 
     cd_prefix = f"cd {shlex.quote(worktree_path)} && " if worktree_path else ""
     shell_cmd = f"{cd_prefix}export DEBUSSY_ROLE={shlex.quote(role)} DEBUSSY_BEAD={shlex.quote(bead_id)}; {cli_cmd}"
@@ -169,7 +169,6 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str, labels: list[str] 
 
     worktree_path = create_agent_worktree(role, bead_id, agent_name)
     base = get_base_branch()
-    system_prompt = get_system_prompt(role, stage)
     user_message = get_user_message(role, bead_id, base, labels=labels)
 
     cfg = get_config()
@@ -177,8 +176,10 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str, labels: list[str] 
 
     try:
         if use_tmux:
-            agent_info = _spawn_tmux(agent_name, bead_id, role, system_prompt, user_message, stage, worktree_path)
+            prompt_path = get_prompt_path(role, stage)
+            agent_info = _spawn_tmux(agent_name, bead_id, role, prompt_path, user_message, stage, worktree_path)
         else:
+            system_prompt = get_system_prompt(role, stage)
             agent_info = _spawn_background(agent_name, bead_id, role, system_prompt, user_message, stage, worktree_path)
         watcher.running[key] = agent_info
         if agent_info.tmux and watcher._cached_windows is not None:
