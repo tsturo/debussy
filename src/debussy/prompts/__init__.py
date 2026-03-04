@@ -30,16 +30,20 @@ _NO_BRANCH_ERROR = (
     "Exit immediately."
 )
 
-__all__ = ["get_prompt_file", "get_user_message", "get_conductor_prompt_file", "get_conductor_user_message"]
+__all__ = ["get_system_prompt", "get_user_message", "get_conductor_system_prompt", "get_conductor_user_message"]
 
 
-def get_prompt_file(role: str, stage: str) -> Path:
+def _read_prompt(path: Path) -> str:
+    return path.read_text()
+
+
+def get_system_prompt(role: str, stage: str) -> str:
     if role == "investigator" and stage == STAGE_CONSOLIDATING:
-        return _PROMPTS_DIR / "consolidator.md"
+        return _read_prompt(_PROMPTS_DIR / "consolidator.md")
     filename = _ROLE_FILES.get(role)
     if not filename:
         raise ValueError(f"Unknown role: {role}")
-    return _PROMPTS_DIR / filename
+    return _read_prompt(_PROMPTS_DIR / filename)
 
 
 def get_user_message(role: str, bead_id: str, base: str, labels: list[str] | None = None) -> str:
@@ -58,8 +62,8 @@ def get_user_message(role: str, bead_id: str, base: str, labels: list[str] | Non
     return "\n".join(parts)
 
 
-def get_conductor_prompt_file() -> Path:
-    return _PROMPTS_DIR / "conductor.md"
+def get_conductor_system_prompt() -> str:
+    return _read_prompt(_PROMPTS_DIR / "conductor.md")
 
 
 def get_conductor_user_message(requirement: str | None = None) -> str:

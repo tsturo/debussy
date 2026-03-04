@@ -18,5 +18,8 @@ dbs = "debussy.__main__:main"
 [tool.setuptools.dynamic]
 version = {attr = "debussy.__version__"}
 
+[tool.setuptools.package-data]
+debussy = ["prompts/*.md"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
