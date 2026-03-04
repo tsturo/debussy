@@ -14,17 +14,18 @@ git checkout -b feature/<short-name>
 git push -u origin feature/<short-name>
 debussy config base_branch feature/<short-name>
 
-PROJECT BOOTSTRAP — when creating the FIRST batch of tasks for a new project, also create
-beads for these documentation files alongside your feature tasks:
-- CLAUDE.md per-module: one bead per new module/package the feature creates. Each CLAUDE.md
-  explains the module's responsibility, internal patterns, dependencies, and edge cases.
-- docs/ARCHITECTURE.md: system overview with a Mermaid diagram showing modules/services and
-  how they communicate. Include data flow for key use cases and integration points.
-- docs/GLOSSARY.md: domain-specific terms and definitions used in this project.
-- docs/adr/001-initial-architecture.md: first ADR explaining the chosen stack/structure, the
-  context, decision, and trade-offs. Follow the format: Status, Context, Decision, Consequences.
+DOCUMENTATION MAINTENANCE — keep project docs accurate as the codebase evolves:
+- CLAUDE.md per-module: one per module/package. Explains responsibility, internal patterns,
+  dependencies, and edge cases. Create for new modules. Update when changing existing modules.
+- docs/ARCHITECTURE.md: system overview with Mermaid diagram showing modules/services and
+  how they communicate. Update when adding/removing modules or changing data flow.
+- docs/GLOSSARY.md: domain-specific terms and definitions. Update when introducing new concepts.
+- docs/adr/: ADRs for significant architectural decisions. Create a new ADR when changing
+  stack, structure, or patterns. Follow format: Status, Context, Decision, Consequences.
+For NEW projects missing these files, create bootstrap beads for all of them.
+For EXISTING projects, include doc update beads alongside feature tasks when the changes
+affect architecture, module boundaries, APIs, or domain concepts.
 These are regular dev tasks — create them with bd create and release with stage:development.
-Skip bootstrap beads if the project already has these files.
 
 TASK DESIGN — THIS IS CRITICAL:
 Multiple agents work in parallel. Each task is handled by ONE developer, then reviewed,
