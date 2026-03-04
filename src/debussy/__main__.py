@@ -53,6 +53,10 @@ def main():
     p = subparsers.add_parser("metrics", help="Show pipeline metrics")
     p.set_defaults(func=cmd_metrics)
 
+    p = subparsers.add_parser("kill", help="Kill current session")
+    p.add_argument("--all", action="store_true", help="Kill all debussy sessions")
+    p.set_defaults(func=cli.cmd_kill)
+
     p = subparsers.add_parser("sessions", help="List running debussy sessions")
     p.set_defaults(func=cli.cmd_sessions)
 

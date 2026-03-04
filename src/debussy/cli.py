@@ -52,11 +52,11 @@ def cmd_start(args):
     print("\U0001f3bc Debussy started")
     print("")
     print("Layout:")
-    print("  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510")
-    print("  \u2502conductor \u2502          \u2502         \u2502")
-    print("  \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524  board   \u2502 watcher \u2502")
-    print("  \u2502   cmd    \u2502          \u2502         \u2502")
-    print("  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518")
+    print("  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510")
+    print("  \u2502            \u2502          \u2502         \u2502")
+    print("  \u2502 conductor  \u2502  board   \u2502 watcher \u2502")
+    print("  \u2502            \u2502          \u2502         \u2502")
+    print("  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518")
     print("")
 
     subprocess.run(["tmux", "attach-session", "-t", SESSION_NAME])
@@ -273,6 +273,34 @@ def _find_session(sessions: list[dict], name: str) -> dict | None:
         if s["session"] == target:
             return s
     return None
+
+
+def cmd_kill(args):
+    all_sessions = getattr(args, "all", False)
+    sessions = list_debussy_sessions()
+    if not sessions:
+        print("No active sessions")
+        return 0
+
+    if all_sessions:
+        for s in sessions:
+            subprocess.run(["tmux", "kill-session", "-t", s["session"]], capture_output=True)
+            log(f"Killed {s['session']}", "\U0001f6d1")
+        return 0
+
+    cwd = os.getcwd()
+    cwd_name = Path(cwd).name
+    target = f"debussy-{cwd_name}"
+    session = _find_session(sessions, target)
+    if not session:
+        print(f"No session for current directory. Active sessions:")
+        for s in sessions:
+            print(f"  {s['session']}    {s['path']}")
+        return 1
+
+    subprocess.run(["tmux", "kill-session", "-t", session["session"]], capture_output=True)
+    log(f"Killed {session['session']}", "\U0001f6d1")
+    return 0
 
 
 def cmd_connect(args):

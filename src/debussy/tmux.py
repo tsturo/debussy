@@ -71,7 +71,6 @@ def create_tmux_layout(requirement: str | None = None):
     t = f"{SESSION_NAME}:main"
     run_tmux("split-window", "-h", "-t", t)
     run_tmux("split-window", "-h", "-t", f"{t}.0")
-    run_tmux("split-window", "-v", "-t", f"{t}.0")
 
     Path(".debussy").mkdir(parents=True, exist_ok=True)
 
@@ -84,13 +83,13 @@ def create_tmux_layout(requirement: str | None = None):
         claude_cmd += f" --model {shlex.quote(conductor_model)}"
     claude_cmd += f" --system-prompt {shlex.quote(system_prompt)} {shlex.quote(user_message)}"
     send_keys(f"{t}.0", claude_cmd)
-    send_keys(f"{t}.2", "watch -n 5 'debussy board'")
-    send_keys(f"{t}.3", "debussy watch")
+    send_keys(f"{t}.1", "watch -n 5 'debussy board'")
+    send_keys(f"{t}.2", "debussy watch")
 
 
 def label_panes():
     t = f"{SESSION_NAME}:main"
-    for idx, title in enumerate(["conductor", "cmd", "board", "watcher"]):
+    for idx, title in enumerate(["conductor", "board", "watcher"]):
         run_tmux("select-pane", "-t", f"{t}.{idx}", "-T", title)
     run_tmux("set-option", "-t", SESSION_NAME, "pane-border-status", "top")
     run_tmux("set-option", "-t", SESSION_NAME, "pane-border-format", " #{pane_title} ")
