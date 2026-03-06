@@ -57,6 +57,10 @@ def main():
     p.add_argument("--all", action="store_true", help="Kill all debussy sessions")
     p.set_defaults(func=cli.cmd_kill)
 
+    p = subparsers.add_parser("kill-agent", help="Kill a single agent by name or bead ID")
+    p.add_argument("name", help="Agent name (e.g. bd-001) or bead ID")
+    p.set_defaults(func=cli.cmd_kill_agent)
+
     p = subparsers.add_parser("sessions", help="List running debussy sessions")
     p.set_defaults(func=cli.cmd_sessions)
 

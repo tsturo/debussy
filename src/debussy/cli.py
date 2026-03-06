@@ -220,29 +220,46 @@ def _delete_orphan_branches(paused_beads: set[str]):
         log(f"Failed to clean branches: {e}", "\u26a0\ufe0f")
 
 
-def _kill_all_agents():
+def _load_watcher_state() -> dict:
     state_file = Path(".debussy/watcher_state.json")
-    state = {}
     if state_file.exists():
         try:
             with open(state_file) as f:
-                state = json.load(f)
+                return json.load(f)
         except (OSError, ValueError):
             pass
+    return {}
+
+
+def _save_watcher_state(state: dict):
+    state_file = Path(".debussy/watcher_state.json")
+    if state:
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(state_file, "w") as f:
+            json.dump(state, f)
+    elif state_file.exists():
+        state_file.unlink()
+
+
+def _kill_one_agent(bead_id: str, agent: dict):
+    agent_name = agent.get("agent", "")
+    kill_agent(agent, agent_name)
+    log(f"Killed {agent_name}", "\U0001f6d1")
+    if agent.get("worktree_path"):
+        try:
+            remove_worktree(agent_name)
+        except (subprocess.SubprocessError, OSError):
+            pass
+    _reset_bead_to_open(bead_id)
+
+
+def _kill_all_agents():
+    state = _load_watcher_state()
 
     for bead_id, agent in state.items():
-        agent_name = agent.get("agent", "")
-        kill_agent(agent, agent_name)
-        log(f"Killed {agent_name}", "\U0001f6d1")
-        if agent.get("worktree_path"):
-            try:
-                remove_worktree(agent_name)
-            except (subprocess.SubprocessError, OSError):
-                pass
-        _reset_bead_to_open(bead_id)
+        _kill_one_agent(bead_id, agent)
 
-    if state_file.exists():
-        state_file.unlink()
+    _save_watcher_state({})
 
 
 def cmd_pause(args):
@@ -251,6 +268,26 @@ def cmd_pause(args):
     log("Pipeline paused", "\u23f8")
 
 
+
+
+def cmd_kill_agent(args):
+    name = args.name
+    state = _load_watcher_state()
+    if not state:
+        print("No running agents")
+        return 1
+
+    for bead_id, agent in state.items():
+        if agent.get("agent") == name or bead_id == name:
+            _kill_one_agent(bead_id, agent)
+            del state[bead_id]
+            _save_watcher_state(state)
+            return 0
+
+    print(f"Agent '{name}' not found. Running agents:")
+    for bead_id, agent in state.items():
+        print(f"  {agent.get('agent', '?')}  ({bead_id})")
+    return 1
 
 
 def cmd_resume(args):
