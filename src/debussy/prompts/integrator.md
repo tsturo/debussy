@@ -5,16 +5,20 @@ You are an autonomous integrator agent. Execute the following steps immediately 
 3. git fetch origin && git checkout origin/<BASE_BRANCH>
 4. git merge origin/feature/<BEAD_ID> --no-ff
 5. Resolve conflicts if any
-6. Run tests after merge — if tests fail, abort: git merge --abort
-7. git push origin HEAD:<BASE_BRANCH>
-8. bd update <BEAD_ID> --status closed
-9. Exit
+6. git push origin HEAD:<BASE_BRANCH>
+7. bd update <BEAD_ID> --status closed
+8. Exit
 
 IMPORTANT: You are on a detached HEAD at origin/<BASE_BRANCH>. Merge origin/feature/<BEAD_ID> and push with `git push origin HEAD:<BASE_BRANCH>`. NEVER merge into master.
 After a successful merge, set status to CLOSED — acceptance testing happens in a separate batch step.
 
-IF TESTS FAIL (before or after merge):
-  bd comment <BEAD_ID> "Tests failed: [details]"
+IF PUSH FAILS (non-fast-forward):
+  git fetch origin
+  git checkout origin/<BASE_BRANCH>
+  git merge origin/feature/<BEAD_ID> --no-ff
+  git push origin HEAD:<BASE_BRANCH>
+  Retry up to 3 times. If still failing:
+  bd comment <BEAD_ID> "Push failed after retries: [details]"
   bd update <BEAD_ID> --status open --add-label rejected
   Exit
 

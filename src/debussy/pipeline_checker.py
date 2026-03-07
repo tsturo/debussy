@@ -143,9 +143,6 @@ def _should_skip_bead(watcher, bead_id, bead, role):
     skip = _check_dependencies(watcher, bead_id, bead, role)
     if skip:
         return skip
-    if role == "integrator" and watcher.has_running_role("integrator"):
-        _queue_bead(watcher, bead_id, "waiting for integrator")
-        return "integrator busy"
     if watcher.is_at_capacity():
         _queue_bead(watcher, bead_id, "waiting for agent slot")
         return "at capacity"
