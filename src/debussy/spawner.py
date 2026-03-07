@@ -82,6 +82,10 @@ def _spawn_tmux(agent_name, bead_id, role, prompt_path, user_message, stage, wor
     cd_prefix = f"cd {shlex.quote(worktree_path)} && " if worktree_path else ""
     shell_cmd = f"{cd_prefix}export DEBUSSY_ROLE={shlex.quote(role)} DEBUSSY_BEAD={shlex.quote(bead_id)}; {cli_cmd}"
 
+    logs_dir = Path(".debussy/logs")
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    log_file = logs_dir / f"{agent_name}.log"
+
     window_created = False
     window_id = ""
     try:
@@ -93,10 +97,15 @@ def _spawn_tmux(agent_name, bead_id, role, prompt_path, user_message, stage, wor
         window_created = True
         window_id = create_result.stdout.strip()
 
+        subprocess.run([
+            "tmux", "pipe-pane", "-t", window_id, "-o",
+            f"cat >> {shlex.quote(str(log_file))}"
+        ], capture_output=True)
+
         return AgentInfo(
             bead=bead_id, role=role, name=agent_name,
             spawned_stage=stage, tmux=True, window_id=window_id,
-            worktree_path=worktree_path,
+            log_path=str(log_file), worktree_path=worktree_path,
         )
     except (subprocess.SubprocessError, OSError) as e:
         if window_created:
