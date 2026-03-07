@@ -53,7 +53,7 @@ DEFAULTS = {
         "integrator": "claude-sonnet-4-6",
         "tester": "claude-sonnet-4-6",
     },
-    "monitor_interval": 120,
+    "monitor_interval": 240,
     "notify_conductor": False,
     "max_role_agents": {
         "developer": 10,

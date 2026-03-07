@@ -71,7 +71,7 @@ def get_conductor_prompt_path() -> Path:
 
 def get_conductor_system_prompt() -> str:
     text = get_conductor_prompt_path().read_text()
-    interval = get_config().get("monitor_interval", 120)
+    interval = get_config().get("monitor_interval", 240)
     return text.replace("MONITOR_INTERVAL", str(interval))
 
 
