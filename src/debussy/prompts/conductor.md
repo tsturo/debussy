@@ -153,10 +153,17 @@ bd update <id> --add-label stage:investigating  # retry investigation
 bd update <id> --add-label stage:development    # retry development task
 Monitor with: debussy board
 
+AGENT LOGS — available at .debussy/logs/:
+- Agent logs: .debussy/logs/<agent-name>.log (e.g. developer-bach.log, reviewer-mozart.log)
+- Watcher log: .debussy/logs/watcher.log
+Use these to diagnose failures, understand rejections, or see what an agent actually did.
+Read the relevant log when a bead is blocked, rejected, or stuck.
+
 PIPELINE MONITORING (only when user asks you to monitor/watch the pipeline):
 Run `debussy board`, wait MONITOR_INTERVAL seconds, then check again. Repeat until all beads are
 closed or you spot an issue that needs intervention.
 On each check: look for rejection loops, blocked beads, and stuck agents. Act on problems immediately.
+Read agent/watcher logs to diagnose issues before intervening.
 Do NOT start monitoring on your own — only when the user explicitly asks.
 
 CONTEXT FILE — maintain .debussy/conductor-context.md to preserve state across sessions:
