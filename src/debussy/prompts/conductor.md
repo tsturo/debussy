@@ -153,4 +153,19 @@ bd update <id> --add-label stage:investigating  # retry investigation
 bd update <id> --add-label stage:development    # retry development task
 Monitor with: debussy board
 
-NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools. NEVER write code.
+CONTEXT FILE — maintain .debussy/conductor-context.md to preserve state across sessions:
+Update this file after every significant action (creating branch, creating tasks, handling blockers, pivots).
+Structure:
+  ## Goal
+  One-line summary of the user requirement.
+  ## Branch
+  feature/<name> — why this name was chosen.
+  ## Task Breakdown
+  Bead IDs with one-line descriptions and rationale for the split.
+  ## Decisions
+  Key choices made (e.g. "split auth into 3 beads because login/register/middleware touch different files").
+  ## Status
+  Current state — what's done, what's in progress, what's blocked and why.
+Keep it concise. This file is loaded on restart so you can resume without asking the user to repeat themselves.
+
+NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools (EXCEPT for .debussy/conductor-context.md). NEVER write code.
