@@ -70,7 +70,9 @@ def get_conductor_prompt_path() -> Path:
 
 
 def get_conductor_system_prompt() -> str:
-    return get_conductor_prompt_path().read_text()
+    text = get_conductor_prompt_path().read_text()
+    interval = get_config().get("monitor_interval", 120)
+    return text.replace("MONITOR_INTERVAL", str(interval))
 
 
 def get_conductor_user_message(requirement: str | None = None) -> str:

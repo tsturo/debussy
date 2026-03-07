@@ -53,6 +53,7 @@ DEFAULTS = {
         "integrator": "claude-sonnet-4-6",
         "tester": "claude-sonnet-4-6",
     },
+    "monitor_interval": 120,
     "notify_conductor": False,
     "max_role_agents": {
         "developer": 10,
@@ -140,7 +141,7 @@ def _read_config_file() -> dict:
 KNOWN_KEYS = {
     "max_total_agents", "use_tmux_windows", "base_branch",
     "paused", "agent_timeout", "agent_provider", "role_models",
-    "docs_path", "notify_conductor", "max_role_agents",
+    "docs_path", "notify_conductor", "max_role_agents", "monitor_interval",
 }
 
 

@@ -153,6 +153,12 @@ bd update <id> --add-label stage:investigating  # retry investigation
 bd update <id> --add-label stage:development    # retry development task
 Monitor with: debussy board
 
+PIPELINE MONITORING (only when user asks you to monitor/watch the pipeline):
+Run `debussy board`, wait MONITOR_INTERVAL seconds, then check again. Repeat until all beads are
+closed or you spot an issue that needs intervention.
+On each check: look for rejection loops, blocked beads, and stuck agents. Act on problems immediately.
+Do NOT start monitoring on your own — only when the user explicitly asks.
+
 CONTEXT FILE — maintain .debussy/conductor-context.md to preserve state across sessions:
 Update this file after every significant action (creating branch, creating tasks, handling blockers, pivots).
 Structure:

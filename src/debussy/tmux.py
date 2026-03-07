@@ -8,7 +8,7 @@ from pathlib import Path
 import shlex
 
 from .config import SESSION_NAME, YOLO_MODE, get_config
-from .prompts import get_conductor_prompt_path, get_conductor_user_message
+from .prompts import get_conductor_system_prompt, get_conductor_user_message
 
 
 def run_tmux(*args, check=True):
@@ -74,7 +74,9 @@ def create_tmux_layout(requirement: str | None = None):
 
     Path(".debussy").mkdir(parents=True, exist_ok=True)
 
-    prompt_path = get_conductor_prompt_path()
+    system_prompt = get_conductor_system_prompt()
+    prompt_path = Path(".debussy/conductor-prompt.md")
+    prompt_path.write_text(system_prompt)
     user_message = get_conductor_user_message(requirement)
     cfg = get_config()
     conductor_model = cfg.get("role_models", {}).get("conductor")
