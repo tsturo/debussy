@@ -8,7 +8,7 @@ from .bead_client import get_bead_json, get_bead_status, get_unresolved_deps
 from .config import (
     LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_DEVELOPMENT, STAGE_TO_ROLE,
     STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS, STATUS_OPEN,
-    log,
+    get_config, log,
 )
 from .spawner import MAX_TOTAL_SPAWNS, spawn_agent
 from .transitions import MAX_RETRIES, REJECTION_COOLDOWN, record_event, verify_single_stage
@@ -143,6 +143,10 @@ def _should_skip_bead(watcher, bead_id, bead, role):
     skip = _check_dependencies(watcher, bead_id, bead, role)
     if skip:
         return skip
+    max_for_role = get_config().get("max_role_agents", {}).get(role)
+    if max_for_role and watcher.count_running_role(role) >= max_for_role:
+        _queue_bead(watcher, bead_id, f"waiting for {role} slot")
+        return f"{role} at cap"
     if watcher.is_at_capacity():
         _queue_bead(watcher, bead_id, "waiting for agent slot")
         return "at capacity"

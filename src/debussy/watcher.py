@@ -212,6 +212,9 @@ class Watcher:
     def has_running_role(self, role: str) -> bool:
         return any(a.role == role for a in self._alive_agents())
 
+    def count_running_role(self, role: str) -> int:
+        return sum(1 for a in self._alive_agents() if a.role == role)
+
     def _check_timeouts(self):
         now = time.time()
         timeout = get_config().get("agent_timeout", AGENT_TIMEOUT)

@@ -54,6 +54,14 @@ DEFAULTS = {
         "tester": "claude-sonnet-4-6",
     },
     "notify_conductor": False,
+    "max_role_agents": {
+        "developer": 10,
+        "reviewer": 10,
+        "security-reviewer": 10,
+        "integrator": 10,
+        "tester": 10,
+        "investigator": 10,
+    },
 }
 
 STAGE_TO_ROLE = {
@@ -132,7 +140,7 @@ def _read_config_file() -> dict:
 KNOWN_KEYS = {
     "max_total_agents", "use_tmux_windows", "base_branch",
     "paused", "agent_timeout", "agent_provider", "role_models",
-    "docs_path", "notify_conductor",
+    "docs_path", "notify_conductor", "max_role_agents",
 }
 
 
@@ -157,7 +165,7 @@ def get_base_branch() -> str | None:
     return get_config().get("base_branch")
 
 
-def parse_value(value: str) -> str | bool | int:
+def parse_value(value: str) -> str | bool | int | dict | list:
     if value.lower() in ("true", "1", "yes", "on"):
         return True
     if value.lower() in ("false", "0", "no", "off"):
@@ -165,7 +173,14 @@ def parse_value(value: str) -> str | bool | int:
     try:
         return int(value)
     except ValueError:
-        return value
+        pass
+    try:
+        parsed = json.loads(value)
+        if isinstance(parsed, (dict, list)):
+            return parsed
+    except (json.JSONDecodeError, ValueError):
+        pass
+    return value
 
 
 BACKUP_DIR = CONFIG_DIR / "backups"
