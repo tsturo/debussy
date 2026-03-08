@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 EVENTS_FILE = Path(".debussy/pipeline_events.jsonl")
 
 MAX_RETRIES = 3
-MAX_REJECTIONS = 5
+MAX_REJECTIONS = 3
 REJECTION_COOLDOWN = 60
 
 

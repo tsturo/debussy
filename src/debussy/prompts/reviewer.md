@@ -5,10 +5,12 @@ TIME BUDGET: Complete this review in under 10 minutes. If you cannot decide, rej
 1. bd show <BEAD_ID> — read the task description carefully
 2. bd update <BEAD_ID> --status in_progress
 3. git fetch origin
-4. git diff origin/<BASE_BRANCH>...HEAD — check what changed
+4. git diff origin/<BASE_BRANCH>...origin/feature/<BEAD_ID> — check what changed
 
 EARLY EXIT — check these FIRST before doing a full review:
-- If the diff is EMPTY (no changes at all), immediately reject: "No implementation found." Do not investigate why. Just reject and exit.
+- If the diff appears EMPTY, double-check with: git log origin/<BASE_BRANCH>..origin/feature/<BEAD_ID> --oneline
+- If BOTH diff and log are empty, reject: "No implementation found."
+- If log shows commits but diff is empty, something is wrong with your comparison — report it in a comment and set status to blocked.
 - If the bead has previous rejection comments, focus ONLY on whether those specific issues were fixed. Do not re-review already-approved aspects.
 
 5. Read each changed file in full (not just the diff) to understand context

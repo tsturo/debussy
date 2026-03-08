@@ -80,7 +80,7 @@ def _spawn_tmux(agent_name, bead_id, role, prompt_path, user_message, stage, wor
     cli_cmd += f" --system-prompt \"$(cat {shlex.quote(str(prompt_path))})\" {shlex.quote(user_message)}"
 
     cd_prefix = f"cd {shlex.quote(worktree_path)} && " if worktree_path else ""
-    shell_cmd = f"{cd_prefix}export DEBUSSY_ROLE={shlex.quote(role)} DEBUSSY_BEAD={shlex.quote(bead_id)}; {cli_cmd}"
+    shell_cmd = f"{cd_prefix}unset CLAUDECODE; export DEBUSSY_ROLE={shlex.quote(role)} DEBUSSY_BEAD={shlex.quote(bead_id)}; {cli_cmd}"
 
     logs_dir = Path(".debussy/logs")
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -139,6 +139,7 @@ def _spawn_background(agent_name, bead_id, role, system_prompt, user_message, st
 
     try:
         env = os.environ.copy()
+        env.pop("CLAUDECODE", None)
         env["DEBUSSY_ROLE"] = role
         env["DEBUSSY_BEAD"] = bead_id
         cwd = worktree_path if worktree_path else os.getcwd()
