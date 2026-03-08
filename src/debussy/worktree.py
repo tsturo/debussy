@@ -154,7 +154,13 @@ def _worktree_branches() -> set[str]:
 
 
 def cleanup_orphaned_branches():
-    subprocess.run(["git", "fetch", "--prune"], capture_output=True, timeout=30)
+    import os
+    env = os.environ.copy()
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    try:
+        subprocess.run(["git", "fetch", "--prune"], capture_output=True, timeout=30, env=env)
+    except (subprocess.SubprocessError, OSError):
+        pass
 
     base_branch = get_config().get("base_branch", "")
     closed = _get_closed_bead_ids()
