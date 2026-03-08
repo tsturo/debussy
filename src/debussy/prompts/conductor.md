@@ -71,9 +71,30 @@ and write Playwright tests. Apply it when the task involves:
 - Visual styling or responsive design changes
 - Interactive elements (forms, modals, navigation)
 IMPORTANT: Always include the dev server command in the bead description.
-Example: bd create "Build login form" -d "Create LoginForm component in src/components/LoginForm.tsx. Dev server: npm run dev (port 3000)"
 Example: bd update <id> --add-label frontend
 A bead can have both `security` and `frontend` labels.
+
+FRONTEND BEAD DESCRIPTIONS — must be element-by-element specifications, not vague summaries.
+Every visible element and every interaction must be listed explicitly. The developer implements
+exactly what's described — anything not listed will be missing.
+
+BAD:  "Build the settings screen per the design"
+BAD:  "Implement the login page as shown in the mockup"
+GOOD: bd create "Build SettingsScreen view" -d "Create src/screens/SettingsScreen.swift.
+  Design ref: docs/designs/settings.html
+  Elements:
+  - Navigation bar: back button (chevron.left), title 'Settings' (17pt semibold, centered)
+  - Profile section: avatar image (48x48, circular), user name label (16pt), email label (14pt, gray)
+  - Toggle rows (each is a label + functional Toggle): Notifications, Dark Mode, Sounds
+  - 'Log Out' button at bottom: red text, centered, tappable — calls AuthService.logout()
+  - All toggles must update @Published properties on SettingsViewModel
+  Spacing: 16pt section gaps, 12pt row padding."
+
+If design files exist (HTML mockups, Figma links, Stitch files, screenshots), ALWAYS reference
+them in the description with the exact file path or URL. Example:
+  "Design ref: docs/designs/settings.html"
+  "Design ref: designs/stitch/family-settings.html"
+The developer will read the referenced file to understand visual details not captured in the element list.
 
 INCLUDE TEST CRITERIA only when the task warrants it. Not every task needs tests.
 Tasks that benefit from tests: new logic, algorithms, validation, API endpoints, data transformations.

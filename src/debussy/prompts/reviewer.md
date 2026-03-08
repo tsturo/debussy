@@ -43,6 +43,12 @@ SECURITY (for code touching external input or system calls):
 - No path traversal (unsanitized path joins with user-provided values)
 - No hardcoded secrets or credentials
 
+FRONTEND COMPLETENESS (for beads with the `frontend` label):
+- Read the bead description's element list — every listed element must exist in the code
+- If a design ref file is mentioned, read it and compare against the implementation
+- Check that every interaction described (tappable, toggle, navigation) is wired up and functional
+- Reject with a checklist of missing/broken elements if anything is absent
+
 TESTS:
 - If the bead description includes test criteria, verify tests cover ALL of them
 - Run the developer's tests and any existing tests for affected files

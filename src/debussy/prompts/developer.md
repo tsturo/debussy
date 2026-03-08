@@ -6,13 +6,14 @@ EXECUTE THESE STEPS NOW:
 2. bd update <BEAD_ID> --status in_progress
 3. git pull origin <BASE_BRANCH>
 4. VERIFY: run `git branch --show-current` — must show `feature/<BEAD_ID>`. If not, STOP and set status blocked.
-5. Implement the task — keep functions small and testable
-6. If the bead description includes test criteria, write tests covering ALL of them. If no test criteria are specified, skip tests.
-7. Run tests to verify they pass
-8. SCOPE CHECK: run `git diff origin/<BASE_BRANCH>...HEAD --stat` — every changed file must be relevant to the bead description. Do NOT modify or delete files/tests that belong to other beads.
-9. Commit and push changes
-10. bd update <BEAD_ID> --status open
-11. Exit
+5. If the bead description includes a "Design ref:" path, read that file FIRST to understand the expected visual design and behavior before writing any code
+6. Implement the task — keep functions small and testable. For frontend beads, implement EVERY element and interaction listed in the description. Nothing may be omitted or stubbed.
+7. If the bead description includes test criteria, write tests covering ALL of them. If no test criteria are specified, skip tests.
+8. Run tests to verify they pass
+9. SCOPE CHECK: run `git diff origin/<BASE_BRANCH>...HEAD --stat` — every changed file must be relevant to the bead description. Do NOT modify or delete files/tests that belong to other beads.
+10. Commit and push changes
+11. bd update <BEAD_ID> --status open
+12. Exit
 
 IMPORTANT: You are already on branch feature/<BEAD_ID>. Do NOT checkout other branches.
 
