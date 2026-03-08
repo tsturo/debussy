@@ -72,7 +72,7 @@ def create_tmux_layout(requirement: str | None = None):
     run_tmux("split-window", "-h", "-t", t)
     run_tmux("split-window", "-h", "-t", f"{t}.0")
 
-    Path(".debussy").mkdir(parents=True, exist_ok=True)
+    Path(".debussy/logs").mkdir(parents=True, exist_ok=True)
 
     system_prompt = get_conductor_system_prompt()
     prompt_path = Path(".debussy/conductor-prompt.md")
