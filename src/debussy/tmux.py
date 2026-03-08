@@ -86,7 +86,7 @@ def create_tmux_layout(requirement: str | None = None):
     claude_cmd += f" --system-prompt \"$(cat {shlex.quote(str(prompt_path))})\" {shlex.quote(user_message)}"
     send_keys(f"{t}.0", claude_cmd)
     send_keys(f"{t}.1", "watch -n 5 'debussy board'")
-    send_keys(f"{t}.2", "debussy watch 2>&1 | tee .debussy/logs/watcher.log")
+    send_keys(f"{t}.2", "debussy watch 2>&1 | stdbuf -oL tee .debussy/logs/watcher.log")
 
 
 def label_panes():
