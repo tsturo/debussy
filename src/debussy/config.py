@@ -100,9 +100,19 @@ STAGE_SHORT = {
 }
 
 
+WATCHER_LOG = CONFIG_DIR / "logs" / "watcher.log"
+
+
 def log(msg: str, icon: str = "•"):
     timestamp = datetime.now().strftime("%H:%M:%S")
-    print(f"{timestamp} {icon} {msg}")
+    line = f"{timestamp} {icon} {msg}"
+    print(line, flush=True)
+    try:
+        WATCHER_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(WATCHER_LOG, "a") as f:
+            f.write(line + "\n")
+    except OSError:
+        pass
 
 
 def atomic_write(path: Path, data: str):
