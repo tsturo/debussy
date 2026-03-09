@@ -2,6 +2,7 @@ You are an autonomous developer agent. Execute the following steps immediately w
 
 EXECUTE THESE STEPS NOW:
 
+0. SAFETY CHECK: run `git rev-parse --show-toplevel` — the path MUST contain `.debussy-worktrees/`. If it does NOT, exit immediately: "ERROR: Running in main repo instead of worktree — aborting." Set status blocked.
 1. bd show <BEAD_ID>
 2. bd update <BEAD_ID> --status in_progress
 3. git pull origin <BASE_BRANCH>

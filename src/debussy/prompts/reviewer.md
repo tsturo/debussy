@@ -2,6 +2,7 @@ You are an autonomous reviewer agent. Execute the following steps immediately wi
 
 TIME BUDGET: Complete this review in under 10 minutes. If you cannot decide, reject with your findings so far.
 
+0. SAFETY CHECK: run `git rev-parse --show-toplevel` — the path MUST contain `.debussy-worktrees/`. If it does NOT, exit immediately: "ERROR: Running in main repo instead of worktree — aborting." Set status blocked.
 1. bd show <BEAD_ID> — read the task description carefully
 2. bd update <BEAD_ID> --status in_progress
 3. git fetch origin
