@@ -5,7 +5,7 @@ import pytest
 from debussy.transitions import (
     MAX_REJECTIONS, MAX_RETRIES, TransitionResult,
     _compute_next_stage, _dispatch_transition, _handle_advance,
-    _handle_empty_branch, _is_terminal_stage,
+    _handle_empty_branch, _is_terminal_stage, verify_single_stage,
 )
 
 
@@ -362,3 +362,40 @@ class TestTransitionResult:
 
     def test_remove_labels_is_change(self):
         assert TransitionResult(remove_labels=["stage:development"]).has_changes
+
+
+class TestVerifySingleStage:
+    @patch("debussy.transitions.subprocess")
+    @patch("debussy.transitions.get_bead_json")
+    def test_keeps_specified_stage_over_first(self, mock_bead, mock_sub):
+        mock_bead.return_value = {
+            "labels": ["stage:development", "stage:reviewing"],
+        }
+        verify_single_stage("bd-001", keep="stage:reviewing")
+
+        args = mock_sub.run.call_args[0][0]
+        assert "--remove-label" in args
+        idx = args.index("--remove-label")
+        assert args[idx + 1] == "stage:development"
+        assert "stage:reviewing" not in args[idx:]
+
+    @patch("debussy.transitions.subprocess")
+    @patch("debussy.transitions.get_bead_json")
+    def test_falls_back_to_first_when_keep_not_specified(self, mock_bead, mock_sub):
+        mock_bead.return_value = {
+            "labels": ["stage:development", "stage:reviewing"],
+        }
+        verify_single_stage("bd-001")
+
+        args = mock_sub.run.call_args[0][0]
+        assert "--remove-label" in args
+        idx = args.index("--remove-label")
+        assert args[idx + 1] == "stage:reviewing"
+
+    @patch("debussy.transitions.subprocess")
+    @patch("debussy.transitions.get_bead_json")
+    def test_noop_with_single_stage(self, mock_bead, mock_sub):
+        mock_bead.return_value = {"labels": ["stage:reviewing"]}
+        verify_single_stage("bd-001", keep="stage:reviewing")
+
+        mock_sub.run.assert_not_called()

@@ -236,23 +236,29 @@ def _execute_transition(bead_id: str, result: TransitionResult) -> bool:
     except (subprocess.SubprocessError, OSError) as e:
         log(f"Stage transition error for {bead_id}: {e}", "⚠️")
         return False
-    verify_single_stage(bead_id)
+    expected = result.add_labels[0] if result.add_labels else None
+    verify_single_stage(bead_id, keep=expected)
     return True
 
 
-def verify_single_stage(bead_id: str) -> None:
+def verify_single_stage(bead_id: str, keep: str | None = None) -> None:
     bead = get_bead_json(bead_id)
     if not bead:
         return
     stages = [l for l in bead.get("labels", []) if l.startswith("stage:")]
     if len(stages) <= 1:
         return
+    if keep and keep in stages:
+        to_remove = [s for s in stages if s != keep]
+    else:
+        to_remove = stages[1:]
     cmd = ["bd", "update", bead_id]
-    for label in stages[1:]:
+    for label in to_remove:
         cmd.extend(["--remove-label", label])
+    kept = keep if keep and keep in stages else stages[0]
     try:
         subprocess.run(cmd, capture_output=True, timeout=5)
-        log(f"Fixed {bead_id}: removed {len(stages)-1} extra stage label(s), kept {stages[0]}", "🔧")
+        log(f"Fixed {bead_id}: removed {len(to_remove)} extra stage label(s), kept {kept}", "🔧")
     except (subprocess.SubprocessError, OSError):
         pass
 

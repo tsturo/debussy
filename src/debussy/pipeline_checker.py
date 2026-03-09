@@ -119,7 +119,8 @@ def _try_release_bead(bead, status):
         else:
             log(f"Released {bead_id}: deps resolved → {STAGE_DEVELOPMENT}", "🔓")
             record_event(bead_id, "release", stage=STAGE_DEVELOPMENT)
-        verify_single_stage(bead_id)
+        expected = STAGE_DEVELOPMENT if not has_stage else None
+        verify_single_stage(bead_id, keep=expected)
     except (subprocess.SubprocessError, OSError):
         pass
 
