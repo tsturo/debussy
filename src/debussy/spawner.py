@@ -160,6 +160,7 @@ def _spawn_background(agent_name, bead_id, role, system_prompt, user_message, st
 
 
 MAX_TOTAL_SPAWNS = 20
+WORKTREE_REQUIRED_ROLES = {"developer", "reviewer", "security-reviewer", "integrator", "tester"}
 
 
 def spawn_agent(watcher, role: str, bead_id: str, stage: str, labels: list[str] | None = None) -> bool:
@@ -178,6 +179,11 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str, labels: list[str] 
     log(f"Spawning {agent_name} for {bead_id}", "🚀")
 
     worktree_path = create_agent_worktree(role, bead_id, agent_name)
+    if not worktree_path and role in WORKTREE_REQUIRED_ROLES:
+        log(f"Worktree creation failed for {agent_name}, aborting spawn", "💥")
+        watcher.used_names.discard(agent_name)
+        watcher.failures[bead_id] = watcher.failures.get(bead_id, 0) + 1
+        return False
     base = get_base_branch()
     user_message = get_user_message(role, bead_id, base, labels=labels)
 
