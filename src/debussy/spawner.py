@@ -47,21 +47,27 @@ def create_agent_worktree(role: str, bead_id: str, agent_name: str) -> str:
         subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=30)
     except (subprocess.SubprocessError, OSError):
         pass
+    def _create(r, bid, name, b):
+        if r == "developer":
+            return str(create_worktree(name, f"feature/{bid}", start_point=f"origin/{b}", new_branch=True))
+        elif r in ("reviewer", "security-reviewer"):
+            return str(create_worktree(name, f"origin/feature/{bid}", detach=True))
+        elif r in ("integrator", "tester"):
+            return str(create_worktree(name, f"origin/{b}", detach=True))
+        return ""
+
     try:
-        if role == "developer":
-            wt = create_worktree(agent_name, f"feature/{bead_id}", start_point=f"origin/{base}", new_branch=True)
-        elif role in ("reviewer", "security-reviewer"):
-            wt = create_worktree(agent_name, f"origin/feature/{bead_id}", detach=True)
-        elif role in ("integrator", "tester"):
-            wt = create_worktree(agent_name, f"origin/{base}", detach=True)
-        else:
-            return ""
-        return str(wt)
+        return _create(role, bead_id, agent_name, base)
     except (subprocess.SubprocessError, OSError) as e:
         stderr = getattr(e, "stderr", "") or ""
         detail = f" — {stderr.strip()}" if stderr.strip() else ""
-        log(f"Failed to create worktree for {agent_name}: {e}{detail}", "⚠️")
-        return ""
+        log(f"Worktree creation failed for {agent_name}, retrying after prune: {e}{detail}", "⚠️")
+        subprocess.run(["git", "worktree", "prune"], capture_output=True, timeout=10)
+        try:
+            return _create(role, bead_id, agent_name, base)
+        except (subprocess.SubprocessError, OSError):
+            log(f"Worktree creation failed after retry for {agent_name}", "⚠️")
+            return ""
 
 
 def _spawn_tmux(agent_name, bead_id, role, prompt_path, user_message, stage, worktree_path=""):
