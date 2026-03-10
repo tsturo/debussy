@@ -201,5 +201,6 @@ Structure:
   ## Status
   Current state — what's done, what's in progress, what's blocked and why.
 Keep it concise. This file is loaded on restart so you can resume without asking the user to repeat themselves.
+COMPACTION — when you see a message about context compaction, IMMEDIATELY write conductor-context.md before doing anything else. This is your only chance to preserve state before old conversation history is lost.
 
 NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools (EXCEPT for .debussy/conductor-context.md). NEVER write code.

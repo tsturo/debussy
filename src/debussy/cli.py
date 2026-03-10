@@ -11,6 +11,7 @@ from .config import (
     SESSION_NAME, STATUS_IN_PROGRESS, STATUS_OPEN,
     backup_beads, clean_config, get_config, log, parse_value, set_config,
 )
+from .hooks import install_hooks
 from .tmux import (
     create_tmux_layout, kill_agent, label_panes, list_debussy_sessions,
 )
@@ -45,6 +46,7 @@ def cmd_start(args):
         set_config("paused", True)
     else:
         set_config("paused", False)
+    install_hooks()
     requirement = getattr(args, "requirement", None)
     create_tmux_layout(requirement)
     label_panes()
