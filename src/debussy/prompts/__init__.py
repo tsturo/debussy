@@ -6,6 +6,19 @@ from ..config import get_config, STAGE_CONSOLIDATING
 
 _PROMPTS_DIR = Path(__file__).parent
 
+_VISUAL_BLOCKS = {
+    "web": {
+        "VISUAL_VERIFICATION_BLOCK": "visual_web.md",
+        "REVIEWER_VISUAL_BLOCK": "visual_review_web.md",
+        "TESTER_VISUAL_BLOCK": "visual_test_web.md",
+    },
+    "ios": {
+        "VISUAL_VERIFICATION_BLOCK": "visual_ios.md",
+        "REVIEWER_VISUAL_BLOCK": "visual_review_ios.md",
+        "TESTER_VISUAL_BLOCK": "visual_test_ios.md",
+    },
+}
+
 _ROLE_FILES = {
     "developer": "developer.md",
     "reviewer": "reviewer.md",
@@ -45,8 +58,33 @@ def get_prompt_path(role: str, stage: str) -> Path:
     return _PROMPTS_DIR / filename
 
 
+def _detect_project_type() -> str | None:
+    cfg_type = get_config().get("project_type")
+    if cfg_type:
+        return cfg_type
+    cwd = Path.cwd()
+    if list(cwd.glob("*.xcworkspace")) or list(cwd.glob("*.xcodeproj")):
+        return "ios"
+    if (cwd / "package.json").exists():
+        return "web"
+    return None
+
+
+def _substitute_visual_blocks(text: str) -> str:
+    project_type = _detect_project_type()
+    blocks = _VISUAL_BLOCKS.get(project_type, {}) if project_type else {}
+    for placeholder, filename in blocks.items():
+        if placeholder in text:
+            template = (_PROMPTS_DIR / filename).read_text()
+            text = text.replace(placeholder, template)
+    for placeholder in ("VISUAL_VERIFICATION_BLOCK", "REVIEWER_VISUAL_BLOCK", "TESTER_VISUAL_BLOCK"):
+        text = text.replace(placeholder, "")
+    return text
+
+
 def get_system_prompt(role: str, stage: str) -> str:
-    return get_prompt_path(role, stage).read_text()
+    text = get_prompt_path(role, stage).read_text()
+    return _substitute_visual_blocks(text)
 
 
 def get_user_message(role: str, bead_id: str, base: str, labels: list[str] | None = None) -> str:

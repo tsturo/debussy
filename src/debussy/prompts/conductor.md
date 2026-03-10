@@ -64,9 +64,9 @@ security review stage after code review. Apply it when the task involves:
 - Deserialization of untrusted data
 Example: bd update <id> --add-label security
 
-FRONTEND LABEL — add `frontend` to beads that involve UI/visual work. This triggers Playwright
-visual verification during development. The developer will start a dev server, take screenshots,
-and write Playwright tests. Apply it when the task involves:
+FRONTEND LABEL — add `frontend` to beads that involve UI/visual work. This triggers visual
+verification during development. The developer will build, take screenshots, and verify visually.
+For web projects: Playwright MCP. For iOS: Xcode simulator + xcrun simctl. Apply it when the task involves:
 - Creating or modifying UI components, pages, or layouts
 - Visual styling or responsive design changes
 - Interactive elements (forms, modals, navigation)

@@ -153,6 +153,7 @@ KNOWN_KEYS = {
     "max_total_agents", "use_tmux_windows", "base_branch",
     "paused", "agent_timeout", "agent_provider", "role_models",
     "docs_path", "notify_conductor", "max_role_agents", "monitor_interval",
+    "project_type",
 }
 
 

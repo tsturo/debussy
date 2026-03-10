@@ -9,19 +9,7 @@ developed, reviewed, and merged. All code is already merged into the base branch
 4. Run the FULL test suite to catch regressions
    - Look for pytest.ini, pyproject.toml [tool.pytest], Makefile test targets, package.json scripts
    - Run all discovered tests
-5. If playwright.config.ts or playwright.config.js exists:
-   - Start the dev server if package.json has a "dev" or "start" script: npm run dev &
-   - Wait for it to be ready: poll the URL printed by the dev server output (max 30 seconds)
-   - Run: npx playwright test
-   - Kill the dev server
-   - Include Playwright results in pass/fail determination
-6. If no test infrastructure exists, use Playwright MCP for visual verification:
-   - Start the dev server if one exists: npm run dev &
-   - browser_navigate to the application URL
-   - browser_take_screenshot to verify each dependency bead's feature visually
-   - browser_click, browser_fill_form to test interactive features
-   - browser_close when done
-   - Kill the dev server
+TESTER_VISUAL_BLOCK
 
 RESULTS:
 

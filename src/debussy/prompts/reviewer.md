@@ -49,6 +49,7 @@ FRONTEND COMPLETENESS (for beads with the `frontend` label):
 - If a design ref file is mentioned, read it and compare against the implementation
 - Check that every interaction described (tappable, toggle, navigation) is wired up and functional
 - Reject with a checklist of missing/broken elements if anything is absent
+REVIEWER_VISUAL_BLOCK
 
 TESTS:
 - If the bead description includes test criteria, verify tests cover ALL of them
