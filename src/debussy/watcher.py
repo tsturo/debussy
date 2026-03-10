@@ -91,10 +91,12 @@ class Watcher:
         self.should_exit = False
         self.state_file = Path(".debussy/watcher_state.json")
         self._rejections_file = Path(".debussy/rejections.json")
+        self._empty_branch_file = Path(".debussy/empty_branch_retries.json")
         self._cached_windows: set[str] | None = None
         self.last_notified_beads: str = ""
         self.last_backup_at: float = 0.0
         self._load_rejections()
+        self._load_empty_branch_retries()
         cleanup_stale_worktrees()
         cleanup_orphaned_branches()
 
@@ -152,6 +154,19 @@ class Watcher:
     def _save_rejections(self):
         try:
             atomic_write(self._rejections_file, json.dumps(self.rejections))
+        except OSError:
+            pass
+
+    def _load_empty_branch_retries(self):
+        try:
+            if self._empty_branch_file.exists():
+                self.empty_branch_retries = json.loads(self._empty_branch_file.read_text())
+        except (OSError, ValueError):
+            pass
+
+    def _save_empty_branch_retries(self):
+        try:
+            atomic_write(self._empty_branch_file, json.dumps(self.empty_branch_retries))
         except OSError:
             pass
 
@@ -310,6 +325,7 @@ class Watcher:
 
         if cleaned:
             self.save_state()
+            self._save_empty_branch_retries()
         if transitioned:
             self._backup_after_transition()
 

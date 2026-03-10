@@ -87,10 +87,10 @@ def release_ready(watcher):
             continue
 
         for bead in beads:
-            _try_release_bead(bead, status)
+            _try_release_bead(watcher, bead, status)
 
 
-def _try_release_bead(bead, status):
+def _try_release_bead(watcher, bead, status):
     bead_id = bead.get("id")
     if not bead_id or bead.get("dependency_count", 0) == 0:
         return
@@ -103,6 +103,8 @@ def _try_release_bead(bead, status):
     cmd = ["bd", "update", bead_id]
 
     if status == STATUS_BLOCKED and STAGE_ACCEPTANCE in labels:
+        return
+    if status == STATUS_BLOCKED and watcher.empty_branch_retries.get(bead_id, 0) >= MAX_RETRIES:
         return
     if status == STATUS_BLOCKED:
         cmd.extend(["--status", STATUS_OPEN])
