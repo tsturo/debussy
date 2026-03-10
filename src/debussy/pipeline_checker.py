@@ -2,7 +2,6 @@
 
 import json
 import subprocess
-import time
 
 from .bead_client import get_bead_json, get_bead_status, get_unresolved_deps
 from .diagnostics import comment_on_bead
@@ -12,7 +11,7 @@ from .config import (
     get_config, log,
 )
 from .spawner import MAX_TOTAL_SPAWNS, spawn_agent
-from .transitions import MAX_RETRIES, REJECTION_COOLDOWN, record_event, verify_single_stage
+from .transitions import MAX_RETRIES, record_event, verify_single_stage
 
 
 def get_unmerged_dep_branches(bead: dict) -> list[str]:
@@ -133,9 +132,6 @@ def _should_skip_bead(watcher, bead_id, bead, role):
         return "no id"
     if watcher.is_bead_running(bead_id):
         return "already running"
-    cooldown_until = watcher.cooldowns.get(bead_id, 0)
-    if cooldown_until and time.time() - cooldown_until < REJECTION_COOLDOWN:
-        return "cooldown"
     if watcher.failures.get(bead_id, 0) >= MAX_RETRIES:
         _block_failed_bead(watcher, bead_id, "failures")
         return "max failures"

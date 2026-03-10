@@ -86,7 +86,6 @@ class Watcher:
         self.failures: dict[str, int] = {}
         self.empty_branch_retries: dict[str, int] = {}
         self.rejections: dict[str, int] = {}
-        self.cooldowns: dict[str, float] = {}
         self.spawn_counts: dict[str, int] = {}
         self.blocked_failures: set[str] = set()
         self.should_exit = False

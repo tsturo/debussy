@@ -24,7 +24,6 @@ EVENTS_FILE = Path(".debussy/pipeline_events.jsonl")
 
 MAX_RETRIES = 3
 MAX_REJECTIONS = 3
-REJECTION_COOLDOWN = 60
 
 
 def record_event(bead_id: str, event: str, **kwargs: object) -> None:
@@ -130,8 +129,7 @@ def _handle_rejection(watcher: Watcher, agent: AgentInfo, stage_labels: list[str
             pass
     else:
         result.add_labels = [STAGE_DEVELOPMENT]
-        watcher.cooldowns[agent.bead] = time.time()
-        log(f"Rejected {agent.bead} ({count}/{MAX_REJECTIONS}): {agent.spawned_stage} → {STAGE_DEVELOPMENT} (cooldown {REJECTION_COOLDOWN}s)", "↩️")
+        log(f"Rejected {agent.bead} ({count}/{MAX_REJECTIONS}): {agent.spawned_stage} → {STAGE_DEVELOPMENT}", "↩️")
 
     watcher._save_rejections()
     record_event(agent.bead, "reject", **{"from": agent.spawned_stage, "to": STAGE_DEVELOPMENT})
