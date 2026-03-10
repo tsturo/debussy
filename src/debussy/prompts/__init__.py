@@ -77,9 +77,12 @@ def get_conductor_system_prompt() -> str:
 
 def get_conductor_user_message(requirement: str | None = None) -> str:
     parts = []
+    history_file = Path(".debussy/conductor-history.md")
+    if history_file.exists() and history_file.read_text().strip():
+        parts.append("Project history: read .debussy/conductor-history.md")
     context_file = Path(".debussy/conductor-context.md")
     if context_file.exists() and context_file.read_text().strip():
-        parts.append(f"Previous session context: read .debussy/conductor-context.md")
+        parts.append("Previous session context: read .debussy/conductor-context.md")
     if requirement:
         parts.append(requirement)
     return "\n\n".join(parts) if parts else "Begin."

@@ -12,7 +12,7 @@ DEBUSSY_HOOKS = {
             "hooks": [
                 {
                     "type": "command",
-                    "command": "echo 'URGENT: Context compaction is about to happen. You MUST update .debussy/conductor-context.md with your current state RIGHT NOW before context is lost. Write the file, then compaction will proceed.'"
+                    "command": "echo 'URGENT: Context compaction is about to happen. You MUST update .debussy/conductor-context.md AND .debussy/conductor-history.md with your current state RIGHT NOW before context is lost.'"
                 }
             ]
         }

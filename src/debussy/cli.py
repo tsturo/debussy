@@ -167,14 +167,16 @@ def cmd_clear(args):
     except (subprocess.SubprocessError, OSError):
         pass
 
+    PRESERVE = {"backups", "config.json", "conductor-history.md"}
     if debussy_dir.exists():
         for item in debussy_dir.iterdir():
-            if item.name != "backups":
-                if item.is_dir():
-                    shutil.rmtree(item)
-                else:
-                    item.unlink()
-        log("Cleared .debussy (kept backups)", "\U0001f5d1")
+            if item.name in PRESERVE:
+                continue
+            if item.is_dir():
+                shutil.rmtree(item)
+            else:
+                item.unlink()
+        log("Cleared .debussy (kept config, history, backups)", "\U0001f5d1")
 
     try:
         result = subprocess.run(["bd", "init"], capture_output=True, timeout=15)
