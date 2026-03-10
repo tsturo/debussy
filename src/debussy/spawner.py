@@ -7,6 +7,8 @@ import subprocess
 from pathlib import Path
 
 from .config import SESSION_NAME, YOLO_MODE, get_base_branch, get_config, log
+from .diagnostics import comment_on_bead
+from .preflight import preflight_spawn
 from .prompts import get_prompt_path, get_system_prompt, get_user_message
 from .transitions import MAX_RETRIES, record_event
 from .worktree import create_worktree, remove_worktree
@@ -179,6 +181,13 @@ def spawn_agent(watcher, role: str, bead_id: str, stage: str, labels: list[str] 
         return False
 
     if watcher.spawn_counts.get(bead_id, 0) >= MAX_TOTAL_SPAWNS:
+        return False
+
+    preflight_err = preflight_spawn(role, bead_id)
+    if preflight_err:
+        log(f"Preflight failed for {bead_id}: {preflight_err}", "🚫")
+        comment_on_bead(bead_id, f"Spawn blocked: {preflight_err}")
+        watcher.failures[bead_id] = watcher.failures.get(bead_id, 0) + 1
         return False
 
     agent_name = get_agent_name(watcher.used_names, role)

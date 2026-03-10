@@ -5,6 +5,7 @@ import subprocess
 import time
 
 from .bead_client import get_bead_json, get_bead_status, get_unresolved_deps
+from .diagnostics import comment_on_bead
 from .config import (
     LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_DEVELOPMENT, STAGE_TO_ROLE,
     STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS, STATUS_OPEN,
@@ -161,6 +162,7 @@ def _block_failed_bead(watcher, bead_id, reason="failures"):
         return
     watcher.blocked_failures.add(bead_id)
     log(f"Blocked {bead_id}: max {reason}, needs conductor", "🚫")
+    comment_on_bead(bead_id, f"Blocked: max {reason} reached. Needs conductor intervention.")
     try:
         subprocess.run(
             ["bd", "update", bead_id, "--status", STATUS_BLOCKED],

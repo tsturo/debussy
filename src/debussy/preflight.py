@@ -1,0 +1,46 @@
+import subprocess
+
+from .config import get_config
+
+
+NEEDS_FEATURE_BRANCH = {"reviewer", "security-reviewer"}
+
+
+def check_base_branch() -> str | None:
+    base = get_config().get("base_branch")
+    if not base:
+        return "base_branch not configured — run: debussy config base_branch <branch>"
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", f"origin/{base}"],
+            capture_output=True, timeout=5,
+        )
+        if result.returncode != 0:
+            return f"base_branch origin/{base} not found on remote"
+    except (subprocess.SubprocessError, OSError) as e:
+        return f"git check failed: {e}"
+    return None
+
+
+def check_remote_ref(ref: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", ref],
+            capture_output=True, timeout=5,
+        )
+        if result.returncode != 0:
+            return f"ref {ref} not found"
+    except (subprocess.SubprocessError, OSError) as e:
+        return f"git check failed: {e}"
+    return None
+
+
+def preflight_spawn(role: str, bead_id: str) -> str | None:
+    err = check_base_branch()
+    if err:
+        return err
+    if role in NEEDS_FEATURE_BRANCH:
+        err = check_remote_ref(f"origin/feature/{bead_id}")
+        if err:
+            return err
+    return None

@@ -14,7 +14,7 @@ from .bead_client import get_all_beads, get_bead_status
 from .config import (
     AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
     HEARTBEAT_TICKS, STATUS_BLOCKED, STATUS_IN_PROGRESS, STATUS_OPEN,
-    atomic_write, backup_beads, get_config, log,
+    _ensure_gitignored, atomic_write, backup_beads, get_config, log,
 )
 from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
 from .tmux import send_keys, run_tmux, tmux_window_id_names, tmux_window_ids as get_tmux_windows
@@ -22,6 +22,7 @@ from .transitions import (
     MAX_RETRIES,
     ensure_stage_transition, record_event,
 )
+from .diagnostics import comment_on_bead, format_death_comment, read_log_tail
 from .worktree import cleanup_orphaned_branches, cleanup_stale_worktrees, remove_worktree
 
 MIN_AGENT_RUNTIME = 30
@@ -97,6 +98,7 @@ class Watcher:
         self.last_backup_at: float = 0.0
         self._load_rejections()
         self._load_empty_branch_retries()
+        _ensure_gitignored()
         cleanup_stale_worktrees()
         cleanup_orphaned_branches()
 
@@ -312,6 +314,9 @@ class Watcher:
                 else:
                     self.failures[agent.bead] = self.failures.get(agent.bead, 0) + 1
                     log(f"{agent.name} died on {agent.bead} after {int(elapsed)}s, status={bead_status} (attempt {self.failures[agent.bead]}/{MAX_RETRIES})", "💥")
+                    log_tail = read_log_tail(agent.log_path) if agent.log_path else ""
+                    comment = format_death_comment(agent.name, int(elapsed), str(bead_status), log_tail)
+                    comment_on_bead(agent.bead, comment)
                     if bead_status == STATUS_IN_PROGRESS:
                         try:
                             subprocess.run(

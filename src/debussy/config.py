@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -155,8 +156,35 @@ KNOWN_KEYS = {
 }
 
 
+def _ensure_gitignored():
+    gitignore = Path(".gitignore")
+    entry = ".debussy/"
+    if gitignore.exists():
+        content = gitignore.read_text()
+        if entry in content.splitlines():
+            return
+    else:
+        content = ""
+    with open(gitignore, "a") as f:
+        if content and not content.endswith("\n"):
+            f.write("\n")
+        f.write(f"{entry}\n")
+    _git_untrack_debussy()
+
+
+def _git_untrack_debussy():
+    try:
+        subprocess.run(
+            ["git", "rm", "-r", "--cached", "--quiet", ".debussy/"],
+            capture_output=True, timeout=10,
+        )
+    except (subprocess.SubprocessError, OSError):
+        pass
+
+
 def set_config(key: str, value):
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    _ensure_gitignored()
     cfg = _read_config_file()
     cfg[key] = value
     atomic_write(CONFIG_FILE, json.dumps(cfg, indent=2))
