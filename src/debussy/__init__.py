@@ -1,3 +1,3 @@
 """Debussy - Multi-agent orchestration for Claude Code."""
 
-__version__ = "2026.3.10.6"
+__version__ = "2026.3.14.1"
