@@ -346,8 +346,6 @@ class TestTerminalStage:
     def test_acceptance_is_terminal(self):
         assert _is_terminal_stage("stage:acceptance")
 
-    def test_investigating_is_terminal(self):
-        assert _is_terminal_stage("stage:investigating")
 
 
 class TestTransitionResult:

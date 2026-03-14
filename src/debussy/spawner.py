@@ -41,8 +41,6 @@ def get_agent_name(used_names: set[str], role: str) -> str:
 
 
 def create_agent_worktree(role: str, bead_id: str, agent_name: str) -> str:
-    if role == "investigator":
-        return ""
     cfg = get_config()
     base = cfg.get("base_branch", "master")
     try:

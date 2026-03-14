@@ -28,8 +28,6 @@ STAGE_REVIEWING = "stage:reviewing"
 STAGE_SECURITY_REVIEW = "stage:security-review"
 STAGE_MERGING = "stage:merging"
 STAGE_ACCEPTANCE = "stage:acceptance"
-STAGE_INVESTIGATING = "stage:investigating"
-STAGE_CONSOLIDATING = "stage:consolidating"
 
 STATUS_OPEN = "open"
 STATUS_IN_PROGRESS = "in_progress"
@@ -50,7 +48,6 @@ DEFAULTS = {
         "developer": "claude-sonnet-4-6",
         "reviewer": "claude-opus-4-6",
         "security-reviewer": "claude-opus-4-6",
-        "investigator": "claude-opus-4-6",
         "integrator": "claude-sonnet-4-6",
         "tester": "claude-sonnet-4-6",
     },
@@ -62,7 +59,6 @@ DEFAULTS = {
         "security-reviewer": 10,
         "integrator": 10,
         "tester": 10,
-        "investigator": 10,
     },
 }
 
@@ -71,8 +67,6 @@ STAGE_TO_ROLE = {
     STAGE_MERGING: "integrator",
     STAGE_SECURITY_REVIEW: "security-reviewer",
     STAGE_REVIEWING: "reviewer",
-    STAGE_CONSOLIDATING: "investigator",
-    STAGE_INVESTIGATING: "investigator",
     STAGE_DEVELOPMENT: "developer",
 }
 
@@ -82,8 +76,6 @@ NEXT_STAGE = {
     STAGE_SECURITY_REVIEW: STAGE_MERGING,
     STAGE_MERGING: None,
     STAGE_ACCEPTANCE: None,
-    STAGE_INVESTIGATING: None,
-    STAGE_CONSOLIDATING: None,
 }
 
 SECURITY_NEXT_STAGE = {
@@ -96,8 +88,6 @@ STAGE_SHORT = {
     STAGE_SECURITY_REVIEW: "sec",
     STAGE_MERGING: "merge",
     STAGE_ACCEPTANCE: "accept",
-    STAGE_INVESTIGATING: "inv",
-    STAGE_CONSOLIDATING: "cons",
 }
 
 

@@ -4,8 +4,8 @@ import shutil
 
 from .bead_client import get_all_beads, get_unresolved_deps
 from .config import (
-    LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_CONSOLIDATING, STAGE_DEVELOPMENT,
-    STAGE_INVESTIGATING, STAGE_MERGING, STAGE_REVIEWING,
+    LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_DEVELOPMENT,
+    STAGE_MERGING, STAGE_REVIEWING,
     STAGE_SECURITY_REVIEW, STATUS_BLOCKED, STATUS_CLOSED,
 )
 from .status import get_running_agents, print_runtime_info
@@ -20,18 +20,12 @@ BOARD_COLUMNS = [
     ("backlog", "Backlog"),
     ("done", "Done"),
 ]
-BOARD_INV_COLUMNS = [
-    ("investigating", "Investigating"),
-    ("consolidating", "Consolidating"),
-]
 BOARD_STAGE_MAP = {
     STAGE_DEVELOPMENT: "dev",
     STAGE_REVIEWING: "review",
     STAGE_SECURITY_REVIEW: "sec-review",
     STAGE_MERGING: "merge",
     STAGE_ACCEPTANCE: "accept",
-    STAGE_INVESTIGATING: "investigating",
-    STAGE_CONSOLIDATING: "consolidating",
 }
 DONE_LIMIT = 5
 STAGE_LIMIT = 50
@@ -47,25 +41,20 @@ def _categorize_bead(bead):
 
 
 def _build_buckets(beads, running, all_beads_by_id):
-    dev_keys = {k for k, _ in BOARD_COLUMNS}
-    inv_keys = {k for k, _ in BOARD_INV_COLUMNS}
-    dev = {k: [] for k in dev_keys}
-    inv = {k: [] for k in inv_keys}
+    buckets = {k: [] for k, _ in BOARD_COLUMNS}
 
     for bead in beads:
         col = _categorize_bead(bead)
-        if col in dev:
-            dev[col].append(bead)
-        elif col in inv:
-            inv[col].append(bead)
+        if col in buckets:
+            buckets[col].append(bead)
 
-    for key, bucket in list(dev.items()) + list(inv.items()):
+    for key, bucket in buckets.items():
         if key == "done":
             bucket.sort(key=lambda b: b.get("id", ""), reverse=True)
         else:
             bucket.sort(key=lambda b: _sort_key(b, running, all_beads_by_id))
 
-    return dev, inv
+    return buckets
 
 
 def _sort_key(bead, running, all_beads_by_id):
@@ -170,15 +159,10 @@ def cmd_board(args):
     running = get_running_agents()
     all_beads_by_id = {b.get("id"): b for b in all_beads if b.get("id")}
 
-    dev_buckets, inv_buckets = _build_buckets(all_beads, running, all_beads_by_id)
+    buckets = _build_buckets(all_beads, running, all_beads_by_id)
     term_width = shutil.get_terminal_size().columns
 
-    print(_render_vertical(BOARD_COLUMNS, dev_buckets, running, all_beads_by_id, term_width))
-
-    has_inv = any(inv_buckets.get(k) for k, _ in BOARD_INV_COLUMNS)
-    if has_inv:
-        print()
-        print(_render_vertical(BOARD_INV_COLUMNS, inv_buckets, running, all_beads_by_id, term_width))
+    print(_render_vertical(BOARD_COLUMNS, buckets, running, all_beads_by_id, term_width))
 
     print()
     print_runtime_info(running)

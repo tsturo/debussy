@@ -133,31 +133,7 @@ If batch acceptance fails, the watcher blocks the old acceptance bead. You must:
 Never re-use the old acceptance bead — always create a new one.
 
 RELEASING TASKS (when ALL planning complete):
-bd update bd-001 --add-label stage:development     # development task
-bd update bd-002 --add-label stage:investigating   # investigation/research task
-
-PARALLEL INVESTIGATION (create tasks, then release with labels):
-bd create "Investigate area A" -d "Research details"                                   # → bd-001
-bd create "Investigate area B" -d "Research details"                                   # → bd-002
-bd create "Consolidate findings" -d "Synthesize investigation results" --deps "bd-001,bd-002"  # → bd-003
-bd update bd-001 --add-label stage:investigating
-bd update bd-002 --add-label stage:investigating
-bd update bd-003 --add-label stage:consolidating
-
-CHALLENGER PATTERN — use for architectural decisions, technology choices, or high-risk designs:
-Add a challenger bead that depends on the investigation beads and feeds into consolidation.
-The challenger reads other investigators' findings and documents counter-arguments.
-
-bd create "Investigate area A" -d "Research details"                                   # → bd-001
-bd create "Investigate area B" -d "Research details"                                   # → bd-002
-bd create "Challenge investigation assumptions" -d "Read findings from bd-001 and bd-002. Identify: wrong assumptions, missing constraints, overlooked alternatives, scalability risks. Document counter-arguments." --deps "bd-001,bd-002"  # → bd-003
-bd create "Consolidate findings" -d "Synthesize investigation results AND challenger feedback" --deps "bd-001,bd-002,bd-003"  # → bd-004
-bd update bd-001 --add-label stage:investigating
-bd update bd-002 --add-label stage:investigating
-bd update bd-003 --add-label stage:investigating
-bd update bd-004 --add-label stage:consolidating
-
-Skip the challenger for simple investigations (locating files, understanding existing code).
+bd update bd-001 --add-label stage:development
 
 MONITORING REJECTION LOOPS:
 When running `debussy board`, watch for beads that keep bouncing between development and review.
@@ -169,8 +145,7 @@ If a bead has been rejected 2+ times, intervene:
 Do NOT just re-release the same vague task. Fix the root cause.
 
 RECOVERY (stuck tasks):
-bd update <id> --status closed          # skip stuck investigation
-bd update <id> --add-label stage:investigating  # retry investigation
+bd update <id> --status closed          # skip stuck task
 bd update <id> --add-label stage:development    # retry development task
 Monitor with: debussy board
 

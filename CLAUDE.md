@@ -35,20 +35,17 @@ This project uses Beads (`bd`) for task tracking. The watcher automatically spaw
 
 ## Pipeline Flow
 
-Two pipelines depending on task type:
+Pipelines depending on task type:
 
 ```
 Per bead:      open → stage:development → stage:reviewing → stage:merging → closed
 Security bead: open → stage:development → stage:reviewing → stage:security-review → stage:merging → closed
 Per batch:     batch acceptance bead (deps on all beads) → stage:acceptance → closed
-Investigation: open → stage:investigating (parallel) → stage:consolidating (investigator) → .md file → conductor creates dev tasks → closed
 ```
 
 Beads with the `security` label (set by conductor) get routed through an extra security review after the standard code review. The watcher handles this conditionally.
 
 Beads with the `frontend` label (set by conductor) trigger Playwright visual verification during development. The developer starts a dev server, takes screenshots, verifies visually, and writes Playwright tests.
-
-Investigators research in parallel and document findings. A consolidation step (investigator) synthesizes findings into an .md file. Conductor then creates developer tasks.
 
 **Status model:**
 
@@ -67,8 +64,6 @@ Investigators research in parallel and document findings. A consolidation step (
 | Stage Label | Agent Spawned |
 |-------------|---------------|
 | `stage:development` | developer |
-| `stage:investigating` | investigator |
-| `stage:consolidating` | investigator |
 | `stage:reviewing` | reviewer |
 | `stage:security-review` | security-reviewer |
 | `stage:merging` | integrator |
@@ -89,7 +84,7 @@ Investigators research in parallel and document findings. A consolidation step (
 |--------|---------|------|
 | Claim | `--status in_progress` | Starting work |
 | Success | `--status open` | Work complete (non-terminal) |
-| Done | `--status closed` | Terminal (merge done, acceptance pass, investigation) |
+| Done | `--status closed` | Terminal (merge done, acceptance pass) |
 | Rejected | `--status open --add-label rejected` | Failed review/test, needs rework |
 | Blocked | `--status blocked` | Can't proceed, needs conductor |
 
@@ -112,7 +107,6 @@ Investigators research in parallel and document findings. A consolidation step (
 - **First step**: creates a feature branch and registers it: `debussy config base_branch feature/<name>`
 - Creates tasks with `bd create "title" -d "description"`
 - Releases dev tasks: `bd update <id> --add-label stage:development`
-- Releases investigation tasks: `bd update <id> --add-label stage:investigating`
 - Creates all tasks first (backlog), then releases with `--add-label`
 - Monitors progress with `debussy board`
 - **Does not write code**
@@ -150,12 +144,6 @@ Investigators research in parallel and document findings. A consolidation step (
 - Blocked: `--status blocked` (watcher parks for conductor)
 - **Does not write code**
 
-### @investigator
-- Researches codebase, documents findings as bead comments
-- Does NOT create developer tasks
-- Success: `--status closed` (watcher removes stage label)
-- Also handles `stage:consolidating`: synthesizes findings into .md file
-
 ---
 
 ## Beads Workflow
@@ -171,20 +159,8 @@ Use `--deps` to serialize tasks that must run in order.
 
 ### Releasing Tasks (conductor only)
 ```bash
-bd update <bead-id> --add-label stage:development     # development task
-bd update <bead-id> --add-label stage:investigating   # investigation task
+bd update <bead-id> --add-label stage:development
 ```
-
-### Parallel Investigation (conductor only)
-```bash
-bd create "Investigate area A" -d "Research details"                                   # → bd-001
-bd create "Investigate area B" -d "Research details"                                   # → bd-002
-bd create "Consolidate findings" -d "Synthesize results" --deps "bd-001,bd-002"        # → bd-003
-bd update bd-001 --add-label stage:investigating
-bd update bd-002 --add-label stage:investigating
-bd update bd-003 --add-label stage:consolidating
-```
-The consolidation bead stays blocked until all investigation beads finish.
 
 ---
 
@@ -250,7 +226,6 @@ debussy board             # Show status
 debussy config base_branch feature/<name>  # Set conductor's base branch
 bd create "title" -d "description"
 bd update <id> --add-label stage:development     # Release task for development
-bd update <id> --add-label stage:investigating   # Release task for investigation
 bd show <id>
 bd list
 ```

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from ..config import get_config, STAGE_CONSOLIDATING
+from ..config import get_config
 
 _PROMPTS_DIR = Path(__file__).parent
 
@@ -25,7 +25,6 @@ _ROLE_FILES = {
     "security-reviewer": "security-reviewer.md",
     "integrator": "integrator.md",
     "tester": "tester.md",
-    "investigator": "investigator.md",
 }
 
 _ROLE_DOC_FOCUS = {
@@ -34,7 +33,6 @@ _ROLE_DOC_FOCUS = {
     "reviewer": "architecture, conventions, and constraints to validate implementation choices",
     "security-reviewer": "security policies, auth specs, and data flow documentation",
     "tester": "acceptance criteria, expected behaviors, and integration specs",
-    "investigator": "architecture and domain docs to understand the system",
 }
 
 _NO_BRANCH_ERROR = (
@@ -50,8 +48,6 @@ __all__ = [
 
 
 def get_prompt_path(role: str, stage: str) -> Path:
-    if role == "investigator" and stage == STAGE_CONSOLIDATING:
-        return _PROMPTS_DIR / "consolidator.md"
     filename = _ROLE_FILES.get(role)
     if not filename:
         raise ValueError(f"Unknown role: {role}")
@@ -88,7 +84,7 @@ def get_system_prompt(role: str, stage: str) -> str:
 
 
 def get_user_message(role: str, bead_id: str, base: str, labels: list[str] | None = None) -> str:
-    if not base and role not in ("investigator",):
+    if not base:
         return _NO_BRANCH_ERROR
     parts = [f"Bead: {bead_id}"]
     if base:

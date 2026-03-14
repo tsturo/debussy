@@ -56,14 +56,6 @@ class TestPreflightSpawn:
                 assert result is not None
                 mock.assert_called_once_with("origin/feature/bd-001")
 
-    def test_investigator_only_checks_base_branch(self):
-        with patch("debussy.preflight.check_base_branch", return_value=None):
-            with patch("debussy.preflight.check_remote_ref") as mock:
-                from debussy.preflight import preflight_spawn
-                result = preflight_spawn("investigator", "bd-001")
-                assert result is None
-                mock.assert_not_called()
-
     def test_developer_passes_all_checks(self):
         with patch("debussy.preflight.check_base_branch", return_value=None):
             from debussy.preflight import preflight_spawn

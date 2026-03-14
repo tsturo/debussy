@@ -176,7 +176,7 @@ class Watcher:
         has_tmux = use_tmux or any(a.tmux for a in self.running.values())
         self._cached_windows = get_tmux_windows() if has_tmux else None
 
-    AGENT_ROLES = {"developer", "reviewer", "security-reviewer", "integrator", "tester", "investigator"}
+    AGENT_ROLES = {"developer", "reviewer", "security-reviewer", "integrator", "tester"}
 
     def _kill_orphan_windows(self):
         info = tmux_window_id_names()

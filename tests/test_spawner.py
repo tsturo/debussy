@@ -75,27 +75,6 @@ class TestSpawnAgentWorktreeFailure(unittest.TestCase):
         self.assertFalse(result)
 
 
-    @patch("debussy.spawner.preflight_spawn", return_value=None)
-    @patch("debussy.spawner.get_base_branch", return_value="master")
-    @patch("debussy.spawner.get_user_message", return_value="test message")
-    @patch("debussy.spawner.get_system_prompt", return_value="test prompt")
-    @patch("debussy.spawner.get_config", return_value={"use_tmux_windows": False})
-    @patch("debussy.spawner.record_event")
-    @patch("debussy.spawner.create_agent_worktree", return_value="")
-    @patch("debussy.spawner.get_agent_name", return_value="investigator-bach")
-    def test_spawn_proceeds_for_investigator_without_worktree(
-        self, _name, _wt, _event, _cfg, _sys, _msg, _base, _pf
-    ):
-        from debussy.spawner import spawn_agent
-
-        watcher = self._make_watcher()
-        with patch("debussy.spawner._spawn_background") as mock_spawn:
-            mock_spawn.return_value = MagicMock()
-            result = spawn_agent(watcher, "investigator", "bd-001", "stage:investigating")
-
-        self.assertTrue(result)
-        self.assertEqual(watcher.failures.get("bd-001", 0), 0)
-
 
 class TestCreateAgentWorktreeRetry(unittest.TestCase):
     @patch("debussy.spawner.get_config", return_value={"base_branch": "master"})
