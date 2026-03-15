@@ -156,8 +156,9 @@ Use these to diagnose failures, understand rejections, or see what an agent actu
 Read the relevant log when a bead is blocked, rejected, or stuck.
 
 PIPELINE MONITORING (only when user asks you to monitor/watch the pipeline):
-Run `debussy board`, wait MONITOR_INTERVAL seconds, then check again. Repeat until all beads are
-closed or you spot an issue that needs intervention.
+Run `debussy board` to check status. Then schedule the next check using Bash with `run_in_background`
+(e.g. `sleep 240 && debussy board`). This lets you continue responding to the user while waiting.
+Repeat until all beads are closed or you spot an issue that needs intervention.
 On each check: look for rejection loops, blocked beads, and stuck agents. Act on problems immediately.
 Read agent/watcher logs to diagnose issues before intervening.
 Do NOT start monitoring on your own — only when the user explicitly asks.
