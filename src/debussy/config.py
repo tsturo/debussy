@@ -223,8 +223,11 @@ def backup_beads() -> Path | None:
         return None
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = BACKUP_DIR / f"beads_{timestamp}"
-    shutil.copytree(beads_dir, backup_path)
+    backup_path = BACKUP_DIR / f"beads_{timestamp}_{os.getpid()}"
+    try:
+        shutil.copytree(beads_dir, backup_path)
+    except FileExistsError:
+        return None
     _prune_backups()
     return backup_path
 

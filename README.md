@@ -30,7 +30,7 @@ Debussy has three layers:
 
 1. **Conductor** - the entry point. You talk to it, it plans work and creates tasks (beads). It never writes code.
 2. **Watcher** - the orchestration engine. Polls beads every 5 seconds, spawns Claude agents based on stage labels, owns all stage transitions.
-3. **Agents** - specialized Claude instances (developer, reviewer, security-reviewer, integrator, tester, investigator) that do the actual work in isolated git worktrees.
+3. **Agents** - specialized Claude instances (developer, reviewer, security-reviewer, integrator, tester) that do the actual work in isolated git worktrees.
 
 ---
 
@@ -41,20 +41,6 @@ Debussy has three layers:
 Each bead flows through four stages. The watcher advances beads automatically based on agent signals. Beads with the `security` label get an extra security review stage. After all beads in a batch are merged, a batch acceptance bead runs.
 
 ![Pipeline](docs/pipeline.png)
-
-### Investigation Pipeline
-
-Parallel research with consolidation:
-
-```
-stage:investigating (parallel) → stage:consolidating → .md file → conductor creates dev tasks
-          ↓                              ↓
-     investigator                   investigator
-```
-
-Investigators research in parallel and document findings as comments. A consolidation bead (blocked by investigation beads) waits for all to finish, then synthesizes findings into an `.md` file.
-
----
 
 ## Watcher Orchestration
 
@@ -84,7 +70,7 @@ The watcher is the central state machine. It runs a loop every 5 seconds:
 |--------------|---------|------|
 | Claim | `--status in_progress` | Starting work |
 | Success | `--status open` | Work complete |
-| Done | `--status closed` | Terminal stage (merge, acceptance, investigation) |
+| Done | `--status closed` | Terminal stage (merge, acceptance) |
 | Rejected | `--status open --add-label rejected` | Failed review/test |
 | Blocked | `--status blocked` | Can't proceed |
 
@@ -124,7 +110,6 @@ Each agent works in an isolated git worktree under `.debussy-worktrees/`:
 | Security-reviewer | Detached at `origin/feature/{bead_id}` (read-only) |
 | Integrator | Detached at `origin/{base}` (merge target) |
 | Tester | Detached at `origin/{base}` |
-| Investigator | No worktree (works in main repo) |
 
 Worktrees symlink `.beads/` and `.debussy/` back to the main repo so all agents share the same task database and configuration.
 
@@ -154,7 +139,6 @@ Agents never merge to master.
 | **security-reviewer** | OWASP-aligned security review for beads with `security` label | No |
 | **integrator** | Merges feature branch to conductor's base branch | Yes |
 | **tester** | Batch acceptance testing after all beads merged | Yes |
-| **investigator** | Researches codebase, documents findings. Also handles consolidation | Yes |
 
 ---
 
@@ -211,16 +195,6 @@ bd create "Implement feature X" -d "Description of what to do"
 bd update <bead-id> --add-label stage:development
 ```
 
-### Parallel Investigation
-```bash
-bd create "Investigate area A" -d "Research details"                             # → bd-001
-bd create "Investigate area B" -d "Research details"                             # → bd-002
-bd create "Consolidate findings" -d "Synthesize results" --deps "bd-001,bd-002"  # → bd-003
-bd update bd-001 --add-label stage:investigating
-bd update bd-002 --add-label stage:investigating
-bd update bd-003 --add-label stage:consolidating
-```
-
 ### Batch Acceptance
 ```bash
 bd create "Acceptance testing" -d "Run full test suite" --deps "bd-001,bd-002,bd-003"
@@ -271,12 +245,20 @@ src/debussy/
   board.py            # Kanban board rendering
   metrics.py          # Pipeline analytics and stage duration tracking
   status.py           # Status and debug display
+  diagnostics.py      # System diagnostics
+  hooks.py            # Git and lifecycle hooks
+  preflight.py        # Pre-start validation checks
   tmux.py             # Tmux session and window management
   worktree.py         # Git worktree lifecycle
   prompts/            # Agent prompt templates (one file per role)
 tests/
   test_bead_client.py # Tests for bead data access layer
   test_transitions.py # Tests for stage transition logic
+  test_cli_sessions.py
+  test_diagnostics.py
+  test_hooks.py
+  test_preflight.py
+  test_tmux.py
 ```
 
 ---
