@@ -16,8 +16,10 @@ Thumbs.db
 .beads/*.db
 .beads/*.db-*
 
-# Debussy runtime config
+# Debussy runtime state (keep conductor memory tracked)
 .debussy/
+!.debussy/conductor-context.md
+!.debussy/conductor-history.md
 
 # Debussy agent worktrees
 .debussy-worktrees/
