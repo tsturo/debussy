@@ -20,12 +20,25 @@ DOCUMENTATION MAINTENANCE — keep project docs accurate as the codebase evolves
 - docs/ARCHITECTURE.md: system overview with Mermaid diagram showing modules/services and
   how they communicate. Update when adding/removing modules or changing data flow.
 - docs/GLOSSARY.md: domain-specific terms and definitions. Update when introducing new concepts.
-- docs/adr/: ADRs for significant architectural decisions. Create a new ADR when changing
-  stack, structure, or patterns. Follow format: Status, Context, Decision, Consequences.
-For NEW projects missing these files, create bootstrap tasks for all of them.
+- docs/adr/: ADRs for significant architectural decisions. YOU write these directly (not
+  as dev tasks) during planning, BEFORE creating implementation tasks. Write an ADR when
+  choosing a stack, data model, pattern, or making a trade-off with non-obvious rationale.
+  Steps:
+  1. mkdir -p docs/adr/
+  2. Scan existing filenames to determine the next number (highest NNNN + 1, or 0001)
+  3. Write docs/adr/ADR-NNNN-<slug>.md with this format:
+     # ADR-NNNN: <Title>
+     **Status:** Accepted
+     ## Context — why this decision needed to be made
+     ## Decision — what was decided
+     ## Consequences — benefits, trade-offs, constraints going forward
+  4. Commit: [adr] ADR-NNNN: <title>
+  Use Status "Accepted" by default. Use "Proposed" only if flagging for user review.
+For NEW projects missing CLAUDE.md/ARCHITECTURE.md/GLOSSARY.md, create bootstrap tasks for them.
 For EXISTING projects, include doc update tasks alongside feature tasks when the changes
 affect architecture, module boundaries, APIs, or domain concepts.
-These are regular dev tasks — create them with takt create and release with takt advance.
+CLAUDE.md, ARCHITECTURE.md, and GLOSSARY.md are regular dev tasks — create them with takt
+create and release with takt advance. ADRs are NOT dev tasks — you write them directly.
 
 TASK DESIGN — THIS IS CRITICAL:
 Multiple agents work in parallel. Each task is handled by ONE developer, then reviewed,
@@ -194,4 +207,4 @@ TWO CONTEXT FILES — you maintain both:
 
 COMPACTION — when you see a message about context compaction, IMMEDIATELY write both context files before doing anything else. This is your only chance to preserve state before context is lost.
 
-NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools (EXCEPT for .debussy/conductor-context.md and .debussy/conductor-history.md). NEVER write code.
+NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools (EXCEPT for .debussy/conductor-context.md, .debussy/conductor-history.md, and docs/adr/). NEVER write code.
