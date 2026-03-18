@@ -138,10 +138,11 @@ class TestSpawnAgentPreflight(unittest.TestCase):
     @patch("debussy.spawner.get_user_message", return_value="msg")
     @patch("debussy.spawner.get_system_prompt", return_value="prompt")
     @patch("debussy.spawner.get_config", return_value={"use_tmux_windows": False})
-    @patch("debussy.spawner.record_event")
+    @patch("debussy.spawner._takt_log")
+    @patch("debussy.spawner.get_db")
     @patch("debussy.spawner._spawn_background")
     def test_spawn_proceeds_after_preflight_passes(
-        self, mock_bg, _event, _cfg, _sys, _msg, _base, _name, _wt, _preflight
+        self, mock_bg, _db, _log, _cfg, _sys, _msg, _base, _name, _wt, _preflight
     ):
         from debussy.spawner import spawn_agent
 

@@ -29,7 +29,7 @@ _ROLE_FILES = {
 
 _ROLE_DOC_FOCUS = {
     "conductor": "all documentation — requirements, architecture, glossary, and constraints",
-    "developer": "requirements, API specs, and data models relevant to your bead",
+    "developer": "requirements, API specs, and data models relevant to your task",
     "reviewer": "architecture, conventions, and constraints to validate implementation choices",
     "security-reviewer": "security policies, auth specs, and data flow documentation",
     "tester": "acceptance criteria, expected behaviors, and integration specs",
@@ -83,15 +83,15 @@ def get_system_prompt(role: str, stage: str) -> str:
     return _substitute_visual_blocks(text)
 
 
-def get_user_message(role: str, bead_id: str, base: str, labels: list[str] | None = None) -> str:
+def get_user_message(role: str, task_id: str, base: str, labels: list[str] | None = None) -> str:
     if not base:
         return _NO_BRANCH_ERROR
-    parts = [f"Bead: {bead_id}"]
+    parts = [f"Task: {task_id}"]
     if base:
         parts.append(f"Base branch: {base}")
-    semantic_labels = [l for l in (labels or []) if not l.startswith("stage:")]
-    if semantic_labels:
-        parts.append(f"Labels: {', '.join(semantic_labels)}")
+    tags = [l for l in (labels or []) if not l.startswith("stage:")]
+    if tags:
+        parts.append(f"Tags: {', '.join(tags)}")
     docs_path = get_config().get("docs_path")
     if docs_path:
         focus = _ROLE_DOC_FOCUS.get(role, "")
@@ -105,7 +105,7 @@ def get_conductor_prompt_path() -> Path:
 
 def get_conductor_system_prompt() -> str:
     text = get_conductor_prompt_path().read_text()
-    interval = get_config().get("monitor_interval", 240)
+    interval = get_config().get("monitor_interval", 300)
     return text.replace("MONITOR_INTERVAL", str(interval))
 
 

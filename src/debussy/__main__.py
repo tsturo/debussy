@@ -34,11 +34,11 @@ def main():
     p.add_argument("value", nargs="?", help="Value to set")
     p.set_defaults(func=cli.cmd_config)
 
-    p = subparsers.add_parser("clear", help="Clear all beads and config")
+    p = subparsers.add_parser("clear", help="Clear all tasks and config")
     p.add_argument("-f", "--force", action="store_true", help="Skip confirmation")
     p.set_defaults(func=cli.cmd_clear)
 
-    p = subparsers.add_parser("backup", help="Backup beads database")
+    p = subparsers.add_parser("backup", help="Backup takt database")
     p.set_defaults(func=cli.cmd_backup)
 
     p = subparsers.add_parser("pause", help="Pause pipeline, kill agents")
@@ -57,8 +57,8 @@ def main():
     p.add_argument("--all", action="store_true", help="Kill all debussy sessions")
     p.set_defaults(func=cli.cmd_kill)
 
-    p = subparsers.add_parser("kill-agent", help="Kill a single agent by name or bead ID")
-    p.add_argument("name", help="Agent name (e.g. bd-001) or bead ID")
+    p = subparsers.add_parser("kill-agent", help="Kill a single agent by name or task ID")
+    p.add_argument("name", help="Agent name (e.g. takt-001) or task ID")
     p.set_defaults(func=cli.cmd_kill_agent)
 
     p = subparsers.add_parser("sessions", help="List running debussy sessions")
@@ -75,7 +75,7 @@ def main():
         print("\nExamples:")
         print("  debussy start              # Start system")
         print("  debussy board              # Show kanban board")
-        print('  bd create "task" -d "details"  # Create task')
+        print('  takt create "task" -d "details"  # Create task')
         return 1
 
     return args.func(args) or 0

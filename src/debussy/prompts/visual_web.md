@@ -1,22 +1,22 @@
-FRONTEND VISUAL VERIFICATION (only if this bead has the `frontend` label):
+FRONTEND VISUAL VERIFICATION (only if this task has the `frontend` tag):
 
 Before committing, perform visual verification:
 
 A) START DEV SERVER:
-   - Read the bead description for the dev server command (e.g., "Dev server: npm run dev (port 3000)")
+   - Read the task description for the dev server command (e.g., "Dev server: npm run dev (port 3000)")
    - If no dev server command is in the description:
-     bd comment <BEAD_ID> "Blocked: no dev server command in bead description"
-     bd update <BEAD_ID> --status blocked
+     takt comment <TASK_ID> "Blocked: no dev server command in task description"
+     takt block <TASK_ID>
      Exit immediately.
    - Start it in the background: <command> &
    - Wait for it to be ready: poll the URL until it responds (max 30 seconds)
 
 B) VISUAL VERIFICATION LOOP (use Playwright MCP):
-   - If the bead description mentions mobile, responsive, or mobile-first:
+   - If the task description mentions mobile, responsive, or mobile-first:
      browser_resize with width=390, height=844 (iPhone 14) before navigating
    - browser_navigate to the relevant page URL
    - browser_take_screenshot to capture the current state
-   - Evaluate the screenshot against the bead description
+   - Evaluate the screenshot against the task description
    - Use browser_click, browser_fill_form, browser_hover to test interactions
    - If it looks wrong or incomplete, fix the code and repeat
    - Max 3 iterations — if still broken after 3, commit what you have and note issues in a comment
@@ -24,7 +24,7 @@ B) VISUAL VERIFICATION LOOP (use Playwright MCP):
 C) WRITE PLAYWRIGHT TESTS:
    - Create Playwright test file(s) that codify the visual/functional checks you just verified
    - Tests should cover: page loads, key elements visible, interactions work as described
-   - For mobile/responsive beads: use devices['iPhone 14'] preset from @playwright/test
+   - For mobile/responsive tasks: use devices['iPhone 14'] preset from @playwright/test
    - Run: npx playwright test <your-test-file>
    - Fix until tests pass
 

@@ -23,18 +23,22 @@ def _derive_session_name() -> str:
 SESSION_NAME = _derive_session_name()
 AGENT_TIMEOUT = 3600
 
-STAGE_DEVELOPMENT = "stage:development"
-STAGE_REVIEWING = "stage:reviewing"
-STAGE_SECURITY_REVIEW = "stage:security-review"
-STAGE_MERGING = "stage:merging"
-STAGE_ACCEPTANCE = "stage:acceptance"
+STAGE_BACKLOG = "backlog"
+STAGE_DEVELOPMENT = "development"
+STAGE_REVIEWING = "reviewing"
+STAGE_SECURITY_REVIEW = "security_review"
+STAGE_MERGING = "merging"
+STAGE_ACCEPTANCE = "acceptance"
+STAGE_DONE = "done"
 
-STATUS_OPEN = "open"
-STATUS_IN_PROGRESS = "in_progress"
-STATUS_CLOSED = "closed"
+STATUS_PENDING = "pending"
+STATUS_ACTIVE = "active"
 STATUS_BLOCKED = "blocked"
 
+
 LABEL_PRIORITY = "priority"
+
+TAKT_DIR = ".takt"
 
 CONFIG_DIR = Path(".debussy")
 CONFIG_FILE = CONFIG_DIR / "config.json"
@@ -83,11 +87,13 @@ SECURITY_NEXT_STAGE = {
 }
 
 STAGE_SHORT = {
+    STAGE_BACKLOG: "backlog",
     STAGE_DEVELOPMENT: "dev",
     STAGE_REVIEWING: "rev",
     STAGE_SECURITY_REVIEW: "sec",
     STAGE_MERGING: "merge",
     STAGE_ACCEPTANCE: "accept",
+    STAGE_DONE: "done",
 }
 
 
@@ -217,15 +223,15 @@ BACKUP_DIR = CONFIG_DIR / "backups"
 MAX_BACKUPS = 10
 
 
-def backup_beads() -> Path | None:
-    beads_dir = Path(".beads")
-    if not beads_dir.exists():
+def backup_takt() -> Path | None:
+    takt_dir = Path(TAKT_DIR)
+    if not takt_dir.exists():
         return None
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = BACKUP_DIR / f"beads_{timestamp}_{os.getpid()}"
+    backup_path = BACKUP_DIR / f"takt_{timestamp}_{os.getpid()}"
     try:
-        shutil.copytree(beads_dir, backup_path)
+        shutil.copytree(takt_dir, backup_path)
     except FileExistsError:
         return None
     _prune_backups()
@@ -236,7 +242,7 @@ def _prune_backups():
     if not BACKUP_DIR.exists():
         return
     backups = sorted(
-        [d for d in BACKUP_DIR.iterdir() if d.is_dir() and d.name.startswith("beads_")],
+        [d for d in BACKUP_DIR.iterdir() if d.is_dir() and d.name.startswith("takt_")],
         key=lambda d: d.name,
     )
     while len(backups) > MAX_BACKUPS:

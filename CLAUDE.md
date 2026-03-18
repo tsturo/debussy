@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project uses Beads (`bd`) for task tracking. The watcher automatically spawns agents based on **stage labels** on beads.
+This project uses takt (built-in SQLite) for task tracking. The watcher automatically spawns agents based on **stage** values on tasks.
 
 ---
 
@@ -24,7 +24,7 @@ This project uses Beads (`bd`) for task tracking. The watcher automatically spaw
 
 - Don't "improve" adjacent code.
 - Match existing style.
-- If you notice unrelated issues, file a Bead — don't fix silently.
+- If you notice unrelated issues, file a task — don't fix silently.
 
 ### 4. Goal-Driven Execution
 
@@ -38,36 +38,39 @@ This project uses Beads (`bd`) for task tracking. The watcher automatically spaw
 Pipelines depending on task type:
 
 ```
-Per bead:      open → stage:development → stage:reviewing → stage:merging → closed
-Security bead: open → stage:development → stage:reviewing → stage:security-review → stage:merging → closed
-Per batch:     batch acceptance bead (deps on all beads) → stage:acceptance → closed
+Per task:      backlog → development → reviewing → merging → done
+Security task: backlog → development → reviewing → security_review → merging → done
+Per batch:     acceptance task (deps on all tasks) → acceptance → done
 ```
 
-Beads with the `security` label (set by conductor) get routed through an extra security review after the standard code review. The watcher handles this conditionally.
+Tasks with the `security` tag (set by conductor) get routed through an extra security review after the standard code review. The watcher handles this conditionally.
 
-Beads with the `frontend` label (set by conductor) trigger Playwright visual verification during development. The developer starts a dev server, takes screenshots, verifies visually, and writes Playwright tests.
+Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verification during development. The developer starts a dev server, takes screenshots, verifies visually, and writes Playwright tests.
 
-**Status model:**
+**Two-field state model (stage + status):**
 
-| bd status | Meaning |
-|-----------|---------|
-| `open` + stage label | Ready for agent |
-| `open` (no stage label) | Backlog/parked |
-| `in_progress` | Agent is working |
-| `closed` | Pipeline complete |
-| `blocked` | Waiting for deps / agent stuck |
+| Stage | Status | Meaning |
+|-------|--------|---------|
+| `development` | `pending` | Ready for developer agent |
+| `development` | `active` | Developer is working |
+| `reviewing` | `pending` | Ready for reviewer agent |
+| `merging` | `pending` | Ready for integrator agent |
+| `acceptance` | `pending` | Ready for tester agent |
+| `backlog` | `pending` | Backlog/parked |
+| any | `blocked` | Waiting for deps / agent stuck |
+| `done` | `pending` | Pipeline complete |
 
-**Stage transitions are owned by the watcher.** Agents only set status and optionally add the `rejected` label for failures. The watcher reads the bead state after the agent finishes and moves the stage label accordingly.
+**Stage transitions are owned by the watcher.** Agents only set status (via `takt claim`, `takt release`, `takt block`). The watcher reads the task state after the agent finishes and calls `takt advance` or `takt reject` accordingly.
 
-**Watcher spawns agents based on stage labels:**
+**Watcher spawns agents based on stage:**
 
-| Stage Label | Agent Spawned |
-|-------------|---------------|
-| `stage:development` | developer |
-| `stage:reviewing` | reviewer |
-| `stage:security-review` | security-reviewer |
-| `stage:merging` | integrator |
-| `stage:acceptance` | tester |
+| Stage | Agent Spawned |
+|-------|---------------|
+| `development` | developer |
+| `reviewing` | reviewer |
+| `security_review` | security-reviewer |
+| `merging` | integrator |
+| `acceptance` | tester |
 
 **Parallelization:**
 - Total agents capped by `max_total_agents` (default 8)
@@ -76,27 +79,27 @@ Beads with the `frontend` label (set by conductor) trigger Playwright visual ver
 
 ## Stage Transition Ownership
 
-**The watcher owns ALL stage transitions.** Agents NEVER use `--add-label stage:*` or `--remove-label stage:*`.
+**The watcher owns ALL stage transitions.** Agents NEVER call `takt advance` or `takt reject`.
 
 ### Agent signals (what agents set)
 
 | Signal | Command | When |
 |--------|---------|------|
-| Claim | `--status in_progress` | Starting work |
-| Success | `--status open` | Work complete (non-terminal) |
-| Done | `--status closed` | Terminal (merge done, acceptance pass) |
-| Rejected | `--status open --add-label rejected` | Failed review/test, needs rework |
-| Blocked | `--status blocked` | Can't proceed, needs conductor |
+| Claim | `takt claim <id>` | Starting work |
+| Success | `takt release <id>` | Work complete (non-terminal) |
+| Done | `takt release <id>` | Terminal (merge done, acceptance pass) |
+| Rejected | `takt release <id>` + `takt comment <id> "rejected: reason"` | Failed review/test, needs rework |
+| Blocked | `takt block <id>` | Can't proceed, needs conductor |
 
 ### Watcher response (what watcher does when agent finishes)
 
-| Bead state | Watcher action |
+| Task state | Watcher action |
 |------------|----------------|
-| status=open, no rejected | Remove stage label, add NEXT_STAGE |
-| status=open, rejected | Remove stage + rejected labels, add stage:development |
-| status=open, rejected (acceptance) | Remove stage + rejected labels, set blocked for conductor |
-| status=closed | Remove stage label (done) |
-| status=blocked | Remove stage label (parked for conductor) |
+| status=pending, no rejection | `takt advance` → next stage |
+| status=pending, rejected | `takt reject` → back to development |
+| status=pending, rejected (acceptance) | Block for conductor |
+| terminal stage (merging/acceptance) complete | Advance to done |
+| status=blocked | Parks for conductor |
 
 ---
 
@@ -105,61 +108,61 @@ Beads with the `frontend` label (set by conductor) trigger Playwright visual ver
 ### @conductor
 - Entry point — user talks to conductor
 - **First step**: creates a feature branch and registers it: `debussy config base_branch feature/<name>`
-- Creates tasks with `bd create "title" -d "description"`
-- Releases dev tasks: `bd update <id> --add-label stage:development`
-- Creates all tasks first (backlog), then releases with `--add-label`
+- Creates tasks with `takt create "title" -d "description"`
+- Advances tasks to development: `takt advance <id>`
+- Creates all tasks first (backlog), then advances them
 - Monitors progress with `debussy board`
 - **Does not write code**
 - **Never merges to master** — user does that manually
 
 ### @developer
 - Implements features and fixes bugs
-- For `frontend` beads: starts dev server, verifies UI visually with Playwright screenshots, writes Playwright tests
-- Success: `--status open` (watcher advances to stage:reviewing)
-- Blocked: `--status blocked` (watcher parks for conductor)
+- For `frontend` tasks: starts dev server, verifies UI visually with Playwright screenshots, writes Playwright tests
+- Success: `takt release <id>` (watcher advances to reviewing)
+- Blocked: `takt block <id>` (watcher parks for conductor)
 
 ### @reviewer
-- Reviews code quality, security, and runs tests if the bead specifies test criteria
-- Approve: `--status open` (watcher advances to stage:merging)
-- Reject: `--status open --add-label rejected` (watcher sends to stage:development)
+- Reviews code quality, security, and runs tests if the task specifies test criteria
+- Approve: `takt release <id>` (watcher advances to merging)
+- Reject: `takt reject <id>` (watcher sends to development)
 
 ### @tester
-- Batch acceptance testing (runs after all beads in a batch are merged)
+- Batch acceptance testing (runs after all tasks in a batch are merged)
 - Runs full test suite on the base branch
-- Acceptance pass: `--status closed` (watcher removes stage label, done)
-- Acceptance fail: `--status open --add-label rejected` (conductor triages and creates fix beads)
+- Acceptance pass: `takt release <id>` (watcher advances to done)
+- Acceptance fail: `takt reject <id>` (conductor triages and creates fix tasks)
 
 ### @integrator
 - Merges feature branches to conductor's base branch
-- Success: `--status closed` (bead done, acceptance happens in batch)
-- Conflict: `--status open --add-label rejected` (watcher sends to stage:development)
+- Success: `takt release <id>` (task done, acceptance happens in batch)
+- Conflict: `takt reject <id>` (watcher sends to development)
 - **Never merges to master**
 
 ### @security-reviewer
-- Dedicated security review for beads with the `security` label
+- Dedicated security review for tasks with the `security` tag
 - Runs after standard code review passes, before merge
 - OWASP-aligned checklist: trust boundaries, input validation, injection, auth, secrets, crypto, error disclosure, dependencies
-- Approve: `--status open` (watcher advances to stage:merging)
-- Reject: `--status open --add-label rejected` (watcher sends to stage:development)
-- Blocked: `--status blocked` (watcher parks for conductor)
+- Approve: `takt release <id>` (watcher advances to merging)
+- Reject: `takt reject <id>` (watcher sends to development)
+- Blocked: `takt block <id>` (watcher parks for conductor)
 - **Does not write code**
 
 ---
 
-## Beads Workflow
+## Task Workflow
 
 ### Creating Tasks
 
 ```bash
-bd create "Create User model" -d "..."                                                 # → bd-001
-bd create "Add login endpoint" -d "..."                                                # → bd-002
+takt create "Create User model" -d "..."                                                 # → takt-a1b2c3
+takt create "Add login endpoint" -d "..."                                                # → takt-d4e5f6
 ```
 
 Use `--deps` to serialize tasks that must run in order.
 
-### Releasing Tasks (conductor only)
+### Advancing Tasks (conductor only)
 ```bash
-bd update <bead-id> --add-label stage:development
+takt advance <task-id>    # moves to next stage (e.g., backlog → development)
 ```
 
 ---
@@ -168,22 +171,22 @@ bd update <bead-id> --add-label stage:development
 
 ### Commit Messages
 ```
-[bd-xxx] Brief description
+[takt-xxxxxx] Brief description
 ```
 
 ### Branch Naming
 ```
 feature/<name>       # conductor's base branch (created first)
-feature/<bead-id>    # developer sub-branches (off conductor's branch)
+feature/<task-id>    # developer sub-branches (off conductor's branch)
 ```
 
 ### Branching Model
 ```
 master (manual merge only by user)
-  └── feature/<name>          ← conductor's branch
-        ├── feature/bd-001    ← developer branch (merged back by integrator)
-        ├── feature/bd-002
-        └── feature/bd-003
+  └── feature/<name>             ← conductor's branch
+        ├── feature/takt-a1b2c3  ← developer branch (merged back by integrator)
+        ├── feature/takt-d4e5f6
+        └── feature/takt-g7h8i9
 ```
 
 Merging to master is NEVER done by agents — only by the user manually.
@@ -197,7 +200,6 @@ src/debussy/
   cli.py              # CLI command handlers (thin dispatch layer)
   watcher.py          # Watcher run loop and agent state management
   config.py           # Configuration, constants, stage/status definitions
-  bead_client.py      # Shared bead query/mutation functions (wraps bd CLI)
   transitions.py      # Stage transition logic (state machine)
   spawner.py          # Agent spawning (tmux windows and background processes)
   pipeline_checker.py # Pipeline scanning and dependency resolution
@@ -206,13 +208,23 @@ src/debussy/
   status.py           # Status and debug display
   tmux.py             # Tmux session and window management
   worktree.py         # Git worktree lifecycle
+  diagnostics.py      # Failure diagnostics for agent deaths
+  preflight.py        # Pre-spawn validation checks
   prompts/            # Agent prompt templates (one file per role)
+  takt/               # Built-in SQLite task tracking
+    db.py             # Database connection and schema
+    models.py         # Task CRUD operations
+    log.py            # Log entries and workflow operations (advance, reject, claim, etc.)
+    cli.py            # CLI entry point for takt command
 tests/
-  test_bead_client.py # Tests for bead data access layer
+  test_takt_db.py     # Tests for takt database layer
+  test_takt_models.py # Tests for takt task model
+  test_takt_log.py    # Tests for takt log and workflow operations
+  test_takt_cli.py    # Tests for takt CLI
+  test_takt.py        # End-to-end takt tests
   test_transitions.py # Tests for stage transition logic
-.claude/
-  hooks/              # Validation hooks
-.beads/               # Beads database
+  test_spawner.py     # Tests for agent spawning
+.takt/                # SQLite task database (auto-created)
 ```
 
 ---
@@ -222,12 +234,18 @@ tests/
 ```bash
 debussy start              # Start system (tmux)
 debussy watch              # Run watcher
-debussy board             # Show status
+debussy board              # Show kanban board
 debussy config base_branch feature/<name>  # Set conductor's base branch
-bd create "title" -d "description"
-bd update <id> --add-label stage:development     # Release task for development
-bd show <id>
-bd list
+takt create "title" -d "description"
+takt advance <id>                          # Move task to next stage
+takt show <id>
+takt list
+takt claim <id>                            # Mark task as active
+takt release <id>                          # Mark task as pending
+takt block <id>                            # Mark task as blocked
+takt reject <id>                           # Send task back to development
+takt comment <id> "message"
+takt log <id>                              # View task history
 ```
 
 **Prerequisite for frontend visual testing:** `npx playwright install`

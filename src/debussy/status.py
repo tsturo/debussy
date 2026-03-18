@@ -5,13 +5,13 @@ import subprocess
 import time
 from pathlib import Path
 
-from .bead_client import get_unresolved_deps
 from .config import (
-    COMMENT_TRUNCATE_LEN, STAGE_TO_ROLE,
-    STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS,
+    COMMENT_TRUNCATE_LEN, STAGE_DONE, STAGE_TO_ROLE,
+    STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
     get_config,
 )
 from .metrics import fmt_duration
+from .takt import get_db, get_log, get_unresolved_deps
 
 
 def get_running_agents() -> dict:
@@ -25,119 +25,108 @@ def get_running_agents() -> dict:
         return {}
 
 
-def _get_bead_comments(bead_id: str) -> list[str]:
+def _get_task_comments(task_id: str) -> list[str]:
     try:
-        result = subprocess.run(
-            ["bd", "show", bead_id],
-            capture_output=True, text=True, timeout=5
-        )
-    except (subprocess.SubprocessError, OSError):
+        with get_db() as db:
+            entries = get_log(db, task_id, type="comment")
+        return [e.get("message", "") for e in entries if e.get("message")]
+    except Exception:
         return []
-    if result.returncode != 0:
-        return []
-    comments = []
-    in_comments = False
-    for line in result.stdout.split('\n'):
-        if line.startswith("Comments:") or line.startswith("## Comments"):
-            in_comments = True
-            continue
-        if in_comments and line.strip() and not line.startswith("---"):
-            comments.append(line.strip())
-    return comments
 
 
 def _print_section(label: str, items: list, show_comments: bool = False):
     if items:
         print(f"{label} ({len(items)})")
-        for line, bead_id in items:
+        for line, task_id in items:
             print(f"   {line}")
             if show_comments:
                 try:
-                    comments = _get_bead_comments(bead_id)
+                    comments = _get_task_comments(task_id)
                     if comments:
                         print(f"      \U0001f4ac {comments[-1][:COMMENT_TRUNCATE_LEN]}")
-                except (subprocess.SubprocessError, OSError):
+                except Exception:
                     pass
     else:
         print(f"{label}: none")
     print()
 
 
-def _print_blocked_tree(blocked: list, all_beads_by_id: dict):
-    blocked_ids = {bead_id for _, bead_id in blocked}
-    lines_by_id = {bead_id: line for line, bead_id in blocked}
+def _print_blocked_tree(blocked: list, all_tasks_by_id: dict):
+    blocked_ids = {task_id for _, task_id in blocked}
+    lines_by_id = {task_id: line for line, task_id in blocked}
 
     children: dict[str, list[str]] = {}
     roots = []
-    for _, bead_id in blocked:
-        bead = all_beads_by_id.get(bead_id, {})
-        blocked_parents = [d for d in get_unresolved_deps(bead) if d in blocked_ids]
+    for _, task_id in blocked:
+        task = all_tasks_by_id.get(task_id, {})
+        with get_db() as db:
+            unresolved = get_unresolved_deps(db, task_id) if task_id else []
+        blocked_parents = [d for d in unresolved if d in blocked_ids]
         if blocked_parents:
             for parent in blocked_parents:
-                children.setdefault(parent, []).append(bead_id)
+                children.setdefault(parent, []).append(task_id)
         else:
-            roots.append(bead_id)
+            roots.append(task_id)
 
     printed = set()
 
-    def _print_node(bead_id: str, indent: int):
-        if bead_id in printed:
+    def _print_node(task_id: str, indent: int):
+        if task_id in printed:
             return
-        printed.add(bead_id)
+        printed.add(task_id)
         prefix = "   " + "  " * indent + ("\u2514 " if indent > 0 else "")
-        print(f"{prefix}{lines_by_id.get(bead_id, bead_id)}")
-        for child in children.get(bead_id, []):
+        print(f"{prefix}{lines_by_id.get(task_id, task_id)}")
+        for child in children.get(task_id, []):
             _print_node(child, indent + 1)
 
     print(f"\u2298 BLOCKED ({len(blocked)})")
     for root in roots:
         _print_node(root, 0)
-    for _, bead_id in blocked:
-        if bead_id not in printed:
-            _print_node(bead_id, 0)
+    for _, task_id in blocked:
+        if task_id not in printed:
+            _print_node(task_id, 0)
     print()
 
 
-def _dep_summary(bead: dict) -> str:
-    waiting = get_unresolved_deps(bead)
+def _dep_summary(task_id: str) -> str:
+    with get_db() as db:
+        waiting = get_unresolved_deps(db, task_id)
     if not waiting:
         return ""
     return f" (waiting: {', '.join(waiting)})"
 
 
-def _format_bead(bead: dict, running: dict, all_beads_by_id: dict) -> tuple[str, str, str]:
-    bead_id = bead.get("id", "")
-    title = bead.get("title", "")
-    status = bead.get("status", "")
-    labels = bead.get("labels", [])
-    stages = [l for l in labels if l.startswith("stage:")]
+def _format_task(task: dict, running: dict, all_tasks_by_id: dict) -> tuple[str, str, str]:
+    task_id = task.get("id", "")
+    title = task.get("title", "")
+    status = task.get("status", "")
+    stage = task.get("stage", "")
 
     agent_str = ""
-    if bead_id in running:
-        agent_str = f" \u2190 {running[bead_id]['agent']} \U0001f504"
+    if task_id in running:
+        agent_str = f" \u2190 {running[task_id]['agent']} \U0001f504"
 
-    if status == STATUS_CLOSED:
-        return "done", f"{bead_id} {title}", bead_id
+    if stage == STAGE_DONE:
+        return "done", f"{task_id} {title}", task_id
 
     if status == STATUS_BLOCKED:
-        dep_info = _dep_summary(bead)
-        return "blocked", f"[blocked] {bead_id} {title}{dep_info}", bead_id
+        dep_info = _dep_summary(task_id)
+        return "blocked", f"[blocked] {task_id} {title}{dep_info}", task_id
 
-    dep_info = _dep_summary(bead)
+    dep_info = _dep_summary(task_id)
     if dep_info:
-        stage_info = f" {stages[0]}" if stages else ""
-        return "blocked", f"[waiting{stage_info}] {bead_id} {title}{dep_info}", bead_id
+        stage_info = f" {stage}" if stage else ""
+        return "blocked", f"[waiting{stage_info}] {task_id} {title}{dep_info}", task_id
 
-    if status == STATUS_IN_PROGRESS:
-        stage_info = f" {stages[0]}" if stages else ""
-        return "active", f"[in_progress{stage_info}] {bead_id} {title}{agent_str}", bead_id
+    if status == STATUS_ACTIVE:
+        stage_info = f" {stage}" if stage else ""
+        return "active", f"[active{stage_info}] {task_id} {title}{agent_str}", task_id
 
-    if stages:
-        stage = stages[0]
+    if stage in STAGE_TO_ROLE:
         role = STAGE_TO_ROLE.get(stage, "?")
-        return "active", f"[{stage} \u2192 {role}] {bead_id} {title}{agent_str}", bead_id
+        return "active", f"[{stage} \u2192 {role}] {task_id} {title}{agent_str}", task_id
 
-    return "backlog", f"[open] {bead_id} {title}", bead_id
+    return "backlog", f"[pending] {task_id} {title}", task_id
 
 
 def _get_branches() -> list[str]:
@@ -175,12 +164,12 @@ def print_runtime_info(running):
 
     if running:
         print("Agents:")
-        for bead_id, info in running.items():
+        for task_id, info in running.items():
             agent = info.get("agent", "?")
             role = info.get("role", "?")
             started = info.get("started_at")
             dur = fmt_duration(now - started) if started else "?"
-            print(f"  {agent} ({role}) \u2192 {bead_id}  [{dur}]")
+            print(f"  {agent} ({role}) \u2192 {task_id}  [{dur}]")
         print()
 
     branches = _get_branches()
@@ -189,5 +178,3 @@ def print_runtime_info(running):
         for branch in branches:
             print(f"  {branch}")
         print()
-
-

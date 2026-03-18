@@ -35,12 +35,12 @@ def check_remote_ref(ref: str) -> str | None:
     return None
 
 
-def preflight_spawn(role: str, bead_id: str) -> str | None:
+def preflight_spawn(role: str, task_id: str) -> str | None:
     err = check_base_branch()
     if err:
         return err
     if role in NEEDS_FEATURE_BRANCH:
-        err = check_remote_ref(f"origin/feature/{bead_id}")
+        err = check_remote_ref(f"origin/feature/{task_id}")
         if err:
             return err
     return None
