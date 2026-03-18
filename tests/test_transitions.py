@@ -1,17 +1,22 @@
+"""Tests for stage transition logic using takt."""
+
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from debussy.transitions import (
-    MAX_REJECTIONS, MAX_RETRIES, TransitionResult,
-    _compute_next_stage, _dispatch_transition, _handle_advance,
-    _handle_empty_branch, _is_terminal_stage, verify_single_stage,
+    MAX_REJECTIONS, MAX_RETRIES,
+    _compute_next_stage, _dispatch_transition, _handle_agent_success,
+    _handle_empty_branch, _is_terminal_stage, handle_rejection,
+    ensure_stage_transition,
 )
+from debussy.takt import get_db, init_db, create_task, advance_task, update_task, get_task
+from debussy.takt.log import add_log
 
 
-def _make_agent(bead="bd-001", spawned_stage="stage:development"):
+def _make_agent(bead="takt-test1", spawned_stage="development"):
     agent = MagicMock()
-    agent.bead = bead
+    agent.task = bead
     agent.spawned_stage = spawned_stage
     return agent
 
@@ -24,376 +29,326 @@ def _make_watcher():
     return watcher
 
 
+@pytest.fixture
+def project(tmp_path, monkeypatch):
+    (tmp_path / ".git").mkdir()
+    init_db(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
+@pytest.fixture
+def db(project):
+    with get_db() as conn:
+        yield conn
+
+
+def _make_dev_task(db, task_id=None):
+    """Create a task and advance it to development stage."""
+    task = create_task(db, "Test task")
+    advance_task(db, task["id"])  # → development
+    return task
+
+
+class TestComputeNextStage:
+    def test_development_to_reviewing(self):
+        assert _compute_next_stage("development", []) == "reviewing"
+
+    def test_reviewing_to_merging(self):
+        assert _compute_next_stage("reviewing", []) == "merging"
+
+    def test_reviewing_security_to_security_review(self):
+        assert _compute_next_stage("reviewing", ["security"]) == "security_review"
+
+    def test_security_review_to_merging(self):
+        assert _compute_next_stage("security_review", []) == "merging"
+
+    def test_merging_returns_none(self):
+        assert _compute_next_stage("merging", []) is None
+
+    def test_acceptance_returns_none(self):
+        assert _compute_next_stage("acceptance", []) is None
+
+
+class TestTerminalStage:
+    def test_development_is_not_terminal(self):
+        assert not _is_terminal_stage("development")
+
+    def test_reviewing_is_not_terminal(self):
+        assert not _is_terminal_stage("reviewing")
+
+    def test_security_review_is_not_terminal(self):
+        assert not _is_terminal_stage("security_review")
+
+    def test_merging_is_terminal(self):
+        assert _is_terminal_stage("merging")
+
+    def test_acceptance_is_terminal(self):
+        assert _is_terminal_stage("acceptance")
+
+
 class TestDispatchAdvance:
     @patch("debussy.transitions._branch_has_commits", return_value=True)
-    @patch("debussy.transitions.record_event")
-    def test_development_to_reviewing(self, mock_event, mock_commits):
+    def test_development_to_reviewing(self, mock_commits, db):
+        task = _make_dev_task(db)
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:development")
-        bead = {"status": "open", "labels": ["stage:development"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="development")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        result = _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert result.remove_labels == ["stage:development"]
-        assert result.add_labels == ["stage:reviewing"]
-        assert result.status is None
+        assert result is True
+        updated = get_task(db, task["id"])
+        assert updated["stage"] == "reviewing"
 
     @patch("debussy.transitions._branch_has_commits", return_value=True)
-    @patch("debussy.transitions.record_event")
-    def test_reviewing_to_merging(self, mock_event, mock_commits):
+    def test_reviewing_to_merging(self, mock_commits, db):
+        task = _make_dev_task(db)
+        advance_task(db, task["id"])  # → reviewing
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:reviewing")
-        bead = {"status": "open", "labels": ["stage:reviewing"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="reviewing")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert result.add_labels == ["stage:merging"]
-        assert "stage:reviewing" in result.remove_labels
+        assert get_task(db, task["id"])["stage"] == "merging"
 
 
 class TestSecurityRouting:
     @patch("debussy.transitions._branch_has_commits", return_value=True)
-    @patch("debussy.transitions.record_event")
-    def test_reviewing_routes_to_security_review(self, mock_event, mock_commits):
+    def test_reviewing_routes_to_security_review(self, mock_commits, db):
+        task = create_task(db, "Secure task", tags=["security"])
+        advance_task(db, task["id"])  # → development
+        advance_task(db, task["id"])  # → reviewing
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:reviewing")
-        bead = {"status": "open", "labels": ["stage:reviewing", "security"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="reviewing")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert result.add_labels == ["stage:security-review"]
+        assert get_task(db, task["id"])["stage"] == "security_review"
 
     @patch("debussy.transitions._branch_has_commits", return_value=True)
-    @patch("debussy.transitions.record_event")
-    def test_security_review_to_merging(self, mock_event, mock_commits):
+    def test_security_review_to_merging(self, mock_commits, db):
+        task = create_task(db, "Secure task", tags=["security"])
+        advance_task(db, task["id"])  # → development
+        advance_task(db, task["id"])  # → reviewing
+        advance_task(db, task["id"])  # → security_review
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:security-review")
-        bead = {"status": "open", "labels": ["stage:security-review", "security"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="security_review")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert result.add_labels == ["stage:merging"]
+        assert get_task(db, task["id"])["stage"] == "merging"
 
 
 class TestRejection:
-    @patch("debussy.transitions.subprocess.run")
-    @patch("debussy.transitions.record_event")
-    def test_rejection_sends_to_development(self, mock_event, mock_run):
+    def test_rejection_sends_to_development(self, db):
+        task = _make_dev_task(db)
+        advance_task(db, task["id"])  # → reviewing
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:reviewing")
-        bead = {"status": "open", "labels": ["stage:reviewing", "rejected"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="reviewing")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        handle_rejection(watcher, agent, db)
 
-        assert result.add_labels == ["stage:development"]
-        assert "stage:reviewing" in result.remove_labels
-        assert "rejected" in result.remove_labels
-        assert watcher.rejections["bd-001"] == 1
+        updated = get_task(db, task["id"])
+        assert updated["stage"] == "development"
+        assert updated["rejection_count"] == 1
+        assert watcher.rejections[task["id"]] == 1
 
-    @patch("debussy.transitions.subprocess.run")
-    @patch("debussy.transitions.record_event")
-    def test_max_rejections_blocks(self, mock_event, mock_run):
+    def test_max_rejections_blocks(self, db):
+        task = _make_dev_task(db)
+        advance_task(db, task["id"])  # → reviewing
+        # Pre-set 2 rejections
+        update_task(db, task["id"], rejection_count=MAX_REJECTIONS - 1)
         watcher = _make_watcher()
-        watcher.rejections["bd-001"] = MAX_REJECTIONS - 1
-        agent = _make_agent(spawned_stage="stage:reviewing")
-        bead = {"status": "open", "labels": ["stage:reviewing", "rejected"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="reviewing")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        handle_rejection(watcher, agent, db)
 
-        assert result.status == "blocked"
-        assert result.add_labels == []
+        updated = get_task(db, task["id"])
+        assert updated["status"] == "blocked"
 
 
 class TestAcceptanceRejection:
-    @patch("debussy.transitions.record_event")
-    def test_acceptance_rejection_blocks(self, mock_event):
+    def test_acceptance_rejection_blocks(self, db):
+        task = create_task(db, "Acceptance task")
+        advance_task(db, task["id"], to_stage="acceptance")
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:acceptance")
-        bead = {"status": "open", "labels": ["stage:acceptance", "rejected"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="acceptance")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        handle_rejection(watcher, agent, db)
 
-        assert result.status == "blocked"
-        assert "rejected" in result.remove_labels
+        updated = get_task(db, task["id"])
+        assert updated["status"] == "blocked"
 
 
 class TestInProgressReset:
-    def test_resets_to_open(self):
+    def test_resets_to_pending(self, db):
+        task = _make_dev_task(db)
+        update_task(db, task["id"], status="active")
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:development")
-        bead = {"status": "in_progress", "labels": ["stage:development"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="development")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert result.status == "open"
+        assert get_task(db, task["id"])["status"] == "pending"
 
 
 class TestClosed:
     @patch("debussy.transitions._verify_merge_landed", return_value=True)
     @patch("debussy.transitions.delete_branch")
-    @patch("debussy.transitions.record_event")
-    def test_closed_removes_stage(self, mock_event, mock_delete, mock_verify):
+    def test_terminal_stage_closes(self, mock_delete, mock_verify, db):
+        task = _make_dev_task(db)
+        advance_task(db, task["id"])  # → reviewing
+        advance_task(db, task["id"])  # → merging
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:merging")
-        bead = {"status": "closed", "labels": ["stage:merging"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="merging")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert result.status is None
-        assert "stage:merging" in result.remove_labels
-        mock_delete.assert_called_once_with("feature/bd-001")
+        assert get_task(db, task["id"])["stage"] == "done"
+        mock_delete.assert_called_once_with(f"feature/{task['id']}")
 
     @patch("debussy.transitions._verify_merge_landed", return_value=True)
     @patch("debussy.transitions.delete_branch")
-    @patch("debussy.transitions.record_event")
-    def test_closed_clears_rejections(self, mock_event, mock_delete, mock_verify):
+    def test_closed_clears_rejections(self, mock_delete, mock_verify, db):
+        task = _make_dev_task(db)
+        advance_task(db, task["id"])  # → reviewing
+        advance_task(db, task["id"])  # → merging
         watcher = _make_watcher()
-        watcher.rejections["bd-001"] = 3
-        agent = _make_agent(spawned_stage="stage:merging")
-        bead = {"status": "closed", "labels": ["stage:merging"]}
+        watcher.rejections[task["id"]] = 2
+        agent = _make_agent(bead=task["id"], spawned_stage="merging")
 
-        _dispatch_transition(watcher, agent, bead)
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert "bd-001" not in watcher.rejections
+        assert task["id"] not in watcher.rejections
 
 
 class TestBlocked:
-    @patch("debussy.transitions.record_event")
-    def test_blocked_removes_stage(self, mock_event):
+    def test_blocked_stays(self, db):
+        task = _make_dev_task(db)
+        update_task(db, task["id"], status="blocked")
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:development")
-        bead = {"status": "blocked", "labels": ["stage:development"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="development")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert "stage:development" in result.remove_labels
-        assert result.status is None
+        assert get_task(db, task["id"])["status"] == "blocked"
 
 
 class TestExternalRemoval:
-    def test_stage_removed_externally(self):
+    def test_stage_changed_externally(self, db):
+        task = _make_dev_task(db)
+        advance_task(db, task["id"])  # → reviewing
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:reviewing")
-        bead = {"status": "open", "labels": []}
+        agent = _make_agent(bead=task["id"], spawned_stage="development")  # agent thinks development
 
-        result = _dispatch_transition(watcher, agent, bead)
+        result = _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert not result.add_labels
-        assert not result.remove_labels
-
-    def test_stage_removed_with_rejected_cleans_up(self):
-        watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:reviewing")
-        bead = {"status": "open", "labels": ["rejected"]}
-
-        result = _dispatch_transition(watcher, agent, bead)
-
-        assert result.remove_labels == ["rejected"]
+        assert result is True
+        # Stage should remain reviewing (not modified by watcher)
+        assert get_task(db, task["id"])["stage"] == "reviewing"
 
 
 class TestEmptyBranch:
-    @patch("debussy.transitions.subprocess.run")
-    @patch("debussy.transitions.record_event")
     @patch("debussy.transitions._branch_has_commits", return_value=False)
     @patch("debussy.transitions.get_config", return_value={"base_branch": "master"})
-    def test_empty_branch_retries(self, mock_cfg, mock_commits, mock_event, mock_run):
+    def test_empty_branch_retries(self, mock_cfg, mock_commits, db):
+        task = _make_dev_task(db)
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:development")
-        bead = {"status": "open", "labels": ["stage:development"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="development")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert result.add_labels == ["stage:development"]
-        assert "stage:development" in result.remove_labels
-        assert watcher.empty_branch_retries["bd-001"] == 1
+        assert watcher.empty_branch_retries[task["id"]] == 1
+        assert get_task(db, task["id"])["stage"] == "development"
 
-    @patch("debussy.transitions.subprocess.run")
-    @patch("debussy.transitions.record_event")
     @patch("debussy.transitions._branch_has_commits", return_value=False)
     @patch("debussy.transitions.get_config", return_value={"base_branch": "master"})
-    def test_empty_branch_max_retries_blocks(self, mock_cfg, mock_commits, mock_event, mock_run):
+    def test_empty_branch_max_retries_blocks(self, mock_cfg, mock_commits, db):
+        task = _make_dev_task(db)
         watcher = _make_watcher()
-        watcher.empty_branch_retries["bd-001"] = MAX_RETRIES - 1
-        agent = _make_agent(spawned_stage="stage:development")
-        bead = {"status": "open", "labels": ["stage:development"]}
+        watcher.empty_branch_retries[task["id"]] = MAX_RETRIES - 1
+        agent = _make_agent(bead=task["id"], spawned_stage="development")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert result.status == "blocked"
-
-
-class TestComputeNextStage:
-    def test_development_to_reviewing(self):
-        agent = _make_agent(spawned_stage="stage:development")
-        assert _compute_next_stage(agent, []) == "stage:reviewing"
-
-    def test_reviewing_to_merging(self):
-        agent = _make_agent(spawned_stage="stage:reviewing")
-        assert _compute_next_stage(agent, []) == "stage:merging"
-
-    def test_reviewing_security_to_security_review(self):
-        agent = _make_agent(spawned_stage="stage:reviewing")
-        assert _compute_next_stage(agent, ["security"]) == "stage:security-review"
-
-    def test_security_review_to_merging(self):
-        agent = _make_agent(spawned_stage="stage:security-review")
-        assert _compute_next_stage(agent, []) == "stage:merging"
-
-    def test_merging_is_terminal(self):
-        agent = _make_agent(spawned_stage="stage:merging")
-        assert _compute_next_stage(agent, []) is None
-
-    def test_acceptance_is_terminal(self):
-        agent = _make_agent(spawned_stage="stage:acceptance")
-        assert _compute_next_stage(agent, []) is None
-
-
-class TestPrematureClose:
-    @patch("debussy.transitions._branch_has_commits", return_value=True)
-    @patch("debussy.transitions.record_event")
-    def test_developer_close_reopens_and_advances(self, mock_event, mock_commits):
-        watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:development")
-        bead = {"status": "closed", "labels": ["stage:development"]}
-
-        result = _dispatch_transition(watcher, agent, bead)
-
-        assert result.status == "open"
-        assert result.add_labels == ["stage:reviewing"]
-        assert "stage:development" in result.remove_labels
-
-    @patch("debussy.transitions._branch_has_commits", return_value=True)
-    @patch("debussy.transitions.record_event")
-    def test_reviewer_close_reopens_and_advances(self, mock_event, mock_commits):
-        watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:reviewing")
-        bead = {"status": "closed", "labels": ["stage:reviewing"]}
-
-        result = _dispatch_transition(watcher, agent, bead)
-
-        assert result.status == "open"
-        assert result.add_labels == ["stage:merging"]
-        assert "stage:reviewing" in result.remove_labels
-
-    @patch("debussy.transitions._branch_has_commits", return_value=True)
-    @patch("debussy.transitions.record_event")
-    def test_security_reviewer_close_reopens_and_advances(self, mock_event, mock_commits):
-        watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:security-review")
-        bead = {"status": "closed", "labels": ["stage:security-review"]}
-
-        result = _dispatch_transition(watcher, agent, bead)
-
-        assert result.status == "open"
-        assert result.add_labels == ["stage:merging"]
-        assert "stage:security-review" in result.remove_labels
-
-    @patch("debussy.transitions._branch_has_commits", return_value=False)
-    @patch("debussy.transitions.record_event")
-    @patch("debussy.transitions.get_config", return_value={"base_branch": "master"})
-    def test_developer_close_with_empty_branch_retries(self, mock_cfg, mock_event, mock_commits):
-        watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:development")
-        bead = {"status": "closed", "labels": ["stage:development"]}
-
-        result = _dispatch_transition(watcher, agent, bead)
-
-        assert result.add_labels == ["stage:development"]
-        assert result.status == "open"
+        assert get_task(db, task["id"])["status"] == "blocked"
 
 
 class TestMergeVerification:
     @patch("debussy.transitions._verify_merge_landed", return_value=True)
     @patch("debussy.transitions.delete_branch")
-    @patch("debussy.transitions.record_event")
-    def test_verified_merge_closes(self, mock_event, mock_delete, mock_verify):
+    def test_verified_merge_closes(self, mock_delete, mock_verify, db):
+        task = _make_dev_task(db)
+        advance_task(db, task["id"])  # → reviewing
+        advance_task(db, task["id"])  # → merging
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:merging")
-        bead = {"status": "closed", "labels": ["stage:merging"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="merging")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert result.status is None
-        assert "stage:merging" in result.remove_labels
+        assert get_task(db, task["id"])["stage"] == "done"
         mock_delete.assert_called_once()
 
     @patch("debussy.transitions._verify_merge_landed", return_value=False)
-    @patch("debussy.transitions.record_event")
-    def test_unverified_merge_retries(self, mock_event, mock_verify):
+    def test_unverified_merge_retries(self, mock_verify, db):
+        task = _make_dev_task(db)
+        advance_task(db, task["id"])  # → reviewing
+        advance_task(db, task["id"])  # → merging
         watcher = _make_watcher()
-        agent = _make_agent(spawned_stage="stage:merging")
-        bead = {"status": "closed", "labels": ["stage:merging"]}
+        agent = _make_agent(bead=task["id"], spawned_stage="merging")
 
-        result = _dispatch_transition(watcher, agent, bead)
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
-        assert result.status == "open"
-        assert result.add_labels == ["stage:merging"]
-        assert "stage:merging" in result.remove_labels
-
-class TestTerminalStage:
-    def test_development_is_not_terminal(self):
-        assert not _is_terminal_stage("stage:development")
-
-    def test_reviewing_is_not_terminal(self):
-        assert not _is_terminal_stage("stage:reviewing")
-
-    def test_security_review_is_not_terminal(self):
-        assert not _is_terminal_stage("stage:security-review")
-
-    def test_merging_is_terminal(self):
-        assert _is_terminal_stage("stage:merging")
-
-    def test_acceptance_is_terminal(self):
-        assert _is_terminal_stage("stage:acceptance")
+        # Should stay at merging for retry
+        assert get_task(db, task["id"])["stage"] == "merging"
 
 
+class TestEnsureStageTransition:
+    """Tests for ensure_stage_transition called directly (not via _dispatch_transition).
 
-class TestTransitionResult:
-    def test_no_changes(self):
-        assert not TransitionResult().has_changes
+    These tests use `project` (not `db`) so connections are closed between operations,
+    avoiding WAL write-lock conflicts when ensure_stage_transition opens its own connection.
+    """
 
-    def test_status_is_change(self):
-        assert TransitionResult(status="open").has_changes
+    @patch("debussy.transitions._branch_has_commits", return_value=True)
+    def test_advances_development_task_to_reviewing(self, mock_commits, project):
+        """ensure_stage_transition advances a development task to reviewing when branch has commits."""
+        with get_db() as db:
+            task = _make_dev_task(db)
+            task_id = task["id"]
 
-    def test_add_labels_is_change(self):
-        assert TransitionResult(add_labels=["stage:reviewing"]).has_changes
+        watcher = _make_watcher()
+        agent = _make_agent(bead=task_id, spawned_stage="development")
 
-    def test_remove_labels_is_change(self):
-        assert TransitionResult(remove_labels=["stage:development"]).has_changes
+        result = ensure_stage_transition(watcher, agent)
 
+        assert result is True
+        with get_db() as db:
+            updated = get_task(db, task_id)
+        assert updated["stage"] == "reviewing"
 
-class TestVerifySingleStage:
-    @patch("debussy.transitions.subprocess")
-    @patch("debussy.transitions.get_bead_json")
-    def test_keeps_specified_stage_over_first(self, mock_bead, mock_sub):
-        mock_bead.return_value = {
-            "labels": ["stage:development", "stage:reviewing"],
-        }
-        verify_single_stage("bd-001", keep="stage:reviewing")
+    def test_missing_spawned_stage_returns_true_immediately(self, project):
+        """ensure_stage_transition returns True immediately when spawned_stage is None."""
+        with get_db() as db:
+            task = _make_dev_task(db)
+            task_id = task["id"]
 
-        args = mock_sub.run.call_args[0][0]
-        assert "--remove-label" in args
-        idx = args.index("--remove-label")
-        assert args[idx + 1] == "stage:development"
-        assert "stage:reviewing" not in args[idx:]
+        watcher = _make_watcher()
+        agent = _make_agent(bead=task_id, spawned_stage=None)
 
-    @patch("debussy.transitions.subprocess")
-    @patch("debussy.transitions.get_bead_json")
-    def test_falls_back_to_first_when_keep_not_specified(self, mock_bead, mock_sub):
-        mock_bead.return_value = {
-            "labels": ["stage:development", "stage:reviewing"],
-        }
-        verify_single_stage("bd-001")
+        result = ensure_stage_transition(watcher, agent)
 
-        args = mock_sub.run.call_args[0][0]
-        assert "--remove-label" in args
-        idx = args.index("--remove-label")
-        assert args[idx + 1] == "stage:reviewing"
+        assert result is True
+        # Task should remain unchanged since we returned early
+        with get_db() as db:
+            updated = get_task(db, task_id)
+        assert updated["stage"] == "development"
 
-    @patch("debussy.transitions.subprocess")
-    @patch("debussy.transitions.get_bead_json")
-    def test_noop_with_single_stage(self, mock_bead, mock_sub):
-        mock_bead.return_value = {"labels": ["stage:reviewing"]}
-        verify_single_stage("bd-001", keep="stage:reviewing")
+    def test_nonexistent_task_returns_false(self, project):
+        """ensure_stage_transition returns False when the task does not exist."""
+        watcher = _make_watcher()
+        agent = _make_agent(bead="takt-nonexistent", spawned_stage="development")
 
-        mock_sub.run.assert_not_called()
+        result = ensure_stage_transition(watcher, agent)
+
+        assert result is False

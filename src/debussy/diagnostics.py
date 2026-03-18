@@ -1,7 +1,5 @@
 """Failure diagnostics for agent deaths and blocks."""
 
-import subprocess
-
 LOG_TAIL_LINES = 15
 LOG_MAX_LINE_LEN = 200
 
@@ -31,11 +29,15 @@ def format_death_comment(agent_name: str, elapsed: int, status: str, log_tail: s
     return "\n".join(parts)
 
 
-def comment_on_bead(bead_id: str, text: str):
+def comment_on_task(task_id: str, text: str):
     try:
-        subprocess.run(
-            ["bd", "comment", bead_id, text],
-            capture_output=True, timeout=5,
-        )
-    except (subprocess.SubprocessError, OSError):
-        pass
+        from .takt import get_db, add_comment
+        with get_db() as db:
+            add_comment(db, task_id, "system", text)
+    except Exception as e:
+        import logging
+        logging.warning("comment_on_task failed for %s: %s", task_id, e, exc_info=True)
+
+
+# Alias for backward compat during migration
+comment_on_bead = comment_on_task

@@ -14,6 +14,7 @@ dependencies = []
 [project.scripts]
 debussy = "debussy.__main__:main"
 dbs = "debussy.__main__:main"
+takt = "debussy.takt.cli:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "debussy.__version__"}

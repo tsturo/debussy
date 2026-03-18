@@ -1,27 +1,27 @@
-"""Pipeline scanning and bead lifecycle management."""
+"""Pipeline scanning and task lifecycle management."""
 
-import json
 import subprocess
 
-from .bead_client import get_bead_json, get_bead_status, get_unresolved_deps
-from .diagnostics import comment_on_bead
 from .config import (
-    LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_DEVELOPMENT, STAGE_TO_ROLE,
-    STATUS_BLOCKED, STATUS_CLOSED, STATUS_IN_PROGRESS, STATUS_OPEN,
+    LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_BACKLOG, STAGE_DEVELOPMENT,
+    STAGE_TO_ROLE, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
     get_config, log,
 )
 from .spawner import MAX_TOTAL_SPAWNS, spawn_agent
-from .transitions import MAX_RETRIES, record_event, verify_single_stage
+from .takt import (
+    add_comment, advance_task, block_task, get_db, get_task,
+    get_unresolved_deps, list_tasks, release_task,
+)
+from .transitions import MAX_RETRIES
 
 
-def get_unmerged_dep_branches(bead: dict) -> list[str]:
+def get_unmerged_dep_branches(task: dict) -> list[str]:
+    """Check which dependency branches haven't been merged on origin."""
     unmerged = []
-    for dep in bead.get("dependencies", []):
-        dep_id = dep.get("depends_on_id") or dep.get("id")
-        if not dep_id:
-            continue
-        dep_status = dep.get("status") or get_bead_status(dep_id)
-        if dep_status == STATUS_CLOSED:
+    for dep_id in task.get("dependencies", []):
+        with get_db() as db:
+            dep_task = get_task(db, dep_id)
+        if dep_task and dep_task["stage"] == "done":
             continue
         try:
             result = subprocess.run(
@@ -36,190 +36,137 @@ def get_unmerged_dep_branches(bead: dict) -> list[str]:
 
 
 def reset_orphaned(watcher):
-    try:
-        result = subprocess.run(
-            ["bd", "list", "--status", STATUS_IN_PROGRESS, "--json"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode != 0 or not result.stdout.strip():
-            return
-        beads = json.loads(result.stdout)
-        if not isinstance(beads, list):
-            return
-    except (subprocess.SubprocessError, OSError, ValueError):
-        return
+    with get_db() as db:
+        active_tasks = list_tasks(db, status=STATUS_ACTIVE)
 
-    running_beads = {a.bead for a in watcher.running.values()}
-    for bead in beads:
-        bead_id = bead.get("id")
-        if not bead_id or bead_id in running_beads:
+    running_tasks = {a.task for a in watcher.running.values()}
+    for task in active_tasks:
+        task_id = task.get("id")
+        if not task_id or task_id in running_tasks:
             continue
-        labels = bead.get("labels", [])
-        stage_labels = [l for l in labels if l.startswith("stage:")]
-        if not stage_labels:
+        # Only reset tasks that are in a stage the watcher manages
+        if task.get("stage") not in STAGE_TO_ROLE:
             continue
-        full_bead = get_bead_json(bead_id)
-        real_labels = full_bead.get("labels", []) if full_bead else labels
-        real_stages = [l for l in real_labels if l.startswith("stage:")]
-        cmd = ["bd", "update", bead_id, "--status", STATUS_OPEN]
-        for label in real_stages[1:]:
-            cmd.extend(["--remove-label", label])
-        try:
-            subprocess.run(cmd, capture_output=True, timeout=5)
-            log(f"Reset orphaned {bead_id}: no agent running", "👻")
-        except (subprocess.SubprocessError, OSError):
-            pass
+        with get_db() as db:
+            release_task(db, task_id)
+        log(f"Reset orphaned {task_id}: no agent running", "👻")
 
 
 def release_ready(watcher):
-    for status in (STATUS_BLOCKED, STATUS_OPEN):
-        try:
-            result = subprocess.run(
-                ["bd", "list", "--status", status, "--json"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                continue
-            beads = json.loads(result.stdout)
-            if not isinstance(beads, list):
-                continue
-        except (subprocess.SubprocessError, OSError, ValueError):
-            continue
+    with get_db() as db:
+        blocked_tasks = list_tasks(db, status=STATUS_BLOCKED)
+        backlog_tasks = list_tasks(db, stage=STAGE_BACKLOG, status=STATUS_PENDING)
 
-        for bead in beads:
-            _try_release_bead(watcher, bead, status)
+    for task in blocked_tasks:
+        _try_release_task(watcher, task, STATUS_BLOCKED)
+
+    for task in backlog_tasks:
+        _try_release_task(watcher, task, STATUS_PENDING)
 
 
-def _try_release_bead(watcher, bead, status):
-    bead_id = bead.get("id")
-    if not bead_id or bead.get("dependency_count", 0) == 0:
-        return
-    full_bead = get_bead_json(bead_id)
-    if not full_bead or get_unresolved_deps(full_bead):
+def _try_release_task(watcher, task, status):
+    task_id = task.get("id")
+    if not task_id or not task.get("dependencies"):
         return
 
-    labels = full_bead.get("labels", [])
-    has_stage = any(l.startswith("stage:") for l in labels)
-    cmd = ["bd", "update", bead_id]
-
-    if status == STATUS_BLOCKED and STAGE_ACCEPTANCE in labels:
-        return
-    if status == STATUS_BLOCKED and watcher.empty_branch_retries.get(bead_id, 0) >= MAX_RETRIES:
-        return
-    if status == STATUS_BLOCKED:
-        cmd.extend(["--status", STATUS_OPEN])
-    if not has_stage:
-        cmd.extend(["--add-label", STAGE_DEVELOPMENT])
-    if len(cmd) <= 3:
+    with get_db() as db:
+        unresolved = get_unresolved_deps(db, task_id)
+    if unresolved:
         return
 
-    try:
-        subprocess.run(cmd, capture_output=True, timeout=5)
-        if has_stage:
-            log(f"Unblocked {bead_id}: deps resolved", "🔓")
-            record_event(bead_id, "unblock")
-        else:
-            log(f"Released {bead_id}: deps resolved → {STAGE_DEVELOPMENT}", "🔓")
-            record_event(bead_id, "release", stage=STAGE_DEVELOPMENT)
-        expected = STAGE_DEVELOPMENT if not has_stage else None
-        verify_single_stage(bead_id, keep=expected)
-    except (subprocess.SubprocessError, OSError):
-        pass
+    stage = task.get("stage")
+
+    if status == STATUS_BLOCKED and stage == STAGE_ACCEPTANCE:
+        return
+    if status == STATUS_BLOCKED and watcher.empty_branch_retries.get(task_id, 0) >= MAX_RETRIES:
+        return
+
+    with get_db() as db:
+        if status == STATUS_BLOCKED:
+            # Unblock: set back to pending
+            release_task(db, task_id)
+            log(f"Unblocked {task_id}: deps resolved", "🔓")
+        elif stage == STAGE_BACKLOG:
+            # Release from backlog to development
+            advance_task(db, task_id, to_stage=STAGE_DEVELOPMENT)
+            log(f"Released {task_id}: deps resolved → {STAGE_DEVELOPMENT}", "🔓")
 
 
-def _should_skip_bead(watcher, bead_id, bead, role):
-    if not bead_id:
+def _should_skip_task(watcher, task_id, task, role):
+    if not task_id:
         return "no id"
-    if watcher.is_bead_running(bead_id):
+    if watcher.is_task_running(task_id):
         return "already running"
-    if watcher.failures.get(bead_id, 0) >= MAX_RETRIES:
-        _block_failed_bead(watcher, bead_id, "failures")
+    if watcher.failures.get(task_id, 0) >= MAX_RETRIES:
+        _block_failed_task(watcher, task_id, "failures")
         return "max failures"
-    if watcher.spawn_counts.get(bead_id, 0) >= MAX_TOTAL_SPAWNS:
-        _block_failed_bead(watcher, bead_id, "total spawns")
+    if watcher.spawn_counts.get(task_id, 0) >= MAX_TOTAL_SPAWNS:
+        _block_failed_task(watcher, task_id, "total spawns")
         return "max spawns"
-    if bead.get("status") == STATUS_BLOCKED:
+    if task.get("status") == STATUS_BLOCKED:
         return "blocked"
-    skip = _check_dependencies(watcher, bead_id, bead, role)
+    skip = _check_dependencies(watcher, task_id, task, role)
     if skip:
         return skip
     max_for_role = get_config().get("max_role_agents", {}).get(role)
     if max_for_role and watcher.count_running_role(role) >= max_for_role:
-        _queue_bead(watcher, bead_id, f"waiting for {role} slot")
+        _queue_task(watcher, task_id, f"waiting for {role} slot")
         return f"{role} at cap"
     if watcher.is_at_capacity():
-        _queue_bead(watcher, bead_id, "waiting for agent slot")
+        _queue_task(watcher, task_id, "waiting for agent slot")
         return "at capacity"
     return None
 
 
-def _block_failed_bead(watcher, bead_id, reason="failures"):
-    if bead_id in watcher.blocked_failures:
+def _block_failed_task(watcher, task_id, reason="failures"):
+    if task_id in watcher.blocked_failures:
         return
-    watcher.blocked_failures.add(bead_id)
-    log(f"Blocked {bead_id}: max {reason}, needs conductor", "🚫")
-    comment_on_bead(bead_id, f"Blocked: max {reason} reached. Needs conductor intervention.")
-    try:
-        subprocess.run(
-            ["bd", "update", bead_id, "--status", STATUS_BLOCKED],
-            capture_output=True, timeout=5,
-        )
-    except (subprocess.SubprocessError, OSError):
-        pass
+    watcher.blocked_failures.add(task_id)
+    log(f"Blocked {task_id}: max {reason}, needs conductor", "🚫")
+    with get_db() as db:
+        add_comment(db, task_id, "watcher", f"Blocked: max {reason} reached. Needs conductor intervention.")
+        block_task(db, task_id)
 
 
-def _check_dependencies(watcher, bead_id, bead, role):
-    if bead.get("dependency_count", 0) == 0:
+def _check_dependencies(watcher, task_id, task, role):
+    if not task.get("dependencies"):
         return None
-    full_bead = get_bead_json(bead_id)
-    if not full_bead or get_unresolved_deps(full_bead):
+    with get_db() as db:
+        unresolved = get_unresolved_deps(db, task_id)
+    if unresolved:
         return "unresolved deps"
     if role == "tester":
-        unmerged = get_unmerged_dep_branches(full_bead)
+        unmerged = get_unmerged_dep_branches(task)
         if unmerged:
-            _queue_bead(watcher, bead_id, f"{len(unmerged)} dep branch(es) still unmerged on origin")
+            _queue_task(watcher, task_id, f"{len(unmerged)} dep branch(es) still unmerged on origin")
             return "unmerged deps"
     return None
 
 
-def _queue_bead(watcher, bead_id, reason):
-    if bead_id not in watcher.queued:
-        log(f"Holding {bead_id}: {reason}", "⏳")
-        watcher.queued.add(bead_id)
+def _queue_task(watcher, task_id, reason):
+    if task_id not in watcher.queued:
+        log(f"Holding {task_id}: {reason}", "⏳")
+        watcher.queued.add(task_id)
 
 
 def _scan_stage(watcher, stage, role, spawn_budget: int) -> int:
     spawned = 0
-    try:
-        result = subprocess.run(
-            ["bd", "list", "--status", STATUS_OPEN, "--label", stage, "--json"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode != 0 or not result.stdout.strip():
-            return 0
-        beads = json.loads(result.stdout)
-        if not isinstance(beads, list):
-            return 0
-    except subprocess.TimeoutExpired:
-        log(f"Timeout checking {stage}", "⚠️")
-        return 0
-    except (subprocess.SubprocessError, OSError, ValueError) as e:
-        log(f"Error checking {stage}: {e}", "⚠️")
-        return 0
+    with get_db() as db:
+        tasks = list_tasks(db, stage=stage, status=STATUS_PENDING)
 
-    beads.sort(key=lambda b: (
-        LABEL_PRIORITY not in b.get("labels", []),
-        b.get("issue_type") != "bug",
+    tasks.sort(key=lambda t: (
+        LABEL_PRIORITY not in t.get("tags", []),
+        "bug" not in t.get("tags", []),
     ))
-    for bead in beads:
+    for task in tasks:
         if spawned >= spawn_budget:
             break
-        bead_id = bead.get("id")
-        skip = _should_skip_bead(watcher, bead_id, bead, role)
+        task_id = task.get("id")
+        skip = _should_skip_task(watcher, task_id, task, role)
         if skip:
             continue
-        watcher.queued.discard(bead_id)
-        if spawn_agent(watcher, role, bead_id, stage, labels=bead.get("labels")):
+        watcher.queued.discard(task_id)
+        if spawn_agent(watcher, role, task_id, stage, labels=task.get("tags")):
             spawned += 1
     return spawned
 
@@ -233,5 +180,3 @@ def check_pipeline(watcher):
         if budget <= 0:
             break
         budget -= _scan_stage(watcher, stage, role, budget)
-
-

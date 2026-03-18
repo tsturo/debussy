@@ -1,4 +1,4 @@
-FRONTEND VISUAL VERIFICATION (only if this bead has the `frontend` label):
+FRONTEND VISUAL VERIFICATION (only if this task has the `frontend` tag):
 
 Before committing, perform visual verification:
 
@@ -14,7 +14,7 @@ A) BUILD AND RUN ON SIMULATOR:
 
 B) VISUAL VERIFICATION LOOP:
    - Take a screenshot: xcrun simctl io booted screenshot /tmp/screenshot.png
-   - Read the screenshot file to evaluate it against the bead description
+   - Read the screenshot file to evaluate it against the task description
    - If UI navigation is needed, use xcrun simctl or deep links to reach the right screen
    - If it looks wrong or incomplete, fix the code, rebuild, and repeat
    - Max 3 iterations — if still broken after 3, commit what you have and note issues in a comment

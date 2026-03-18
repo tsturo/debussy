@@ -6,11 +6,11 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .bead_client import get_bead_status
 from .config import (
-    SESSION_NAME, STATUS_IN_PROGRESS, STATUS_OPEN,
-    backup_beads, clean_config, get_config, log, parse_value, set_config,
+    SESSION_NAME, STATUS_ACTIVE, STATUS_PENDING,
+    backup_takt, clean_config, get_config, log, parse_value, set_config,
 )
+from .takt import get_db, get_task, init_db, release_task, add_comment
 from .hooks import install_hooks
 from .tmux import (
     create_tmux_layout, kill_agent, label_panes, list_debussy_sessions,
@@ -71,22 +71,6 @@ def cmd_watch(args):
     Watcher().run()
 
 
-def _upgrade_bd():
-    old = subprocess.run(["bd", "version"], capture_output=True, text=True)
-    old_ver = old.stdout.strip() if old.returncode == 0 else "unknown"
-    log(f"Current bd: {old_ver}", "\U0001f4e6")
-    log("Upgrading bd...", "\u2b06\ufe0f")
-    result = subprocess.run([
-        "go", "install", "github.com/steveyegge/beads/cmd/bd@latest"
-    ])
-    if result.returncode == 0:
-        new = subprocess.run(["bd", "version"], capture_output=True, text=True)
-        log(f"Upgraded bd to: {new.stdout.strip()}", "\u2713")
-    else:
-        log("bd upgrade failed", "\u2717")
-    return result.returncode
-
-
 def cmd_upgrade(args):
     from . import __version__
     log(f"Current version: {__version__}", "\U0001f4e6")
@@ -133,20 +117,22 @@ def cmd_config(args):
 
 
 def cmd_backup(args):
-    backup_path = backup_beads()
+    backup_path = backup_takt()
     if backup_path:
         log(f"Backed up to {backup_path}", "\u2713")
     else:
-        log("No .beads directory to backup", "\u26a0\ufe0f")
+        log("No .takt directory to backup", "\u26a0\ufe0f")
 
 
 def cmd_clear(args):
-    beads_dir = Path(".beads")
+    takt_dir = Path(".takt")
     debussy_dir = Path(".debussy")
 
-    if beads_dir.exists() and not getattr(args, 'force', False):
-        result = subprocess.run(["bd", "list"], capture_output=True, text=True)
-        task_count = len([l for l in result.stdout.strip().split('\n') if l.strip()]) if result.stdout.strip() else 0
+    if takt_dir.exists() and not getattr(args, 'force', False):
+        with get_db() as db:
+            from .takt import list_tasks
+            tasks = list_tasks(db)
+        task_count = len(tasks)
         if task_count > 0:
             print(f"\u26a0\ufe0f  This will delete {task_count} tasks!")
             confirm = input("Type 'yes' to confirm: ")
@@ -154,12 +140,12 @@ def cmd_clear(args):
                 log("Aborted", "\u2717")
                 return 1
 
-    if beads_dir.exists():
-        backup_path = backup_beads()
+    if takt_dir.exists():
+        backup_path = backup_takt()
         if backup_path:
             log(f"Backed up to {backup_path}", "\U0001f4be")
-        shutil.rmtree(beads_dir)
-        log("Removed .beads", "\U0001f5d1")
+        shutil.rmtree(takt_dir)
+        log("Removed .takt", "\U0001f5d1")
 
     try:
         remove_all_worktrees()
@@ -178,43 +164,31 @@ def cmd_clear(args):
                 item.unlink()
         log("Cleared .debussy (kept config, history, backups)", "\U0001f5d1")
 
-    try:
-        result = subprocess.run(["bd", "init"], capture_output=True, timeout=15)
-        if result.returncode != 0:
-            log("Failed to init beads", "\u2717")
-            return 1
-    except subprocess.TimeoutExpired:
-        log("bd init timed out (dolt may not be running)", "\u2717")
-        return 1
-    log("Initialized fresh beads", "\u2713")
+    init_db()
+    log("Initialized fresh takt database", "\u2713")
 
 
-def _reset_bead_to_open(bead_id: str):
-    status = get_bead_status(bead_id)
-    if status and status == STATUS_IN_PROGRESS:
-        subprocess.run(
-            ["bd", "comment", bead_id, "Paused by debussy pause"],
-            capture_output=True, timeout=5,
-        )
-        subprocess.run(
-            ["bd", "update", bead_id, "--status", STATUS_OPEN],
-            capture_output=True, timeout=5,
-        )
-        log(f"Reset {bead_id} ({status} \u2192 open)", "\u23f8")
+def _reset_task_to_pending(task_id: str):
+    with get_db() as db:
+        task = get_task(db, task_id)
+        if task and task["status"] == STATUS_ACTIVE:
+            add_comment(db, task_id, "system", "Paused by debussy pause")
+            release_task(db, task_id)
+            log(f"Reset {task_id} (active \u2192 pending)", "\u23f8")
 
 
-def _delete_orphan_branches(paused_beads: set[str]):
+def _delete_orphan_branches(paused_tasks: set[str]):
     try:
         result = subprocess.run(
-            ["git", "branch", "--list", "feature/bd-*"],
+            ["git", "branch", "--list", "feature/takt-*"],
             capture_output=True, text=True,
         )
         for line in result.stdout.strip().split('\n'):
             branch = line.strip().lstrip("* ")
             if not branch:
                 continue
-            bead_id = branch.replace("feature/", "")
-            if bead_id in paused_beads:
+            task_id = branch.replace("feature/", "")
+            if task_id in paused_tasks:
                 subprocess.run(
                     ["git", "branch", "-D", branch],
                     capture_output=True,
@@ -245,7 +219,7 @@ def _save_watcher_state(state: dict):
         state_file.unlink()
 
 
-def _kill_one_agent(bead_id: str, agent: dict):
+def _kill_one_agent(task_id: str, agent: dict):
     agent_name = agent.get("agent", "")
     kill_agent(agent, agent_name)
     log(f"Killed {agent_name}", "\U0001f6d1")
@@ -254,14 +228,14 @@ def _kill_one_agent(bead_id: str, agent: dict):
             remove_worktree(agent_name)
         except (subprocess.SubprocessError, OSError):
             pass
-    _reset_bead_to_open(bead_id)
+    _reset_task_to_pending(task_id)
 
 
 def _kill_all_agents():
     state = _load_watcher_state()
 
-    for bead_id, agent in state.items():
-        _kill_one_agent(bead_id, agent)
+    for task_id, agent in state.items():
+        _kill_one_agent(task_id, agent)
 
     _save_watcher_state({})
 
@@ -281,16 +255,16 @@ def cmd_kill_agent(args):
         print("No running agents")
         return 1
 
-    for bead_id, agent in state.items():
-        if agent.get("agent") == name or bead_id == name:
-            _kill_one_agent(bead_id, agent)
-            del state[bead_id]
+    for task_id, agent in state.items():
+        if agent.get("agent") == name or task_id == name:
+            _kill_one_agent(task_id, agent)
+            del state[task_id]
             _save_watcher_state(state)
             return 0
 
     print(f"Agent '{name}' not found. Running agents:")
-    for bead_id, agent in state.items():
-        print(f"  {agent.get('agent', '?')}  ({bead_id})")
+    for task_id, agent in state.items():
+        print(f"  {agent.get('agent', '?')}  ({task_id})")
     return 1
 
 

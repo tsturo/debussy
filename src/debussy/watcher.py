@@ -1,4 +1,4 @@
-"""Watcher - spawns agents based on bead status."""
+"""Watcher - spawns agents based on task status."""
 
 import json
 import os
@@ -10,28 +10,33 @@ from pathlib import Path
 
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
-from .bead_client import get_all_beads, get_bead_status
 from .config import (
     AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
-    HEARTBEAT_TICKS, STATUS_BLOCKED, STATUS_IN_PROGRESS, STATUS_OPEN,
-    _ensure_gitignored, atomic_write, backup_beads, get_config, log,
+    HEARTBEAT_TICKS, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
+    _ensure_gitignored, atomic_write, backup_takt, get_config, log,
 )
 from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
+from .takt import get_db, get_task, init_db, list_tasks, release_task, add_comment
+from .takt.log import add_log
 from .tmux import send_keys, run_tmux, tmux_window_id_names, tmux_window_ids as get_tmux_windows
-from .transitions import (
-    MAX_RETRIES,
-    ensure_stage_transition, record_event,
-)
-from .diagnostics import comment_on_bead, format_death_comment, read_log_tail
+from .transitions import MAX_RETRIES, ensure_stage_transition
+from .diagnostics import comment_on_task, format_death_comment, read_log_tail
 from .worktree import cleanup_orphaned_branches, cleanup_stale_worktrees, remove_worktree
 
 MIN_AGENT_RUNTIME = 30
 BACKUP_MIN_INTERVAL = 300
 
 
+def _get_task_status(task_id: str) -> str | None:
+    """Read current task status from takt."""
+    with get_db() as db:
+        task = get_task(db, task_id)
+    return task["status"] if task else None
+
+
 @dataclass
 class AgentInfo:
-    bead: str
+    task: str
     role: str
     name: str
     spawned_stage: str = ""
@@ -54,12 +59,12 @@ class AgentInfo:
         return self.proc is not None and self.proc.poll() is None
 
     def is_done(self) -> bool:
-        current = get_bead_status(self.bead)
+        current = _get_task_status(self.task)
         if current is None:
             return False
-        if current == STATUS_IN_PROGRESS and not self.claimed:
+        if current == STATUS_ACTIVE and not self.claimed:
             self.claimed = True
-        return self.claimed and current != STATUS_IN_PROGRESS
+        return self.claimed and current != STATUS_ACTIVE
 
     def stop(self):
         if self.tmux:
@@ -93,13 +98,14 @@ class Watcher:
         self._rejections_file = Path(".debussy/rejections.json")
         self._empty_branch_file = Path(".debussy/empty_branch_retries.json")
         self._cached_windows: set[str] | None = None
-        self.last_notified_beads: str = ""
+        self.last_notified_tasks: str = ""
         self.last_backup_at: float = 0.0
         self._load_rejections()
         self._load_empty_branch_retries()
         _ensure_gitignored()
         cleanup_stale_worktrees()
         cleanup_orphaned_branches()
+        init_db()
 
     def _acquire_lock(self) -> bool:
         self.LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -155,8 +161,8 @@ class Watcher:
     def _save_rejections(self):
         try:
             atomic_write(self._rejections_file, json.dumps(self.rejections))
-        except OSError:
-            pass
+        except OSError as e:
+            log(f"Failed to persist rejections: {e}", "⚠️")
 
     def _load_empty_branch_retries(self):
         try:
@@ -215,11 +221,11 @@ class Watcher:
             }
             if agent.proc:
                 entry["pid"] = agent.proc.pid
-            state[agent.bead] = entry
+            state[agent.task] = entry
         atomic_write(self.state_file, json.dumps(state))
 
-    def is_bead_running(self, bead_id: str) -> bool:
-        return any(a.bead == bead_id and a.is_alive(self._cached_windows) for a in self.running.values())
+    def is_task_running(self, task_id: str) -> bool:
+        return any(a.task == task_id and a.is_alive(self._cached_windows) for a in self.running.values())
 
     def is_at_capacity(self) -> bool:
         max_total = get_config().get("max_total_agents", 8)
@@ -240,20 +246,13 @@ class Watcher:
             elapsed = now - agent.started_at
             if elapsed < timeout:
                 continue
-            log(f"{agent.name} timed out after {int(elapsed)}s on {agent.bead}", "⏰")
-            record_event(agent.bead, "timeout", stage=agent.spawned_stage, agent=agent.name)
+            log(f"{agent.name} timed out after {int(elapsed)}s on {agent.task}", "⏰")
             agent.stop()
-            try:
-                subprocess.run(
-                    ["bd", "comment", agent.bead, f"Agent {agent.name} timed out after {int(elapsed)}s"],
-                    capture_output=True, timeout=5,
-                )
-                subprocess.run(
-                    ["bd", "update", agent.bead, "--status", STATUS_OPEN],
-                    capture_output=True, timeout=5,
-                )
-            except (subprocess.SubprocessError, OSError):
-                pass
+            with get_db() as db:
+                add_comment(db, agent.task, "watcher",
+                            f"Agent {agent.name} timed out after {int(elapsed)}s")
+                add_log(db, agent.task, "transition", "watcher", "timeout")
+                release_task(db, agent.task)
             self._remove_agent(key, agent)
 
     def _remove_agent(self, key: str, agent: AgentInfo):
@@ -276,7 +275,7 @@ class Watcher:
         if now - self.last_backup_at < BACKUP_MIN_INTERVAL:
             return
         try:
-            path = backup_beads()
+            path = backup_takt()
             if path:
                 self.last_backup_at = now
                 log(f"Backup: {path.name}", "💾")
@@ -289,10 +288,10 @@ class Watcher:
         for key, agent in list(self.running.items()):
             if agent.tmux and agent.is_alive(self._cached_windows):
                 if agent.is_done():
-                    log(f"{agent.name} completed {agent.bead}", "✅")
+                    log(f"{agent.name} completed {agent.task}", "✅")
                     agent.stop()
                     if ensure_stage_transition(self, agent):
-                        self.failures.pop(agent.bead, None)
+                        self.failures.pop(agent.task, None)
                         transitioned = True
                     self._remove_agent(key, agent)
                     cleaned = True
@@ -300,30 +299,25 @@ class Watcher:
 
             if not agent.is_alive(self._cached_windows):
                 elapsed = time.time() - agent.started_at
-                bead_status = get_bead_status(agent.bead)
+                task_status = _get_task_status(agent.task)
                 if agent.tmux:
-                    agent_completed = agent.claimed and bead_status not in (STATUS_IN_PROGRESS, None)
+                    agent_completed = agent.claimed and task_status not in (STATUS_ACTIVE, None)
                 else:
-                    agent_completed = elapsed >= MIN_AGENT_RUNTIME and bead_status != STATUS_IN_PROGRESS
+                    agent_completed = elapsed >= MIN_AGENT_RUNTIME and task_status != STATUS_ACTIVE
                 if agent_completed:
                     if ensure_stage_transition(self, agent):
-                        self.failures.pop(agent.bead, None)
+                        self.failures.pop(agent.task, None)
                         transitioned = True
-                    log(f"{agent.name} finished {agent.bead}", "✔️")
+                    log(f"{agent.name} finished {agent.task}", "✔️")
                 else:
-                    self.failures[agent.bead] = self.failures.get(agent.bead, 0) + 1
-                    log(f"{agent.name} died on {agent.bead} after {int(elapsed)}s, status={bead_status} (attempt {self.failures[agent.bead]}/{MAX_RETRIES})", "💥")
+                    self.failures[agent.task] = self.failures.get(agent.task, 0) + 1
+                    log(f"{agent.name} died on {agent.task} after {int(elapsed)}s, status={task_status} (attempt {self.failures[agent.task]}/{MAX_RETRIES})", "💥")
                     log_tail = read_log_tail(agent.log_path) if agent.log_path else ""
-                    comment = format_death_comment(agent.name, int(elapsed), str(bead_status), log_tail)
-                    comment_on_bead(agent.bead, comment)
-                    if bead_status == STATUS_IN_PROGRESS:
-                        try:
-                            subprocess.run(
-                                ["bd", "update", agent.bead, "--status", STATUS_OPEN],
-                                capture_output=True, timeout=5,
-                            )
-                        except (subprocess.SubprocessError, OSError):
-                            pass
+                    comment = format_death_comment(agent.name, int(elapsed), str(task_status), log_tail)
+                    comment_on_task(agent.task, comment)
+                    if task_status == STATUS_ACTIVE:
+                        with get_db() as db:
+                            release_task(db, agent.task)
                 self._remove_agent(key, agent)
                 cleaned = True
 
@@ -337,50 +331,45 @@ class Watcher:
         if not get_config().get("notify_conductor", False):
             return
         try:
-            beads = get_all_beads()
+            with get_db() as db:
+                all_tasks = list_tasks(db)
+
             messages = []
             needs_attention = set()
-
             blocked = []
-            rejected = []
-            needs_stage = []
+            backlog_no_deps = []
 
-            for bead in beads:
-                status = bead.get("status")
-                labels = bead.get("labels", [])
-                bead_id = bead.get("id")
-                if not bead_id:
+            for task in all_tasks:
+                task_id = task.get("id")
+                if not task_id:
                     continue
+                status = task.get("status")
+                stage = task.get("stage")
 
                 if status == STATUS_BLOCKED:
-                    blocked.append(bead_id)
-                    needs_attention.add(f"{bead_id}_blocked")
-                elif status == STATUS_OPEN:
-                    if "rejected" in labels:
-                        rejected.append(bead_id)
-                        needs_attention.add(f"{bead_id}_rejected")
-                    elif not any(l.startswith("stage:") for l in labels):
-                        needs_stage.append(bead_id)
-                        needs_attention.add(f"{bead_id}_needs_stage")
+                    blocked.append(task_id)
+                    needs_attention.add(f"{task_id}_blocked")
+                elif status == STATUS_PENDING and stage == "backlog":
+                    if not task.get("dependencies"):
+                        backlog_no_deps.append(task_id)
+                        needs_attention.add(f"{task_id}_needs_stage")
 
             if blocked:
                 messages.append(f"{', '.join(blocked)} (blocked)")
-            if rejected:
-                messages.append(f"{', '.join(rejected)} (rejected)")
-            if needs_stage:
-                messages.append(f"{', '.join(needs_stage)} (needs stage)")
+            if backlog_no_deps:
+                messages.append(f"{', '.join(backlog_no_deps)} (needs stage)")
 
             if not messages:
-                self.last_notified_beads = ""
+                self.last_notified_tasks = ""
                 return
 
             notify_state = ",".join(sorted(needs_attention))
-            if notify_state == self.last_notified_beads:
+            if notify_state == self.last_notified_tasks:
                 return
 
-            self.last_notified_beads = notify_state
+            self.last_notified_tasks = notify_state
 
-            msg = f"Beads needing attention: {'; '.join(messages)}"
+            msg = f"Tasks needing attention: {'; '.join(messages)}"
             log(msg, "📢")
             target = f"{SESSION_NAME}:main.0"
             send_keys(target, msg, literal=True)
@@ -390,11 +379,11 @@ class Watcher:
             log(f"Failed to notify conductor: {e}", "⚠️")
 
     def _log_heartbeat(self):
-        active = [(a.name, a.bead) for a in self._alive_agents()]
+        active = [(a.name, a.task) for a in self._alive_agents()]
         if active:
             log(f"Active ({len(active)}):", "🔄")
-            for name, bead in active:
-                log(f"  {name} → {bead}", "")
+            for name, task_id in active:
+                log(f"  {name} → {task_id}", "")
         else:
             log("Idle", "💤")
 
