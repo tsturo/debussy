@@ -161,8 +161,8 @@ class Watcher:
     def _save_rejections(self):
         try:
             atomic_write(self._rejections_file, json.dumps(self.rejections))
-        except OSError:
-            pass
+        except OSError as e:
+            log(f"Failed to persist rejections: {e}", "⚠️")
 
     def _load_empty_branch_retries(self):
         try:

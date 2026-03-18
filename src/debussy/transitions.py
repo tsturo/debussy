@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from .watcher import AgentInfo, Watcher
 
 MAX_RETRIES = 3
-MAX_REJECTIONS = 3
+from .takt.log import MAX_REJECTIONS
 
 
 def _branch_has_commits(task_id: str, base: str) -> bool:

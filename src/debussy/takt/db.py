@@ -61,7 +61,10 @@ def _apply_schema(conn: sqlite3.Connection) -> None:
 
 
 def _configure(conn: sqlite3.Connection) -> None:
-    conn.execute("PRAGMA journal_mode=WAL")
+    row = conn.execute("PRAGMA journal_mode=WAL").fetchone()
+    if row and row[0] != "wal":
+        import logging
+        logging.warning("takt: WAL mode not available (mode=%s), concurrent access may be unreliable", row[0])
     conn.execute("PRAGMA busy_timeout=5000")
     conn.execute("PRAGMA foreign_keys=ON")
 

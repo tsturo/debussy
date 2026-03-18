@@ -7,6 +7,8 @@ import sqlite3
 
 from .models import get_task, update_task
 
+MAX_REJECTIONS = 3
+
 NEXT_STAGE = {
     "backlog": "development",
     "development": "reviewing",
@@ -86,7 +88,7 @@ def reject_task(db: sqlite3.Connection, task_id: str, author: str | None = None)
     new_count = task["rejection_count"] + 1
     who = author or "system"
 
-    if new_count >= 3:
+    if new_count >= MAX_REJECTIONS:
         updated = update_task(db, task_id, rejection_count=new_count,
                               stage="development", status="blocked")
         add_log(db, task_id, "transition", who,

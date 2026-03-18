@@ -34,8 +34,9 @@ def comment_on_task(task_id: str, text: str):
         from .takt import get_db, add_comment
         with get_db() as db:
             add_comment(db, task_id, "system", text)
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.warning("comment_on_task failed for %s: %s", task_id, e, exc_info=True)
 
 
 # Alias for backward compat during migration

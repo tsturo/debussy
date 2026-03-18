@@ -301,3 +301,54 @@ class TestMergeVerification:
 
         # Should stay at merging for retry
         assert get_task(db, task["id"])["stage"] == "merging"
+
+
+class TestEnsureStageTransition:
+    """Tests for ensure_stage_transition called directly (not via _dispatch_transition).
+
+    These tests use `project` (not `db`) so connections are closed between operations,
+    avoiding WAL write-lock conflicts when ensure_stage_transition opens its own connection.
+    """
+
+    @patch("debussy.transitions._branch_has_commits", return_value=True)
+    def test_advances_development_task_to_reviewing(self, mock_commits, project):
+        """ensure_stage_transition advances a development task to reviewing when branch has commits."""
+        with get_db() as db:
+            task = _make_dev_task(db)
+            task_id = task["id"]
+
+        watcher = _make_watcher()
+        agent = _make_agent(bead=task_id, spawned_stage="development")
+
+        result = ensure_stage_transition(watcher, agent)
+
+        assert result is True
+        with get_db() as db:
+            updated = get_task(db, task_id)
+        assert updated["stage"] == "reviewing"
+
+    def test_missing_spawned_stage_returns_true_immediately(self, project):
+        """ensure_stage_transition returns True immediately when spawned_stage is None."""
+        with get_db() as db:
+            task = _make_dev_task(db)
+            task_id = task["id"]
+
+        watcher = _make_watcher()
+        agent = _make_agent(bead=task_id, spawned_stage=None)
+
+        result = ensure_stage_transition(watcher, agent)
+
+        assert result is True
+        # Task should remain unchanged since we returned early
+        with get_db() as db:
+            updated = get_task(db, task_id)
+        assert updated["stage"] == "development"
+
+    def test_nonexistent_task_returns_false(self, project):
+        """ensure_stage_transition returns False when the task does not exist."""
+        watcher = _make_watcher()
+        agent = _make_agent(bead="takt-nonexistent", spawned_stage="development")
+
+        result = ensure_stage_transition(watcher, agent)
+
+        assert result is False
