@@ -38,9 +38,6 @@ def main():
     p.add_argument("-f", "--force", action="store_true", help="Skip confirmation")
     p.set_defaults(func=cli.cmd_clear)
 
-    p = subparsers.add_parser("backup", help="Backup takt database")
-    p.set_defaults(func=cli.cmd_backup)
-
     p = subparsers.add_parser("pause", help="Pause pipeline, kill agents")
     p.set_defaults(func=cli.cmd_pause)
 

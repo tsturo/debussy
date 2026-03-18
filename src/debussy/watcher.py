@@ -13,7 +13,7 @@ os.environ.pop("ANTHROPIC_API_KEY", None)
 from .config import (
     AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
     HEARTBEAT_TICKS, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
-    _ensure_gitignored, atomic_write, backup_takt, get_config, log,
+    _ensure_gitignored, atomic_write, get_config, log,
 )
 from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
 from .takt import get_db, get_task, init_db, list_tasks, release_task, add_comment
@@ -24,7 +24,6 @@ from .diagnostics import comment_on_task, format_death_comment, read_log_tail
 from .worktree import cleanup_orphaned_branches, cleanup_stale_worktrees, remove_worktree
 
 MIN_AGENT_RUNTIME = 30
-BACKUP_MIN_INTERVAL = 300
 
 
 def _get_task_status(task_id: str) -> str | None:
@@ -99,7 +98,6 @@ class Watcher:
         self._empty_branch_file = Path(".debussy/empty_branch_retries.json")
         self._cached_windows: set[str] | None = None
         self.last_notified_tasks: str = ""
-        self.last_backup_at: float = 0.0
         self._load_rejections()
         self._load_empty_branch_retries()
         _ensure_gitignored()
@@ -270,18 +268,6 @@ class Watcher:
                 self._cached_windows.discard(agent.name)
         del self.running[key]
 
-    def _backup_after_transition(self):
-        now = time.time()
-        if now - self.last_backup_at < BACKUP_MIN_INTERVAL:
-            return
-        try:
-            path = backup_takt()
-            if path:
-                self.last_backup_at = now
-                log(f"Backup: {path.name}", "💾")
-        except OSError as e:
-            log(f"Backup failed: {e}", "⚠️")
-
     def cleanup_finished(self):
         cleaned = False
         transitioned = False
@@ -324,8 +310,6 @@ class Watcher:
         if cleaned:
             self.save_state()
             self._save_empty_branch_retries()
-        if transitioned:
-            self._backup_after_transition()
 
     def _notify_conductor(self):
         if not get_config().get("notify_conductor", False):

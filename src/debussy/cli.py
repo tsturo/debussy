@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .config import (
     SESSION_NAME, STATUS_ACTIVE, STATUS_PENDING,
-    backup_takt, clean_config, get_config, log, parse_value, set_config,
+    clean_config, get_config, log, parse_value, set_config,
 )
 from .takt import get_db, get_task, init_db, release_task, add_comment
 from .hooks import install_hooks
@@ -116,14 +116,6 @@ def cmd_config(args):
                 print(f"  {k} -")
 
 
-def cmd_backup(args):
-    backup_path = backup_takt()
-    if backup_path:
-        log(f"Backed up to {backup_path}", "\u2713")
-    else:
-        log("No .takt directory to backup", "\u26a0\ufe0f")
-
-
 def cmd_clear(args):
     takt_dir = Path(".takt")
     debussy_dir = Path(".debussy")
@@ -141,9 +133,6 @@ def cmd_clear(args):
                 return 1
 
     if takt_dir.exists():
-        backup_path = backup_takt()
-        if backup_path:
-            log(f"Backed up to {backup_path}", "\U0001f4be")
         shutil.rmtree(takt_dir)
         log("Removed .takt", "\U0001f5d1")
 
@@ -153,7 +142,7 @@ def cmd_clear(args):
     except (subprocess.SubprocessError, OSError):
         pass
 
-    PRESERVE = {"backups", "config.json", "conductor-history.md"}
+    PRESERVE = {"config.json", "conductor-history.md"}
     if debussy_dir.exists():
         for item in debussy_dir.iterdir():
             if item.name in PRESERVE:
@@ -162,7 +151,7 @@ def cmd_clear(args):
                 shutil.rmtree(item)
             else:
                 item.unlink()
-        log("Cleared .debussy (kept config, history, backups)", "\U0001f5d1")
+        log("Cleared .debussy (kept config, history)", "\U0001f5d1")
 
     init_db()
     log("Initialized fresh takt database", "\u2713")

@@ -219,32 +219,3 @@ def parse_value(value: str) -> str | bool | int | dict | list:
     return value
 
 
-BACKUP_DIR = CONFIG_DIR / "backups"
-MAX_BACKUPS = 10
-
-
-def backup_takt() -> Path | None:
-    takt_dir = Path(TAKT_DIR)
-    if not takt_dir.exists():
-        return None
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = BACKUP_DIR / f"takt_{timestamp}_{os.getpid()}"
-    try:
-        shutil.copytree(takt_dir, backup_path)
-    except FileExistsError:
-        return None
-    _prune_backups()
-    return backup_path
-
-
-def _prune_backups():
-    if not BACKUP_DIR.exists():
-        return
-    backups = sorted(
-        [d for d in BACKUP_DIR.iterdir() if d.is_dir() and d.name.startswith("takt_")],
-        key=lambda d: d.name,
-    )
-    while len(backups) > MAX_BACKUPS:
-        old = backups.pop(0)
-        shutil.rmtree(old, ignore_errors=True)
