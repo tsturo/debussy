@@ -80,13 +80,26 @@ def advance_task(db: sqlite3.Connection, task_id: str, to_stage: str | None = No
 
 
 def reject_task(db: sqlite3.Connection, task_id: str, author: str | None = None) -> dict:
-    """Reject a task: increment counter, return to development or block after 3."""
+    """Reject a task: increment counter, return to development or block after 3.
+
+    Acceptance tasks are always blocked — they cannot be sent back to development
+    because they are test-only tasks with no code to fix. The conductor handles
+    recovery by creating targeted fix tasks.
+    """
     task = get_task(db, task_id)
     if task is None:
         raise ValueError(f"Task not found: {task_id}")
 
     new_count = task["rejection_count"] + 1
     who = author or "system"
+
+    # Acceptance tasks are test-only — block for conductor, never send to development
+    if task["stage"] == "acceptance":
+        updated = update_task(db, task_id, rejection_count=new_count,
+                              status="blocked")
+        add_log(db, task_id, "transition", who,
+                f"acceptance rejected (count={new_count}), blocked for conductor")
+        return updated
 
     if new_count >= MAX_REJECTIONS:
         updated = update_task(db, task_id, rejection_count=new_count,
