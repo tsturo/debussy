@@ -6,11 +6,17 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA_SQL = """\
+CREATE TABLE IF NOT EXISTS metadata (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS tasks (
     id              TEXT PRIMARY KEY,
+    seq             INTEGER NOT NULL UNIQUE,
     title           TEXT NOT NULL,
     description     TEXT DEFAULT '',
     stage           TEXT DEFAULT 'backlog'
@@ -55,7 +61,63 @@ def _find_project_root(start: Path | None = None) -> Path:
     return current
 
 
+def _derive_prefix(project_dir: Path) -> str:
+    name = project_dir.name.lower().replace("-", "").replace("_", "").replace(" ", "")
+    consonants = [c for c in name if c.isalpha() and c not in "aeiou"]
+    if len(consonants) >= 3:
+        return "".join(consonants[:3]).upper()
+    chars = [c for c in name if c.isalpha()]
+    return "".join(chars[:3]).upper() or "TSK"
+
+
+def get_prefix(conn: sqlite3.Connection) -> str:
+    row = conn.execute(
+        "SELECT value FROM metadata WHERE key = 'prefix'"
+    ).fetchone()
+    return row["value"] if row else "TSK"
+
+
+def _ensure_prefix(conn: sqlite3.Connection, project_dir: Path) -> None:
+    row = conn.execute(
+        "SELECT value FROM metadata WHERE key = 'prefix'"
+    ).fetchone()
+    if row is None:
+        prefix = _derive_prefix(project_dir)
+        conn.execute(
+            "INSERT INTO metadata (key, value) VALUES ('prefix', ?)", (prefix,)
+        )
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version < 2:
+        tables = [r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()]
+        if "tasks" not in tables:
+            return
+        if "metadata" not in tables:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS metadata "
+                "(key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+            )
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()]
+        if "seq" not in cols:
+            conn.execute("ALTER TABLE tasks ADD COLUMN seq INTEGER")
+            rows = conn.execute(
+                "SELECT id FROM tasks ORDER BY created_at"
+            ).fetchall()
+            for i, row in enumerate(rows, 1):
+                conn.execute("UPDATE tasks SET seq = ? WHERE id = ?", (i, row["id"]))
+            if rows:
+                conn.execute(
+                    "INSERT OR REPLACE INTO metadata (key, value) VALUES ('next_seq', ?)",
+                    (str(len(rows) + 1),),
+                )
+
+
 def _apply_schema(conn: sqlite3.Connection) -> None:
+    _migrate(conn)
     conn.executescript(SCHEMA_SQL)
     conn.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
 
@@ -85,6 +147,7 @@ def get_db(project_dir: Path | str | None = None):
     try:
         _configure(conn)
         _apply_schema(conn)
+        _ensure_prefix(conn, root)
         yield conn
         conn.commit()
     except Exception:

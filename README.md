@@ -12,12 +12,12 @@
 
 ```bash
 # Install
-brew install tmux beads
+brew install tmux
 pipx install git+https://github.com/tsturo/debussy.git
 
 # Run
 cd your-project
-dbs start
+debussy start
 ```
 
 **Prerequisites:** Your project must be a git repository with an `origin` remote configured.
@@ -28,9 +28,13 @@ dbs start
 
 Debussy has three layers:
 
-1. **Conductor** - the entry point. You talk to it, it plans work and creates tasks (beads). It never writes code.
-2. **Watcher** - the orchestration engine. Polls beads every 5 seconds, spawns Claude agents based on stage labels, owns all stage transitions.
+1. **Conductor** - the entry point. You talk to it, it plans work and creates tasks. It never writes code.
+2. **Watcher** - the orchestration engine. Polls tasks every 5 seconds, spawns Claude agents based on stage, owns all stage transitions.
 3. **Agents** - specialized Claude instances (developer, reviewer, security-reviewer, integrator, tester) that do the actual work in isolated git worktrees.
+
+### Task Tracking (takt)
+
+Debussy includes **takt**, a built-in SQLite task tracker. No external dependencies — tasks are stored in `.takt/` as a local SQLite database.
 
 ---
 
@@ -38,7 +42,13 @@ Debussy has three layers:
 
 ### Development Pipeline
 
-Each bead flows through four stages. The watcher advances beads automatically based on agent signals. Beads with the `security` label get an extra security review stage. After all beads in a batch are merged, a batch acceptance bead runs.
+Each task flows through stages. The watcher advances tasks automatically based on agent signals. Tasks with the `security` tag get an extra security review stage. After all tasks in a batch are merged, a batch acceptance task runs.
+
+```
+Per task:      backlog → development → reviewing → merging → done
+Security task: backlog → development → reviewing → security_review → merging → done
+Per batch:     acceptance task (deps on all tasks) → acceptance → done
+```
 
 ![Pipeline](docs/pipeline.png)
 
@@ -48,54 +58,59 @@ The watcher is the central state machine. It runs a loop every 5 seconds:
 
 1. **Check timeouts** - kill agents running longer than `agent_timeout` (default 1 hour)
 2. **Clean up finished agents** - detect completed agents and process their results
-3. **Reset orphaned beads** - if an agent disappeared but bead is still `in_progress`, reset it
-4. **Resolve dependencies** - unblock beads whose dependencies have all closed
-5. **Spawn new agents** - for beads with `status: open` + a stage label, up to `max_total_agents`
+3. **Reset orphaned tasks** - if an agent disappeared but task is still `active`, reset it
+4. **Resolve dependencies** - unblock tasks whose dependencies are all done
+5. **Spawn new agents** - for tasks with `status: pending` in an actionable stage, up to `max_total_agents`
 
-### Status Model
+### State Model
 
-| bd status | Meaning |
-|-----------|---------|
-| `open` + stage label | Ready for agent |
-| `open` (no stage label) | Backlog/parked |
-| `in_progress` | Agent is working |
-| `closed` | Pipeline complete |
-| `blocked` | Waiting for deps / needs conductor |
+Two-field state model (stage + status):
+
+| Stage | Status | Meaning |
+|-------|--------|---------|
+| `development` | `pending` | Ready for developer agent |
+| `development` | `active` | Developer is working |
+| `reviewing` | `pending` | Ready for reviewer agent |
+| `merging` | `pending` | Ready for integrator agent |
+| `acceptance` | `pending` | Ready for tester agent |
+| `backlog` | `pending` | Backlog/parked |
+| any | `blocked` | Waiting for deps / needs conductor |
+| `done` | `pending` | Pipeline complete |
 
 ### Stage Transition Ownership
 
-**The watcher owns ALL stage transitions.** Agents never add or remove stage labels. Agents only set bead status to signal their result:
+**The watcher owns ALL stage transitions.** Agents never call `takt advance` or `takt reject`. Agents only set status to signal their result:
 
 | Agent Signal | Command | When |
 |--------------|---------|------|
-| Claim | `--status in_progress` | Starting work |
-| Success | `--status open` | Work complete |
-| Done | `--status closed` | Terminal stage (merge, acceptance) |
-| Rejected | `--status open --add-label rejected` | Failed review/test |
-| Blocked | `--status blocked` | Can't proceed |
+| Claim | `takt claim <id>` | Starting work |
+| Success | `takt release <id>` | Work complete |
+| Rejected | `takt release <id>` + `takt comment <id> "rejected: reason"` | Failed review/test |
+| Blocked | `takt block <id>` | Can't proceed |
 
-The watcher reads the bead state after the agent finishes and transitions accordingly:
+The watcher reads the task state after the agent finishes and transitions accordingly:
 
-| Bead State After Agent | Watcher Action |
+| Task State After Agent | Watcher Action |
 |------------------------|----------------|
-| `open`, no `rejected` | Remove current stage, add next stage |
-| `open` + `rejected` | Remove stage + rejected, add `stage:development` (retry) |
-| `closed` | Remove stage label (done) |
-| `blocked` | Remove stage label (parked for conductor) |
+| `pending`, no rejection | `takt advance` → next stage |
+| `pending`, rejected | `takt reject` → back to development |
+| `pending`, rejected (acceptance) | Block for conductor |
+| terminal stage complete | Advance to done |
+| `blocked` | Parks for conductor |
 
 ### Resilience
 
-- **Rejection cooldown**: 60 seconds before retrying a rejected bead
-- **Max rejections**: After 5 rejections, bead is blocked and needs conductor intervention
+- **Rejection cooldown**: 60 seconds before retrying a rejected task
+- **Max rejections**: After 5 rejections, task is blocked and needs conductor intervention
 - **Empty branch detection**: If a developer doesn't commit anything, retries up to 3 times
-- **Crash recovery**: If an agent crashes within 30 seconds, counts as a failure. After 3 consecutive failures, bead is parked
-- **Orphan recovery**: Beads stuck as `in_progress` with no running agent are reset to `open`
+- **Crash recovery**: If an agent crashes within 30 seconds, counts as a failure. After 3 consecutive failures, task is parked
+- **Orphan recovery**: Tasks stuck as `active` with no running agent are reset to `pending`
 - **Integrator queueing**: Only one integrator runs at a time to avoid merge conflicts
 - **Priority sorting**: Bugs are prioritized over features
 
 ### Event Recording
 
-All pipeline events (spawn, advance, reject, close, block, timeout, crash) are recorded to `.debussy/pipeline_events.jsonl`. Use `dbs metrics` to view analytics.
+All pipeline events (spawn, advance, reject, close, block, timeout, crash) are recorded to `.debussy/pipeline_events.jsonl`. Use `debussy metrics` to view analytics.
 
 ---
 
@@ -105,13 +120,13 @@ Each agent works in an isolated git worktree under `.debussy-worktrees/`:
 
 | Role | Worktree Branch |
 |------|-----------------|
-| Developer | New branch `feature/{bead_id}` from `origin/{base}` |
-| Reviewer | Detached at `origin/feature/{bead_id}` (read-only) |
-| Security-reviewer | Detached at `origin/feature/{bead_id}` (read-only) |
+| Developer | New branch `feature/{task_id}` from `origin/{base}` |
+| Reviewer | Detached at `origin/feature/{task_id}` (read-only) |
+| Security-reviewer | Detached at `origin/feature/{task_id}` (read-only) |
 | Integrator | Detached at `origin/{base}` (merge target) |
 | Tester | Detached at `origin/{base}` |
 
-Worktrees symlink `.beads/` and `.debussy/` back to the main repo so all agents share the same task database and configuration.
+Worktrees symlink `.takt/` and `.debussy/` back to the main repo so all agents share the same task database and configuration.
 
 ---
 
@@ -119,10 +134,10 @@ Worktrees symlink `.beads/` and `.debussy/` back to the main repo so all agents 
 
 ```
 master (manual merge only by user)
-  └── feature/<name>          ← conductor's base branch
-        ├── feature/bd-001    ← developer branch (merged back by integrator)
-        ├── feature/bd-002
-        └── feature/bd-003
+  └── feature/<name>             ← conductor's base branch
+        ├── feature/PRJ-1  ← developer branch (merged back by integrator)
+        ├── feature/PRJ-2
+        └── feature/PRJ-3
 ```
 
 Agents never merge to master.
@@ -136,9 +151,9 @@ Agents never merge to master.
 | **conductor** | Creates tasks, monitors progress, never writes code | N/A |
 | **developer** | Implements features and fixes on feature branch | No |
 | **reviewer** | Reviews code quality, runs tests | No |
-| **security-reviewer** | OWASP-aligned security review for beads with `security` label | No |
+| **security-reviewer** | OWASP-aligned security review for tasks with `security` tag | No |
 | **integrator** | Merges feature branch to conductor's base branch | Yes |
-| **tester** | Batch acceptance testing after all beads merged | Yes |
+| **tester** | Batch acceptance testing after all tasks merged | Yes |
 
 ---
 
@@ -150,19 +165,37 @@ Agents never merge to master.
 
 ## Commands
 
+### Debussy
+
 ```bash
-dbs start [requirement]  # Start tmux session with optional initial requirement
-dbs watch                # Run watcher only
-dbs status               # Show active agents, branches, base branch
-dbs board                # Kanban board view
-dbs metrics              # Pipeline analytics (stage durations, rejections)
-dbs config [key] [value] # View/set config
-dbs backup               # Backup beads database
-dbs clear [-f]           # Clear all beads (with backup)
-dbs upgrade              # Upgrade to latest version
-dbs restart [-u]         # Restart session (-u to upgrade first)
-dbs pause                # Stop watcher, kill agents, reset beads to open
-dbs debug                # Troubleshoot pipeline detection
+debussy start [requirement]  # Start tmux session with optional initial requirement
+debussy watch                # Run watcher only
+debussy status               # Show active agents, branches, base branch
+debussy board                # Kanban board view
+debussy metrics              # Pipeline analytics (stage durations, rejections)
+debussy config [key] [value] # View/set config
+debussy backup               # Backup takt database
+debussy clear [-f]           # Clear all tasks (with backup)
+debussy upgrade              # Upgrade to latest version
+debussy restart [-u]         # Restart session (-u to upgrade first)
+debussy pause                # Stop watcher, kill agents, reset tasks to pending
+debussy debug                # Troubleshoot pipeline detection
+```
+
+### Takt (task tracking)
+
+```bash
+takt prefix [VALUE]                    # Show or set project prefix (e.g. PKL)
+takt create "title" -d "description"   # Create task (returns PRJ-N ID)
+takt advance <id>                      # Move task to next stage
+takt show <id>                         # Show task details
+takt list                              # List all tasks
+takt claim <id>                        # Mark task as active
+takt release <id>                      # Mark task as pending
+takt block <id>                        # Mark task as blocked
+takt reject <id>                       # Send task back to development
+takt comment <id> "message"            # Add comment to task
+takt log <id>                          # View task history
 ```
 
 ---
@@ -170,11 +203,11 @@ dbs debug                # Troubleshoot pipeline detection
 ## Configuration
 
 ```bash
-dbs config                          # Show all
-dbs config max_total_agents 8       # Max concurrent agents (default: 8)
-dbs config use_tmux_windows true    # Spawn agents as tmux windows (default: false)
-dbs config base_branch feature/foo  # Conductor's base branch
-dbs config agent_timeout 3600       # Agent timeout in seconds (default: 3600)
+debussy config                          # Show all
+debussy config max_total_agents 8       # Max concurrent agents (default: 8)
+debussy config use_tmux_windows true    # Spawn agents as tmux windows (default: false)
+debussy config base_branch feature/foo  # Conductor's base branch
+debussy config agent_timeout 3600       # Agent timeout in seconds (default: 3600)
 ```
 
 ### tmux Windows Mode
@@ -187,20 +220,22 @@ When `use_tmux_windows` is enabled, agents spawn as separate tmux windows instea
 
 ---
 
-## Creating Tasks
+## Task Workflow
 
-### Development Tasks
+### Creating Tasks
+
 ```bash
-bd create "Implement feature X" -d "Description of what to do"
-bd update <bead-id> --add-label stage:development
+takt create "Implement feature X" -d "Description of what to do"
+takt advance <task-id>    # moves backlog → development
 ```
 
 ### Batch Acceptance
+
 ```bash
-bd create "Acceptance testing" -d "Run full test suite" --deps "bd-001,bd-002,bd-003"
-bd update <id> --add-label stage:acceptance
+takt create "Acceptance testing" -d "Run full test suite" --deps "PRJ-1,PRJ-2"
+takt advance <id>
 ```
-The acceptance bead stays blocked until all dependencies close.
+The acceptance task stays blocked until all dependencies are done.
 
 ---
 
@@ -221,16 +256,6 @@ The acceptance bead stays blocked until all dependencies close.
 
 ---
 
-## Setup for Existing Project
-
-```bash
-cd your-project
-bd init
-dbs start
-```
-
----
-
 ## Project Structure
 
 ```
@@ -238,27 +263,41 @@ src/debussy/
   cli.py              # CLI command handlers (thin dispatch layer)
   watcher.py          # Watcher run loop and agent state management
   config.py           # Configuration, constants, stage/status definitions
-  bead_client.py      # Shared bead query/mutation functions (wraps bd CLI)
   transitions.py      # Stage transition logic (state machine)
   spawner.py          # Agent spawning (tmux windows and background processes)
   pipeline_checker.py # Pipeline scanning and dependency resolution
   board.py            # Kanban board rendering
   metrics.py          # Pipeline analytics and stage duration tracking
   status.py           # Status and debug display
-  diagnostics.py      # System diagnostics
-  hooks.py            # Git and lifecycle hooks
-  preflight.py        # Pre-start validation checks
   tmux.py             # Tmux session and window management
   worktree.py         # Git worktree lifecycle
+  diagnostics.py      # Failure diagnostics for agent deaths
+  preflight.py        # Pre-spawn validation checks
   prompts/            # Agent prompt templates (one file per role)
+  takt/               # Built-in SQLite task tracking
+    db.py             # Database connection and schema
+    models.py         # Task CRUD operations
+    log.py            # Log entries and workflow operations
+    cli.py            # CLI entry point for takt command
 tests/
-  test_bead_client.py # Tests for bead data access layer
+  test_takt_db.py     # Tests for takt database layer
+  test_takt_models.py # Tests for takt task model
+  test_takt_log.py    # Tests for takt log and workflow operations
+  test_takt_cli.py    # Tests for takt CLI
+  test_takt.py        # End-to-end takt tests
   test_transitions.py # Tests for stage transition logic
-  test_cli_sessions.py
-  test_diagnostics.py
-  test_hooks.py
-  test_preflight.py
-  test_tmux.py
+  test_spawner.py     # Tests for agent spawning
+  test_pipeline_checker.py # Tests for pipeline scanning
+.takt/                # SQLite task database (auto-created)
+```
+
+---
+
+## Setup for Existing Project
+
+```bash
+cd your-project
+debussy start
 ```
 
 ---

@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 
-from .db import get_db, init_db, _find_project_root
+from .db import get_db, get_prefix, init_db, _find_project_root
 from .models import create_task, get_task, list_tasks, update_task
 from .log import (
     add_comment,
@@ -68,6 +68,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("init", help="Initialize takt database")
 
+    p_prefix = sub.add_parser("prefix", help="Show or set the project prefix")
+    p_prefix.add_argument("value", nargs="?", help="New prefix (2-5 uppercase letters)")
+
     p_create = sub.add_parser("create", help="Create a task")
     p_create.add_argument("title")
     p_create.add_argument("-d", "--description", default="")
@@ -124,7 +127,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "init":
         root = _find_project_root()
         init_db(root)
-        print(f"Initialized takt database at {root / '.takt' / 'takt.db'}")
+        with get_db(root) as db:
+            prefix = get_prefix(db)
+        print(f"Initialized takt database at {root / '.takt' / 'takt.db'} (prefix: {prefix})")
         return 0
 
     root = _find_project_root()
@@ -138,6 +143,21 @@ def main(argv: list[str] | None = None) -> int:
 
 def _dispatch(args: argparse.Namespace, db) -> int:
     cmd = args.command
+
+    if cmd == "prefix":
+        if args.value:
+            val = args.value.upper()
+            if not val.isalpha() or not (2 <= len(val) <= 5):
+                print("Prefix must be 2-5 letters", file=sys.stderr)
+                return 1
+            db.execute(
+                "INSERT OR REPLACE INTO metadata (key, value) VALUES ('prefix', ?)",
+                (val,),
+            )
+            print(f"Prefix set to: {val}")
+        else:
+            print(get_prefix(db))
+        return 0
 
     if cmd == "create":
         deps = [d.strip() for d in args.deps.split(",")] if args.deps else None

@@ -14,7 +14,7 @@ from debussy.takt import get_db, init_db, create_task, advance_task, update_task
 from debussy.takt.log import add_log
 
 
-def _make_agent(bead="takt-test1", spawned_stage="development"):
+def _make_agent(bead="TST-1", spawned_stage="development"):
     agent = MagicMock()
     agent.task = bead
     agent.spawned_stage = spawned_stage
@@ -347,7 +347,7 @@ class TestEnsureStageTransition:
     def test_nonexistent_task_returns_false(self, project):
         """ensure_stage_transition returns False when the task does not exist."""
         watcher = _make_watcher()
-        agent = _make_agent(bead="takt-nonexistent", spawned_stage="development")
+        agent = _make_agent(bead="TST-999", spawned_stage="development")
 
         result = ensure_stage_transition(watcher, agent)
 

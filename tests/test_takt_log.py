@@ -124,7 +124,7 @@ class TestAdvanceTask:
 
     def test_nonexistent_raises(self, db):
         with pytest.raises(ValueError, match="Task not found"):
-            advance_task(db, "takt-nonexistent")
+            advance_task(db, "XXX-999")
 
     def test_acceptance_to_done(self, db):
         task = _make_task(db)
@@ -171,7 +171,7 @@ class TestRejectTask:
 
     def test_nonexistent_raises(self, db):
         with pytest.raises(ValueError, match="Task not found"):
-            reject_task(db, "takt-nonexistent")
+            reject_task(db, "XXX-999")
 
 
 class TestClaimTask:

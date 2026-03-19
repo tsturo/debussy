@@ -3,13 +3,23 @@
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
 
+from .db import get_prefix
 
-def generate_id() -> str:
-    """Generate a task ID like 'takt-a3f2dd'."""
-    return "takt-" + os.urandom(3).hex()
+
+def generate_id(db: sqlite3.Connection) -> tuple[str, int]:
+    prefix = get_prefix(db)
+    row = db.execute(
+        "SELECT value FROM metadata WHERE key = 'next_seq'"
+    ).fetchone()
+    seq = int(row["value"]) if row else 1
+    task_id = f"{prefix}-{seq}"
+    db.execute(
+        "INSERT OR REPLACE INTO metadata (key, value) VALUES ('next_seq', ?)",
+        (str(seq + 1),),
+    )
+    return task_id, seq
 
 
 def _task_row_to_dict(row: sqlite3.Row, deps: list[str] | None = None) -> dict:
@@ -34,11 +44,11 @@ def create_task(
     deps: list[str] | None = None,
 ) -> dict:
     """Create a new task and return its dict representation."""
-    task_id = generate_id()
+    task_id, seq = generate_id(db)
     tags_json = json.dumps(tags or [])
     db.execute(
-        "INSERT INTO tasks (id, title, description, tags) VALUES (?, ?, ?, ?)",
-        (task_id, title, description, tags_json),
+        "INSERT INTO tasks (id, seq, title, description, tags) VALUES (?, ?, ?, ?, ?)",
+        (task_id, seq, title, description, tags_json),
     )
     for dep_id in (deps or []):
         db.execute(

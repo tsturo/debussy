@@ -154,8 +154,8 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 ### Creating Tasks
 
 ```bash
-takt create "Create User model" -d "..."                                                 # → takt-a1b2c3
-takt create "Add login endpoint" -d "..."                                                # → takt-d4e5f6
+takt create "Create User model" -d "..."                                                 # → PRJ-1
+takt create "Add login endpoint" -d "..."                                                # → PRJ-2
 ```
 
 Use `--deps` to serialize tasks that must run in order.
@@ -171,7 +171,7 @@ takt advance <task-id>    # moves to next stage (e.g., backlog → development)
 
 ### Commit Messages
 ```
-[takt-xxxxxx] Brief description
+[PRJ-N] Brief description
 ```
 
 ### Branch Naming
@@ -184,9 +184,9 @@ feature/<task-id>    # developer sub-branches (off conductor's branch)
 ```
 master (manual merge only by user)
   └── feature/<name>             ← conductor's branch
-        ├── feature/takt-a1b2c3  ← developer branch (merged back by integrator)
-        ├── feature/takt-d4e5f6
-        └── feature/takt-g7h8i9
+        ├── feature/PRJ-1  ← developer branch (merged back by integrator)
+        ├── feature/PRJ-2
+        └── feature/PRJ-3
 ```
 
 Merging to master is NEVER done by agents — only by the user manually.
@@ -236,6 +236,7 @@ debussy start              # Start system (tmux)
 debussy watch              # Run watcher
 debussy board              # Show kanban board
 debussy config base_branch feature/<name>  # Set conductor's base branch
+takt prefix [VALUE]                       # Show or set project prefix (e.g. PKL)
 takt create "title" -d "description"
 takt advance <id>                          # Move task to next stage
 takt show <id>

@@ -79,7 +79,7 @@ def _task_marker(task, running, all_tasks_by_id):
         deps = get_unresolved_deps(db, task_id)
     if task.get("status") == STATUS_BLOCKED or deps:
         if deps:
-            short = [d.replace("takt-", ".") for d in deps]
+            short = [d.split("-")[-1] if "-" in d else d for d in deps]
             return f" \u2298 \u2192{','.join(short)}"
         return " \u2298"
     if LABEL_PRIORITY in task.get("tags", []):

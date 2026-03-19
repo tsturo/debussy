@@ -2,7 +2,7 @@
 
 import pytest
 
-from debussy.takt.db import get_db
+from debussy.takt.db import get_db, get_prefix
 from debussy.takt.models import create_task, get_task, list_tasks, update_task, generate_id
 
 
@@ -13,20 +13,27 @@ def db(tmp_path):
 
 
 class TestGenerateId:
-    def test_format(self):
-        tid = generate_id()
-        assert tid.startswith("takt-")
-        assert len(tid) == 11  # "takt-" + 6 hex chars
+    def test_format(self, db):
+        prefix = get_prefix(db)
+        tid, seq = generate_id(db)
+        assert tid == f"{prefix}-1"
+        assert seq == 1
 
-    def test_unique(self):
-        ids = {generate_id() for _ in range(100)}
-        assert len(ids) == 100
+    def test_incremental(self, db):
+        prefix = get_prefix(db)
+        id1, _ = generate_id(db)
+        id2, _ = generate_id(db)
+        id3, _ = generate_id(db)
+        assert id1 == f"{prefix}-1"
+        assert id2 == f"{prefix}-2"
+        assert id3 == f"{prefix}-3"
 
 
 class TestCreateTask:
     def test_basic(self, db):
         task = create_task(db, "Build thing")
-        assert task["id"].startswith("takt-")
+        prefix = get_prefix(db)
+        assert task["id"].startswith(f"{prefix}-")
         assert task["title"] == "Build thing"
         assert task["stage"] == "backlog"
         assert task["status"] == "pending"
@@ -63,7 +70,7 @@ class TestGetTask:
         assert fetched["title"] == "Test"
 
     def test_not_found(self, db):
-        assert get_task(db, "takt-nonexistent") is None
+        assert get_task(db, "XXX-999") is None
 
     def test_includes_deps(self, db):
         t1 = create_task(db, "Dep")

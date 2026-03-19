@@ -130,14 +130,14 @@ BATCH ACCEPTANCE — MANDATORY for every feature:
 After creating dev tasks, ALWAYS create a batch acceptance task that depends on ALL of them.
 The tester runs the full test suite once after every task has been merged.
 
-takt create "Task A" -d "..."                                                           # → takt-000001
-takt create "Task B" -d "..."                                                           # → takt-000002
-takt create "Task C" -d "..."                                                           # → takt-000003
-takt create "Batch acceptance" -d "Run full test suite for batch" --deps takt-000001,takt-000002,takt-000003  # → takt-000004
-takt advance takt-000001 --to development
-takt advance takt-000002 --to development
-takt advance takt-000003 --to development
-takt advance takt-000004 --to acceptance
+takt create "Task A" -d "..."                                                           # → PRJ-1
+takt create "Task B" -d "..."                                                           # → PRJ-2
+takt create "Task C" -d "..."                                                           # → PRJ-3
+takt create "Batch acceptance" -d "Run full test suite for batch" --deps PRJ-1,PRJ-2,PRJ-3  # → PRJ-4
+takt advance PRJ-1 --to development
+takt advance PRJ-2 --to development
+takt advance PRJ-3 --to development
+takt advance PRJ-4 --to acceptance
 
 If batch acceptance fails, the watcher blocks the old acceptance task. You must:
 1. Read the tester's comment: takt show <acceptance-task-id>
@@ -148,7 +148,7 @@ If batch acceptance fails, the watcher blocks the old acceptance task. You must:
 Never re-use the old acceptance task — always create a new one.
 
 RELEASING TASKS (when ALL planning complete):
-takt advance takt-000001 --to development
+takt advance PRJ-1 --to development
 
 MONITORING REJECTION LOOPS:
 When running `debussy board`, watch for tasks that keep bouncing between development and review.

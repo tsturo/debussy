@@ -13,6 +13,7 @@ from .config import (
 from .takt import get_db, get_task, init_db, release_task, add_comment
 from .hooks import install_hooks
 from .tmux import (
+    _read_conductor_session,
     create_tmux_layout, kill_agent, label_panes, list_debussy_sessions,
 )
 from .worktree import remove_worktree, remove_all_worktrees
@@ -48,7 +49,15 @@ def cmd_start(args):
         set_config("paused", False)
     install_hooks()
     requirement = getattr(args, "requirement", None)
-    create_tmux_layout(requirement)
+    resume = False
+    if requirement is None and _read_conductor_session():
+        try:
+            choice = input("Prior conductor session found. Resume it? [Y/n] ").strip().lower()
+            resume = choice in ("", "y", "yes")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            resume = False
+    create_tmux_layout(requirement, resume=resume)
     label_panes()
 
     print("\U0001f3bc Debussy started")
@@ -169,7 +178,7 @@ def _reset_task_to_pending(task_id: str):
 def _delete_orphan_branches(paused_tasks: set[str]):
     try:
         result = subprocess.run(
-            ["git", "branch", "--list", "feature/takt-*"],
+            ["git", "branch", "--list", "feature/*-*"],
             capture_output=True, text=True,
         )
         for line in result.stdout.strip().split('\n'):

@@ -1,6 +1,6 @@
 """Takt — SQLite-based task management for debussy."""
 
-from .db import get_db, init_db
+from .db import get_db, get_prefix, init_db
 from .models import create_task, get_task, list_tasks, update_task
 from .log import (
     add_comment,
@@ -15,6 +15,7 @@ from .log import (
 
 __all__ = [
     "get_db",
+    "get_prefix",
     "init_db",
     "create_task",
     "get_task",

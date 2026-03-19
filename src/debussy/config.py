@@ -48,7 +48,7 @@ DEFAULTS = {
     "use_tmux_windows": False,
     "agent_provider": "claude",
     "role_models": {
-        "conductor": "claude-opus-4-6",
+        "conductor": "claude-opus-4-6[1m]",
         "developer": "claude-sonnet-4-6",
         "reviewer": "claude-opus-4-6",
         "security-reviewer": "claude-opus-4-6",
@@ -149,7 +149,7 @@ KNOWN_KEYS = {
     "max_total_agents", "use_tmux_windows", "base_branch",
     "paused", "agent_timeout", "agent_provider", "role_models",
     "docs_path", "notify_conductor", "max_role_agents", "monitor_interval",
-    "project_type",
+    "project_type", "conductor_session_id",
 }
 
 

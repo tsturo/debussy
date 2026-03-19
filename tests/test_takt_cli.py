@@ -30,7 +30,10 @@ class TestCreate:
     def test_basic(self, project_dir, capsys):
         assert main(["create", "My task"]) == 0
         out = capsys.readouterr().out.strip()
-        assert out.startswith("takt-")
+        assert "-" in out
+        parts = out.split("-")
+        assert parts[0].isalpha() and parts[0].isupper()
+        assert parts[1].isdigit()
 
     def test_with_description(self, project_dir, capsys):
         main(["create", "Task", "-d", "Some desc"])
@@ -74,7 +77,7 @@ class TestShow:
         assert data["title"] == "Test task"
 
     def test_not_found(self, project_dir):
-        assert main(["show", "takt-nonexistent"]) == 1
+        assert main(["show", "XXX-999"]) == 1
 
 
 class TestList:

@@ -55,7 +55,7 @@ def main():
     p.set_defaults(func=cli.cmd_kill)
 
     p = subparsers.add_parser("kill-agent", help="Kill a single agent by name or task ID")
-    p.add_argument("name", help="Agent name (e.g. takt-001) or task ID")
+    p.add_argument("name", help="Agent name or task ID (e.g. PKL-1)")
     p.set_defaults(func=cli.cmd_kill_agent)
 
     p = subparsers.add_parser("sessions", help="List running debussy sessions")

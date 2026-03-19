@@ -105,7 +105,7 @@ class TestSchema:
 
     def test_tasks_defaults(self, db_dir):
         with get_db(db_dir) as conn:
-            conn.execute("INSERT INTO tasks (id, title) VALUES ('t1', 'test')")
+            conn.execute("INSERT INTO tasks (id, seq, title) VALUES ('t1', 1, 'test')")
             row = conn.execute("SELECT * FROM tasks WHERE id='t1'").fetchone()
             assert row["stage"] == "backlog"
             assert row["status"] == "pending"
@@ -115,7 +115,7 @@ class TestSchema:
 
     def test_log_type_constraint(self, db_dir):
         with get_db(db_dir) as conn:
-            conn.execute("INSERT INTO tasks (id, title) VALUES ('t1', 'test')")
+            conn.execute("INSERT INTO tasks (id, seq, title) VALUES ('t1', 1, 'test')")
             with pytest.raises(sqlite3.IntegrityError):
                 conn.execute(
                     "INSERT INTO log (task_id, type, message) VALUES ('t1', 'bad', 'msg')"
@@ -126,7 +126,7 @@ class TestConcurrency:
     def test_multiple_connections(self, db_dir):
         """Opening get_db twice sequentially works without locking."""
         with get_db(db_dir) as conn1:
-            conn1.execute("INSERT INTO tasks (id, title) VALUES ('t1', 'first')")
+            conn1.execute("INSERT INTO tasks (id, seq, title) VALUES ('t1', 1, 'first')")
         with get_db(db_dir) as conn2:
             row = conn2.execute("SELECT title FROM tasks WHERE id='t1'").fetchone()
             assert row["title"] == "first"
@@ -134,7 +134,7 @@ class TestConcurrency:
     def test_concurrent_readers(self, db_dir):
         """Multiple threads can read concurrently."""
         with get_db(db_dir) as conn:
-            conn.execute("INSERT INTO tasks (id, title) VALUES ('t1', 'test')")
+            conn.execute("INSERT INTO tasks (id, seq, title) VALUES ('t1', 1, 'test')")
 
         results = []
         errors = []
