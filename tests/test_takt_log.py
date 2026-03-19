@@ -169,6 +169,14 @@ class TestRejectTask:
         entries = get_log(db, task["id"], type="transition")
         assert any("rejected" in e["message"] for e in entries)
 
+    def test_acceptance_blocks_instead_of_development(self, db):
+        task = _make_task(db)
+        advance_task(db, task["id"], to_stage="acceptance")
+        result = reject_task(db, task["id"])
+        assert result["stage"] == "acceptance"
+        assert result["status"] == "blocked"
+        assert result["rejection_count"] == 1
+
     def test_nonexistent_raises(self, db):
         with pytest.raises(ValueError, match="Task not found"):
             reject_task(db, "XXX-999")
