@@ -177,6 +177,16 @@ If batch acceptance fails, the watcher blocks the old acceptance task. You must:
 5. Release the fix tasks and new acceptance task
 Never re-use the old acceptance task — always create a new one.
 
+SIZE CHECK — before creating or releasing ANY task, review it against these criteria:
+- Can a single developer complete this in one session? If not, split it.
+- Does it touch more than 2 files? If so, can it be split by file boundary?
+- Does the description use "and" to join two distinct pieces of work? Split them.
+- Could you describe the task's scope in one sentence? If not, it's too big.
+- Would the diff be more than ~200 lines? Split it.
+If a task fails any of these checks, split it BEFORE creating or advancing it. Oversized tasks
+cause review failures, merge conflicts, and rejection loops. Splitting proactively is always
+cheaper than reworking after a failed review.
+
 RELEASING TASKS (when ALL planning complete):
 takt advance takt-000001 --to development
 
