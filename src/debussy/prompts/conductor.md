@@ -120,6 +120,36 @@ Example with tests:
 Example without tests:
   takt create "Add database config" -d "Create src/config/database.ts with connection settings from env vars."
 
+TASK DESCRIPTIONS — must be comprehensive. Agents work autonomously with ONLY the description
+as context. Everything the developer needs to understand scope, requirements, and "done" must be
+in the description. Include ALL of the following that apply:
+
+- WHAT to build: exact files, functions, components, endpoints
+- WHY it exists: the user requirement or problem it solves — motivation matters for good decisions
+- ACCEPTANCE CRITERIA: concrete, verifiable conditions that define "done". Not "it works" but
+  specific behaviors, outputs, edge cases. Use a checklist format when there are multiple criteria.
+- REFERENCES: links or paths to specs, designs, sketches, mockups, PRDs, API docs, Figma files,
+  or any other material that informs the implementation. Include the exact path or URL.
+  Example: "Spec: docs/specs/auth-flow.md", "Design: https://figma.com/file/xxx"
+- CONSTRAINTS: tech choices, libraries to use (or avoid), performance requirements, compatibility
+  needs, security considerations, error handling expectations
+- CONTEXT from user: paste or summarize any relevant details the user provided — don't assume
+  the developer has access to the conversation history
+- EXAMPLES: sample inputs/outputs, API request/response shapes, or UI states when they clarify intent
+- INTEGRATION POINTS: how this piece connects to other parts of the system, what it depends on,
+  what depends on it
+
+BAD:  "Add user authentication"
+BAD:  "Create the settings page per the design"
+GOOD: "Create POST /api/auth/login in src/routes/auth.ts. Validates email+password against User
+  model (src/models/user.ts). Returns JWT on success (200), 401 on bad credentials, 429 after
+  5 failed attempts per IP in 15min. Spec: docs/specs/auth-flow.md section 3.2.
+  Acceptance criteria:
+  - Valid credentials return { token: string, expiresIn: number }
+  - Invalid password returns 401 with generic 'Invalid credentials' (no email leak)
+  - Rate limiting returns 429 after 5 failures
+  Uses jsonwebtoken library. Token expiry: 24h. Secret from AUTH_SECRET env var."
+
 CREATING TASKS (ALWAYS include -d with specific details):
 takt create "Create User model" -d "Add src/models/user.ts with fields: email, passwordHash, createdAt. Use bcrypt for hashing."
 takt create "Add login endpoint" -d "POST /api/auth/login — validate email/password against User model, return JWT token"
