@@ -155,28 +155,33 @@ KNOWN_KEYS = {
 
 def _ensure_gitignored():
     gitignore = Path(".gitignore")
-    entry = ".debussy/"
+    entries = [".debussy/", ".takt/", ".debussy-worktrees/"]
     if gitignore.exists():
         content = gitignore.read_text()
-        if entry in content.splitlines():
-            return
+        lines = content.splitlines()
     else:
         content = ""
+        lines = []
+    missing = [e for e in entries if e not in lines]
+    if not missing:
+        return
     with open(gitignore, "a") as f:
         if content and not content.endswith("\n"):
             f.write("\n")
-        f.write(f"{entry}\n")
-    _git_untrack_debussy()
+        for entry in missing:
+            f.write(f"{entry}\n")
+    _git_untrack_managed_dirs()
 
 
-def _git_untrack_debussy():
-    try:
-        subprocess.run(
-            ["git", "rm", "-r", "--cached", "--quiet", ".debussy/"],
-            capture_output=True, timeout=10,
-        )
-    except (subprocess.SubprocessError, OSError):
-        pass
+def _git_untrack_managed_dirs():
+    for name in (".debussy/", ".takt/", ".debussy-worktrees/"):
+        try:
+            subprocess.run(
+                ["git", "rm", "-r", "--cached", "--quiet", name],
+                capture_output=True, timeout=10,
+            )
+        except (subprocess.SubprocessError, OSError):
+            pass
 
 
 def set_config(key: str, value):
