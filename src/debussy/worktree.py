@@ -29,6 +29,11 @@ def _worktree_path(agent_name: str) -> Path:
 
 
 def _symlink_dirs(worktree: Path, repo: Path):
+    wt_dir = repo / WORKTREES_DIR
+    if not str(worktree).startswith(str(wt_dir)):
+        raise RuntimeError(
+            f"Refusing to symlink into {worktree} — not inside {wt_dir}"
+        )
     for name in (".takt", ".debussy"):
         src = repo / name
         dest = worktree / name

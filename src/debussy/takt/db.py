@@ -139,6 +139,11 @@ def get_db(project_dir: Path | str | None = None):
     """
     root = Path(project_dir) if project_dir else _find_project_root()
     takt_dir = root / ".takt"
+    if takt_dir.is_symlink():
+        raise RuntimeError(
+            f"{takt_dir} is a symlink (-> {takt_dir.resolve()}). "
+            "Remove it and recreate as a real directory."
+        )
     takt_dir.mkdir(parents=True, exist_ok=True)
     db_path = takt_dir / "takt.db"
 
