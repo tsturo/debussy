@@ -58,6 +58,27 @@ class TestCreate:
         data = json.loads(capsys.readouterr().out)
         assert dep_id in data["dependencies"]
 
+    def test_with_project(self, project_dir, capsys):
+        main(["project", "add", "FIX", "Fixes"])
+        capsys.readouterr()
+        assert main(["create", "Fix bug", "-p", "FIX"]) == 0
+        task_id = capsys.readouterr().out.strip()
+        assert task_id.startswith("FIX-")
+
+    def test_with_unknown_project(self, project_dir):
+        assert main(["create", "Fix bug", "-p", "ZZZ"]) == 1
+
+    def test_cross_project_deps(self, project_dir, capsys):
+        main(["create", "Default task"])
+        default_id = capsys.readouterr().out.strip()
+        main(["project", "add", "FIX", "Fixes"])
+        capsys.readouterr()
+        main(["create", "Fix task", "-p", "FIX", "--deps", default_id])
+        fix_id = capsys.readouterr().out.strip()
+        main(["show", fix_id, "--json"])
+        data = json.loads(capsys.readouterr().out)
+        assert default_id in data["dependencies"]
+
 
 class TestShow:
     def test_human_readable(self, project_dir, capsys):
@@ -111,6 +132,18 @@ class TestList:
         assert main(["list", "--stage", "development", "--json"]) == 0
         data = json.loads(capsys.readouterr().out)
         assert len(data) == 1
+
+    def test_filter_project(self, project_dir, capsys):
+        main(["create", "Default task"])
+        capsys.readouterr()
+        main(["project", "add", "FIX", "Fixes"])
+        capsys.readouterr()
+        main(["create", "Fix task", "-p", "FIX"])
+        capsys.readouterr()
+        assert main(["list", "-p", "FIX", "--json"]) == 0
+        data = json.loads(capsys.readouterr().out)
+        assert len(data) == 1
+        assert data[0]["title"] == "Fix task"
 
 
 class TestWorkflow:
@@ -244,6 +277,24 @@ class TestProject:
         main(["project", "default"])
         prefix = capsys.readouterr().out.strip()
         assert main(["project", "rm", prefix]) == 1
+
+
+class TestPrefixDeprecated:
+    def test_prefix_show_still_works(self, project_dir, capsys):
+        assert main(["prefix"]) == 0
+        out = capsys.readouterr()
+        assert out.out.strip().isalpha()
+        assert "deprecated" in out.err.lower()
+
+    def test_prefix_set_still_works(self, project_dir, capsys):
+        main(["project", "add", "NEW", "New project"])
+        capsys.readouterr()
+        assert main(["prefix", "NEW"]) == 0
+        err = capsys.readouterr().err
+        assert "deprecated" in err.lower()
+
+    def test_prefix_set_nonexistent_fails(self, project_dir):
+        assert main(["prefix", "ZZZ"]) == 1
 
 
 class TestNoCommand:

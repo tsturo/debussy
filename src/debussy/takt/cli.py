@@ -74,6 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_create = sub.add_parser("create", help="Create a task")
     p_create.add_argument("title")
     p_create.add_argument("-d", "--description", default="")
+    p_create.add_argument("-p", "--project", help="Project prefix to create task under")
     p_create.add_argument("--deps", help="Comma-separated dependency IDs")
     p_create.add_argument("--tags", help="Comma-separated tags")
 
@@ -82,6 +83,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_show.add_argument("--json", action="store_true")
 
     p_list = sub.add_parser("list", help="List tasks")
+    p_list.add_argument("-p", "--project", help="Filter by project prefix")
     p_list.add_argument("--stage")
     p_list.add_argument("--status")
     p_list.add_argument("--tag")
@@ -161,16 +163,16 @@ def _dispatch(args: argparse.Namespace, db) -> int:
     cmd = args.command
 
     if cmd == "prefix":
+        print("Warning: 'takt prefix' is deprecated. Use 'takt project default' instead.", file=sys.stderr)
         if args.value:
             val = args.value.upper()
-            if not val.isalpha() or not (2 <= len(val) <= 5):
-                print("Prefix must be 2-5 letters", file=sys.stderr)
+            row = db.execute("SELECT 1 FROM projects WHERE prefix = ?", (val,)).fetchone()
+            if not row:
+                print(f"Project not found: {val}", file=sys.stderr)
                 return 1
-            db.execute(
-                "INSERT OR REPLACE INTO metadata (key, value) VALUES ('prefix', ?)",
-                (val,),
-            )
-            print(f"Prefix set to: {val}")
+            db.execute("UPDATE projects SET is_default = 0 WHERE is_default = 1")
+            db.execute("UPDATE projects SET is_default = 1 WHERE prefix = ?", (val,))
+            print(f"Default project: {val}")
         else:
             print(get_prefix(db))
         return 0
@@ -179,7 +181,7 @@ def _dispatch(args: argparse.Namespace, db) -> int:
         deps = [d.strip() for d in args.deps.split(",")] if args.deps else None
         tags = [t.strip() for t in args.tags.split(",")] if args.tags else None
         task = create_task(db, args.title, description=args.description,
-                           tags=tags, deps=deps)
+                           tags=tags, deps=deps, prefix=args.project)
         print(task["id"])
         return 0
 
@@ -195,7 +197,7 @@ def _dispatch(args: argparse.Namespace, db) -> int:
         return 0
 
     if cmd == "list":
-        tasks = list_tasks(db, stage=args.stage, status=args.status, tag=args.tag)
+        tasks = list_tasks(db, stage=args.stage, status=args.status, tag=args.tag, prefix=args.project)
         if args.json:
             print(json.dumps(tasks, indent=2))
         else:

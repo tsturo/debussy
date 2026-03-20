@@ -6,7 +6,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA_SQL = """\
 CREATE TABLE IF NOT EXISTS metadata (
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS metadata (
 
 CREATE TABLE IF NOT EXISTS tasks (
     id              TEXT PRIMARY KEY,
-    seq             INTEGER NOT NULL UNIQUE,
+    seq             INTEGER NOT NULL,
     title           TEXT NOT NULL,
     description     TEXT DEFAULT '',
     stage           TEXT DEFAULT 'backlog'
@@ -155,6 +155,28 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 )
                 conn.execute("DELETE FROM metadata WHERE key = 'prefix'")
                 conn.execute("DELETE FROM metadata WHERE key = 'next_seq'")
+    if version < 4:
+        has_unique = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'"
+        ).fetchone()
+        if has_unique and "UNIQUE" in (has_unique[0] or ""):
+            conn.execute("ALTER TABLE tasks RENAME TO tasks_old")
+            conn.execute(
+                "CREATE TABLE tasks ("
+                "id TEXT PRIMARY KEY, seq INTEGER NOT NULL, "
+                "title TEXT NOT NULL, description TEXT DEFAULT '', "
+                "stage TEXT DEFAULT 'backlog' "
+                "CHECK(stage IN ('backlog','development','reviewing',"
+                "'security_review','merging','acceptance','done')), "
+                "status TEXT DEFAULT 'pending' "
+                "CHECK(status IN ('pending','active','blocked')), "
+                "tags TEXT DEFAULT '[]', "
+                "rejection_count INTEGER DEFAULT 0, "
+                "created_at TEXT DEFAULT (datetime('now')), "
+                "updated_at TEXT DEFAULT (datetime('now')))"
+            )
+            conn.execute("INSERT INTO tasks SELECT * FROM tasks_old")
+            conn.execute("DROP TABLE tasks_old")
 
 
 def _apply_schema(conn: sqlite3.Connection) -> None:

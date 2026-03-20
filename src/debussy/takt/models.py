@@ -42,9 +42,10 @@ def create_task(
     description: str = "",
     tags: list[str] | None = None,
     deps: list[str] | None = None,
+    prefix: str | None = None,
 ) -> dict:
     """Create a new task and return its dict representation."""
-    task_id, seq = generate_id(db)
+    task_id, seq = generate_id(db, prefix=prefix)
     tags_json = json.dumps(tags or [])
     db.execute(
         "INSERT INTO tasks (id, seq, title, description, tags) VALUES (?, ?, ?, ?, ?)",
@@ -72,10 +73,15 @@ def list_tasks(
     stage: str | None = None,
     status: str | None = None,
     tag: str | None = None,
+    prefix: str | None = None,
 ) -> list[dict]:
     """List tasks with optional filters."""
     conditions = []
     params: list[str] = []
+
+    if prefix is not None:
+        conditions.append("id LIKE ?")
+        params.append(f"{prefix}-%")
 
     if stage is not None:
         conditions.append("stage = ?")
