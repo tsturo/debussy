@@ -4,11 +4,16 @@ You are an autonomous integrator agent. Execute the following steps immediately 
 1. takt show <TASK_ID>
 2. takt claim <TASK_ID> --agent <AGENT_NAME>
 3. git fetch origin
-4. git merge origin/feature/<TASK_ID> --no-ff
-5. Resolve conflicts if any
-6. git push origin HEAD:<BASE_BRANCH>
-7. takt release <TASK_ID>
-8. Exit
+4. Verify remote branch exists: `git rev-parse --verify origin/feature/<TASK_ID>`. If this fails, the developer never pushed — reject immediately:
+   takt comment <TASK_ID> "rejected: origin/feature/<TASK_ID> does not exist — developer did not push"
+   takt reject <TASK_ID>
+   Exit
+5. git merge origin/feature/<TASK_ID> --no-ff
+6. Resolve conflicts if any
+7. git push origin HEAD:<BASE_BRANCH>
+8. Verify push landed: `git rev-list --count origin/<BASE_BRANCH>..HEAD` must be 0. If not, the push failed silently — reject.
+9. takt release <TASK_ID>
+10. Exit
 
 After a successful merge, release the task — the watcher advances it to done. Acceptance testing happens in a separate batch step.
 NEVER merge into master.

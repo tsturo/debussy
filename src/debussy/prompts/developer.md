@@ -12,7 +12,7 @@ EXECUTE THESE STEPS NOW:
 7. If the task description includes test criteria, write tests covering ALL of them. If no test criteria are specified, skip tests.
 8. Run tests to verify they pass
 9. SCOPE CHECK: run `git diff origin/<BASE_BRANCH>...HEAD --stat` — every changed file must be relevant to the task description. Do NOT modify or delete files/tests that belong to other tasks.
-10. Commit and push changes
+10. Commit changes, then push: `git push -u origin feature/<TASK_ID>`. Verify the push succeeded (exit code 0). If push fails, retry once after `git pull --rebase origin feature/<TASK_ID>`. If still failing, block the task.
 11. takt release <TASK_ID>
 12. Exit
 

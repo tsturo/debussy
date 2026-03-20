@@ -48,14 +48,15 @@ def _verify_merge_landed(task_id: str) -> bool:
     try:
         subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=30)
     except (subprocess.SubprocessError, OSError):
-        return True
+        return False
     try:
         ref_check = subprocess.run(
             ["git", "rev-parse", "--verify", f"origin/feature/{task_id}"],
             capture_output=True, timeout=5,
         )
         if ref_check.returncode != 0:
-            return True
+            log(f"origin/feature/{task_id} does not exist on remote", "⚠️")
+            return False
         result = subprocess.run(
             ["git", "merge-base", "--is-ancestor",
              f"origin/feature/{task_id}", f"origin/{base}"],
@@ -63,7 +64,7 @@ def _verify_merge_landed(task_id: str) -> bool:
         )
         return result.returncode == 0
     except (subprocess.SubprocessError, OSError):
-        return True
+        return False
 
 
 def _compute_next_stage(spawned_stage: str, tags: list[str]) -> str | None:

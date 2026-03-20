@@ -52,7 +52,7 @@ def create_agent_worktree(role: str, task_id: str, agent_name: str) -> str:
     def _create(r, bid, name, b):
         if r == "developer":
             return str(create_worktree(name, f"feature/{bid}", start_point=f"origin/{b}", new_branch=True))
-        elif r in ("reviewer", "security-reviewer"):
+        elif r == "security-reviewer":
             return str(create_worktree(name, f"origin/feature/{bid}", detach=True))
         elif r in ("integrator", "tester"):
             return str(create_worktree(name, f"origin/{b}", detach=True))
@@ -168,7 +168,8 @@ def _spawn_background(agent_name, task_id, role, system_prompt, user_message, st
 
 
 MAX_TOTAL_SPAWNS = 20
-WORKTREE_REQUIRED_ROLES = {"developer", "reviewer", "security-reviewer", "integrator", "tester"}
+NO_WORKTREE_ROLES = {"reviewer"}
+WORKTREE_REQUIRED_ROLES = {"developer", "security-reviewer", "integrator", "tester"}
 
 
 def spawn_agent(watcher, role: str, task_id: str, stage: str, labels: list[str] | None = None) -> bool:
@@ -193,7 +194,9 @@ def spawn_agent(watcher, role: str, task_id: str, stage: str, labels: list[str] 
     agent_name = get_agent_name(watcher.used_names, role)
     log(f"Spawning {agent_name} for {task_id}", "🚀")
 
-    worktree_path = create_agent_worktree(role, task_id, agent_name)
+    worktree_path = ""
+    if role not in NO_WORKTREE_ROLES:
+        worktree_path = create_agent_worktree(role, task_id, agent_name)
     if not worktree_path and role in WORKTREE_REQUIRED_ROLES:
         log(f"Worktree creation failed for {agent_name}, aborting spawn", "💥")
         watcher.used_names.discard(agent_name)
