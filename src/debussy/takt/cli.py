@@ -113,6 +113,22 @@ def _build_parser() -> argparse.ArgumentParser:
     p_log.add_argument("id")
     p_log.add_argument("--type", choices=["transition", "comment", "assignment"])
 
+    p_project = sub.add_parser("project", help="Manage projects")
+    project_sub = p_project.add_subparsers(dest="project_command")
+
+    p_proj_add = project_sub.add_parser("add", help="Add a project")
+    p_proj_add.add_argument("prefix", help="2-5 uppercase letters")
+    p_proj_add.add_argument("name", help="Human-readable name")
+    p_proj_add.add_argument("--default", action="store_true")
+
+    project_sub.add_parser("list", help="List projects")
+
+    p_proj_default = project_sub.add_parser("default", help="Show or switch default project")
+    p_proj_default.add_argument("prefix", nargs="?", help="Switch default to this prefix")
+
+    p_proj_rm = project_sub.add_parser("rm", help="Remove a project")
+    p_proj_rm.add_argument("prefix")
+
     return parser
 
 
@@ -221,7 +237,107 @@ def _dispatch(args: argparse.Namespace, db) -> int:
         _print_log(entries)
         return 0
 
+    if cmd == "project":
+        return _handle_project(args, db)
+
     return 1
+
+
+def _handle_project(args: argparse.Namespace, db) -> int:
+    sub = args.project_command
+
+    if sub == "add":
+        return _project_add(args, db)
+    if sub == "list":
+        return _project_list(db)
+    if sub == "default":
+        return _project_default(args, db)
+    if sub == "rm":
+        return _project_rm(args, db)
+
+    print("Usage: takt project {add,list,default,rm}", file=sys.stderr)
+    return 1
+
+
+def _project_add(args: argparse.Namespace, db) -> int:
+    prefix = args.prefix.upper()
+    if not prefix.isalpha() or not (2 <= len(prefix) <= 5):
+        print("Prefix must be 2-5 letters", file=sys.stderr)
+        return 1
+    existing = db.execute("SELECT 1 FROM projects WHERE prefix = ?", (prefix,)).fetchone()
+    if existing:
+        print(f"Project {prefix} already exists", file=sys.stderr)
+        return 1
+    next_seq = 1
+    max_row = db.execute(
+        "SELECT MAX(CAST(SUBSTR(id, ?) AS INTEGER)) FROM tasks WHERE id LIKE ?",
+        (len(prefix) + 2, f"{prefix}-%"),
+    ).fetchone()
+    if max_row and max_row[0] is not None:
+        next_seq = max_row[0] + 1
+    if args.default:
+        db.execute("UPDATE projects SET is_default = 0 WHERE is_default = 1")
+    has_any = db.execute("SELECT 1 FROM projects LIMIT 1").fetchone()
+    is_default = 1 if (args.default or not has_any) else 0
+    db.execute(
+        "INSERT INTO projects (prefix, name, is_default, next_seq) VALUES (?, ?, ?, ?)",
+        (prefix, args.name, is_default, next_seq),
+    )
+    marker = " (default)" if is_default else ""
+    print(f"Added project: {prefix} — {args.name}{marker}")
+    return 0
+
+
+def _project_list(db) -> int:
+    rows = db.execute(
+        "SELECT p.prefix, p.name, p.is_default, p.next_seq, "
+        "(SELECT COUNT(*) FROM tasks WHERE id LIKE p.prefix || '-%') AS task_count "
+        "FROM projects p ORDER BY p.is_default DESC, p.prefix"
+    ).fetchall()
+    if not rows:
+        print("No projects.")
+        return 0
+    for r in rows:
+        default = " *" if r["is_default"] else ""
+        print(f"{r['prefix']}{default}  {r['name']}  ({r['task_count']} tasks)")
+    return 0
+
+
+def _project_default(args: argparse.Namespace, db) -> int:
+    if args.prefix:
+        prefix = args.prefix.upper()
+        row = db.execute("SELECT 1 FROM projects WHERE prefix = ?", (prefix,)).fetchone()
+        if not row:
+            print(f"Project not found: {prefix}", file=sys.stderr)
+            return 1
+        db.execute("UPDATE projects SET is_default = 0 WHERE is_default = 1")
+        db.execute("UPDATE projects SET is_default = 1 WHERE prefix = ?", (prefix,))
+        print(f"Default project: {prefix}")
+    else:
+        print(get_prefix(db))
+    return 0
+
+
+def _project_rm(args: argparse.Namespace, db) -> int:
+    prefix = args.prefix.upper()
+    is_default = db.execute(
+        "SELECT is_default FROM projects WHERE prefix = ?", (prefix,)
+    ).fetchone()
+    if not is_default:
+        print(f"Project not found: {prefix}", file=sys.stderr)
+        return 1
+    if is_default["is_default"]:
+        print("Cannot remove default project. Switch default first.", file=sys.stderr)
+        return 1
+    has_tasks = db.execute(
+        "SELECT 1 FROM tasks WHERE id LIKE ?", (f"{prefix}-%",)
+    ).fetchone()
+    if has_tasks:
+        print(f"Cannot remove {prefix}: tasks still reference it", file=sys.stderr)
+        return 1
+    db.execute("DELETE FROM projects WHERE prefix = ?", (prefix,))
+    print(f"Removed project: {prefix}")
+    return 0
 
 
 if __name__ == "__main__":

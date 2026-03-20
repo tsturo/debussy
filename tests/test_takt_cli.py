@@ -186,6 +186,66 @@ class TestLog:
         assert "No log" in capsys.readouterr().out
 
 
+class TestProject:
+    def test_add(self, project_dir, capsys):
+        assert main(["project", "add", "FIX", "Hotfixes"]) == 0
+        assert "FIX" in capsys.readouterr().out
+
+    def test_add_default(self, project_dir, capsys):
+        assert main(["project", "add", "FIX", "Hotfixes", "--default"]) == 0
+        assert main(["project", "list"]) == 0
+        out = capsys.readouterr().out
+        assert "FIX" in out
+
+    def test_add_invalid_prefix(self, project_dir):
+        assert main(["project", "add", "X", "Too short"]) == 1
+
+    def test_add_duplicate(self, project_dir):
+        main(["project", "add", "FIX", "Hotfixes"])
+        assert main(["project", "add", "FIX", "Again"]) == 1
+
+    def test_list(self, project_dir, capsys):
+        main(["project", "add", "FIX", "Hotfixes"])
+        capsys.readouterr()
+        assert main(["project", "list"]) == 0
+        out = capsys.readouterr().out
+        assert "FIX" in out
+
+    def test_default_switch(self, project_dir, capsys):
+        main(["project", "add", "FIX", "Hotfixes"])
+        capsys.readouterr()
+        assert main(["project", "default", "FIX"]) == 0
+        assert main(["project", "list"]) == 0
+        out = capsys.readouterr().out
+        assert "FIX" in out
+
+    def test_default_show(self, project_dir, capsys):
+        assert main(["project", "default"]) == 0
+        out = capsys.readouterr().out.strip()
+        assert out.isalpha() and out.isupper()
+
+    def test_rm(self, project_dir, capsys):
+        main(["project", "add", "FIX", "Hotfixes"])
+        capsys.readouterr()
+        assert main(["project", "rm", "FIX"]) == 0
+
+    def test_rm_with_tasks_fails(self, project_dir, capsys):
+        main(["project", "default"])
+        orig = capsys.readouterr().out.strip()
+        main(["project", "add", "FIX", "Hotfixes", "--default"])
+        capsys.readouterr()
+        main(["create", "A task"])
+        capsys.readouterr()
+        main(["project", "default", orig])
+        capsys.readouterr()
+        assert main(["project", "rm", "FIX"]) == 1
+
+    def test_rm_default_fails(self, project_dir, capsys):
+        main(["project", "default"])
+        prefix = capsys.readouterr().out.strip()
+        assert main(["project", "rm", prefix]) == 1
+
+
 class TestNoCommand:
     def test_no_args(self, project_dir):
         assert main([]) == 1
