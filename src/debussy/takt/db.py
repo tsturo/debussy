@@ -6,7 +6,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA_SQL = """\
 CREATE TABLE IF NOT EXISTS metadata (
@@ -49,6 +49,14 @@ CREATE INDEX IF NOT EXISTS idx_tasks_stage_status ON tasks(stage, status);
 CREATE INDEX IF NOT EXISTS idx_log_task_id ON log(task_id);
 CREATE INDEX IF NOT EXISTS idx_deps_task ON dependencies(task_id);
 CREATE INDEX IF NOT EXISTS idx_deps_dep ON dependencies(depends_on_id);
+
+CREATE TABLE IF NOT EXISTS projects (
+    prefix     TEXT PRIMARY KEY CHECK(length(prefix) BETWEEN 2 AND 5),
+    name       TEXT NOT NULL,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    next_seq   INTEGER NOT NULL DEFAULT 1
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_default ON projects(is_default) WHERE is_default = 1;
 """
 
 
@@ -78,6 +86,11 @@ def get_prefix(conn: sqlite3.Connection) -> str:
 
 
 def _ensure_prefix(conn: sqlite3.Connection, project_dir: Path) -> None:
+    has_project = conn.execute(
+        "SELECT 1 FROM projects WHERE is_default = 1"
+    ).fetchone()
+    if has_project:
+        return
     row = conn.execute(
         "SELECT value FROM metadata WHERE key = 'prefix'"
     ).fetchone()
@@ -114,6 +127,38 @@ def _migrate(conn: sqlite3.Connection) -> None:
                     "INSERT OR REPLACE INTO metadata (key, value) VALUES ('next_seq', ?)",
                     (str(len(rows) + 1),),
                 )
+    if version < 3:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS projects ("
+            "prefix TEXT PRIMARY KEY CHECK(length(prefix) BETWEEN 2 AND 5), "
+            "name TEXT NOT NULL, "
+            "is_default INTEGER NOT NULL DEFAULT 0, "
+            "next_seq INTEGER NOT NULL DEFAULT 1)"
+        )
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_default "
+            "ON projects(is_default) WHERE is_default = 1"
+        )
+        tables = [r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()]
+        if "metadata" in tables:
+            prefix_row = conn.execute(
+                "SELECT value FROM metadata WHERE key = 'prefix'"
+            ).fetchone()
+            seq_row = conn.execute(
+                "SELECT value FROM metadata WHERE key = 'next_seq'"
+            ).fetchone()
+            if prefix_row:
+                prefix = prefix_row[0] if isinstance(prefix_row, tuple) else prefix_row["value"]
+                next_seq = int(seq_row[0] if isinstance(seq_row, tuple) else seq_row["value"]) if seq_row else 1
+                conn.execute(
+                    "INSERT OR IGNORE INTO projects (prefix, name, is_default, next_seq) "
+                    "VALUES (?, ?, 1, ?)",
+                    (prefix, prefix, next_seq),
+                )
+                conn.execute("DELETE FROM metadata WHERE key = 'prefix'")
+                conn.execute("DELETE FROM metadata WHERE key = 'next_seq'")
 
 
 def _apply_schema(conn: sqlite3.Connection) -> None:
