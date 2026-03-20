@@ -234,13 +234,16 @@ tests/
 ```bash
 debussy start              # Start system (tmux)
 debussy watch              # Run watcher
-debussy board              # Show kanban board
+debussy board [-p PREFIX]              # Show kanban board
 debussy config base_branch feature/<name>  # Set conductor's base branch
-takt prefix [VALUE]                       # Show or set project prefix (e.g. PKL)
-takt create "title" -d "description"
+takt project add <PREFIX> <NAME> [--default]  # Add a project
+takt project list                              # List projects
+takt project default [PREFIX]                  # Show or switch default
+takt project rm <PREFIX>                       # Remove a project
+takt create "title" [-p PREFIX] [-d "description"]
 takt advance <id>                          # Move task to next stage
 takt show <id>
-takt list
+takt list [-p PREFIX]
 takt claim <id>                            # Mark task as active
 takt release <id>                          # Mark task as pending
 takt block <id>                            # Mark task as blocked
