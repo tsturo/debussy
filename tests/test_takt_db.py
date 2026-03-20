@@ -5,7 +5,7 @@ import threading
 
 import pytest
 
-from debussy.takt.db import get_db, init_db, SCHEMA_VERSION
+from debussy.takt.db import get_db, get_prefix, init_db, SCHEMA_VERSION
 
 
 @pytest.fixture
@@ -221,6 +221,21 @@ class TestMigrationV2ToV3:
         with get_db(db_dir) as conn:
             version = conn.execute("PRAGMA user_version").fetchone()[0]
             assert version == SCHEMA_VERSION
+
+
+class TestGetPrefix:
+    def test_returns_default_project_prefix(self, db_dir):
+        with get_db(db_dir) as conn:
+            prefix = get_prefix(conn)
+            assert len(prefix) >= 2
+            assert prefix.isalpha()
+            assert prefix.isupper()
+
+    def test_errors_when_no_default_project(self, db_dir):
+        with get_db(db_dir) as conn:
+            conn.execute("DELETE FROM projects")
+            with pytest.raises(RuntimeError):
+                get_prefix(conn)
 
 
 class TestInitDb:

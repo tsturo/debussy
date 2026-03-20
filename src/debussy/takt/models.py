@@ -8,17 +8,17 @@ import sqlite3
 from .db import get_prefix
 
 
-def generate_id(db: sqlite3.Connection) -> tuple[str, int]:
-    prefix = get_prefix(db)
+def generate_id(db: sqlite3.Connection, prefix: str | None = None) -> tuple[str, int]:
+    if prefix is None:
+        prefix = get_prefix(db)
     row = db.execute(
-        "SELECT value FROM metadata WHERE key = 'next_seq'"
+        "UPDATE projects SET next_seq = next_seq + 1 WHERE prefix = ? RETURNING next_seq - 1",
+        (prefix,),
     ).fetchone()
-    seq = int(row["value"]) if row else 1
+    if row is None:
+        raise RuntimeError(f"Project not found: {prefix}")
+    seq = row[0]
     task_id = f"{prefix}-{seq}"
-    db.execute(
-        "INSERT OR REPLACE INTO metadata (key, value) VALUES ('next_seq', ?)",
-        (str(seq + 1),),
-    )
     return task_id, seq
 
 

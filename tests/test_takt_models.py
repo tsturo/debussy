@@ -28,6 +28,27 @@ class TestGenerateId:
         assert id2 == f"{prefix}-2"
         assert id3 == f"{prefix}-3"
 
+    def test_with_explicit_prefix(self, db):
+        db.execute(
+            "INSERT INTO projects (prefix, name, is_default, next_seq) VALUES ('FIX', 'Fixes', 0, 1)"
+        )
+        tid, seq = generate_id(db, prefix="FIX")
+        assert tid == "FIX-1"
+        assert seq == 1
+
+    def test_explicit_prefix_independent_sequence(self, db):
+        db.execute(
+            "INSERT INTO projects (prefix, name, is_default, next_seq) VALUES ('FIX', 'Fixes', 0, 1)"
+        )
+        default_id, _ = generate_id(db)
+        fix_id, _ = generate_id(db, prefix="FIX")
+        assert fix_id == "FIX-1"
+        assert default_id.endswith("-1")
+
+    def test_unknown_prefix_errors(self, db):
+        with pytest.raises(RuntimeError, match="not found"):
+            generate_id(db, prefix="ZZZ")
+
 
 class TestCreateTask:
     def test_basic(self, db):

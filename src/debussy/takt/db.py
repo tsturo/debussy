@@ -80,24 +80,20 @@ def _derive_prefix(project_dir: Path) -> str:
 
 def get_prefix(conn: sqlite3.Connection) -> str:
     row = conn.execute(
-        "SELECT value FROM metadata WHERE key = 'prefix'"
+        "SELECT prefix FROM projects WHERE is_default = 1"
     ).fetchone()
-    return row["value"] if row else "TSK"
+    if row is None:
+        raise RuntimeError("No default project. Run: takt project add <PREFIX> <NAME> --default")
+    return row["prefix"]
 
 
-def _ensure_prefix(conn: sqlite3.Connection, project_dir: Path) -> None:
-    has_project = conn.execute(
-        "SELECT 1 FROM projects WHERE is_default = 1"
-    ).fetchone()
-    if has_project:
-        return
-    row = conn.execute(
-        "SELECT value FROM metadata WHERE key = 'prefix'"
-    ).fetchone()
+def _ensure_default_project(conn: sqlite3.Connection, project_dir: Path) -> None:
+    row = conn.execute("SELECT 1 FROM projects LIMIT 1").fetchone()
     if row is None:
         prefix = _derive_prefix(project_dir)
         conn.execute(
-            "INSERT INTO metadata (key, value) VALUES ('prefix', ?)", (prefix,)
+            "INSERT INTO projects (prefix, name, is_default, next_seq) VALUES (?, ?, 1, 1)",
+            (prefix, prefix),
         )
 
 
@@ -197,7 +193,7 @@ def get_db(project_dir: Path | str | None = None):
     try:
         _configure(conn)
         _apply_schema(conn)
-        _ensure_prefix(conn, root)
+        _ensure_default_project(conn, root)
         yield conn
         conn.commit()
     except Exception:
