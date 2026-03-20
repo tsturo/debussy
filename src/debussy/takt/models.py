@@ -8,17 +8,17 @@ import sqlite3
 from .db import get_prefix
 
 
-def generate_id(db: sqlite3.Connection) -> tuple[str, int]:
-    prefix = get_prefix(db)
+def generate_id(db: sqlite3.Connection, prefix: str | None = None) -> tuple[str, int]:
+    if prefix is None:
+        prefix = get_prefix(db)
     row = db.execute(
-        "SELECT value FROM metadata WHERE key = 'next_seq'"
+        "UPDATE projects SET next_seq = next_seq + 1 WHERE prefix = ? RETURNING next_seq - 1",
+        (prefix,),
     ).fetchone()
-    seq = int(row["value"]) if row else 1
+    if row is None:
+        raise RuntimeError(f"Project not found: {prefix}")
+    seq = row[0]
     task_id = f"{prefix}-{seq}"
-    db.execute(
-        "INSERT OR REPLACE INTO metadata (key, value) VALUES ('next_seq', ?)",
-        (str(seq + 1),),
-    )
     return task_id, seq
 
 
@@ -42,9 +42,10 @@ def create_task(
     description: str = "",
     tags: list[str] | None = None,
     deps: list[str] | None = None,
+    prefix: str | None = None,
 ) -> dict:
     """Create a new task and return its dict representation."""
-    task_id, seq = generate_id(db)
+    task_id, seq = generate_id(db, prefix=prefix)
     tags_json = json.dumps(tags or [])
     db.execute(
         "INSERT INTO tasks (id, seq, title, description, tags) VALUES (?, ?, ?, ?, ?)",
@@ -72,10 +73,15 @@ def list_tasks(
     stage: str | None = None,
     status: str | None = None,
     tag: str | None = None,
+    prefix: str | None = None,
 ) -> list[dict]:
     """List tasks with optional filters."""
     conditions = []
     params: list[str] = []
+
+    if prefix is not None:
+        conditions.append("id LIKE ?")
+        params.append(f"{prefix}-%")
 
     if stage is not None:
         conditions.append("stage = ?")

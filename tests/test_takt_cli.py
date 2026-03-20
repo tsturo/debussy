@@ -58,6 +58,27 @@ class TestCreate:
         data = json.loads(capsys.readouterr().out)
         assert dep_id in data["dependencies"]
 
+    def test_with_project(self, project_dir, capsys):
+        main(["project", "add", "FIX", "Fixes"])
+        capsys.readouterr()
+        assert main(["create", "Fix bug", "-p", "FIX"]) == 0
+        task_id = capsys.readouterr().out.strip()
+        assert task_id.startswith("FIX-")
+
+    def test_with_unknown_project(self, project_dir):
+        assert main(["create", "Fix bug", "-p", "ZZZ"]) == 1
+
+    def test_cross_project_deps(self, project_dir, capsys):
+        main(["create", "Default task"])
+        default_id = capsys.readouterr().out.strip()
+        main(["project", "add", "FIX", "Fixes"])
+        capsys.readouterr()
+        main(["create", "Fix task", "-p", "FIX", "--deps", default_id])
+        fix_id = capsys.readouterr().out.strip()
+        main(["show", fix_id, "--json"])
+        data = json.loads(capsys.readouterr().out)
+        assert default_id in data["dependencies"]
+
 
 class TestShow:
     def test_human_readable(self, project_dir, capsys):
@@ -111,6 +132,18 @@ class TestList:
         assert main(["list", "--stage", "development", "--json"]) == 0
         data = json.loads(capsys.readouterr().out)
         assert len(data) == 1
+
+    def test_filter_project(self, project_dir, capsys):
+        main(["create", "Default task"])
+        capsys.readouterr()
+        main(["project", "add", "FIX", "Fixes"])
+        capsys.readouterr()
+        main(["create", "Fix task", "-p", "FIX"])
+        capsys.readouterr()
+        assert main(["list", "-p", "FIX", "--json"]) == 0
+        data = json.loads(capsys.readouterr().out)
+        assert len(data) == 1
+        assert data[0]["title"] == "Fix task"
 
 
 class TestWorkflow:
@@ -184,6 +217,84 @@ class TestLog:
         task_id = capsys.readouterr().out.strip()
         assert main(["log", task_id]) == 0
         assert "No log" in capsys.readouterr().out
+
+
+class TestProject:
+    def test_add(self, project_dir, capsys):
+        assert main(["project", "add", "FIX", "Hotfixes"]) == 0
+        assert "FIX" in capsys.readouterr().out
+
+    def test_add_default(self, project_dir, capsys):
+        assert main(["project", "add", "FIX", "Hotfixes", "--default"]) == 0
+        assert main(["project", "list"]) == 0
+        out = capsys.readouterr().out
+        assert "FIX" in out
+
+    def test_add_invalid_prefix(self, project_dir):
+        assert main(["project", "add", "X", "Too short"]) == 1
+
+    def test_add_duplicate(self, project_dir):
+        main(["project", "add", "FIX", "Hotfixes"])
+        assert main(["project", "add", "FIX", "Again"]) == 1
+
+    def test_list(self, project_dir, capsys):
+        main(["project", "add", "FIX", "Hotfixes"])
+        capsys.readouterr()
+        assert main(["project", "list"]) == 0
+        out = capsys.readouterr().out
+        assert "FIX" in out
+
+    def test_default_switch(self, project_dir, capsys):
+        main(["project", "add", "FIX", "Hotfixes"])
+        capsys.readouterr()
+        assert main(["project", "default", "FIX"]) == 0
+        assert main(["project", "list"]) == 0
+        out = capsys.readouterr().out
+        assert "FIX" in out
+
+    def test_default_show(self, project_dir, capsys):
+        assert main(["project", "default"]) == 0
+        out = capsys.readouterr().out.strip()
+        assert out.isalpha() and out.isupper()
+
+    def test_rm(self, project_dir, capsys):
+        main(["project", "add", "FIX", "Hotfixes"])
+        capsys.readouterr()
+        assert main(["project", "rm", "FIX"]) == 0
+
+    def test_rm_with_tasks_fails(self, project_dir, capsys):
+        main(["project", "default"])
+        orig = capsys.readouterr().out.strip()
+        main(["project", "add", "FIX", "Hotfixes", "--default"])
+        capsys.readouterr()
+        main(["create", "A task"])
+        capsys.readouterr()
+        main(["project", "default", orig])
+        capsys.readouterr()
+        assert main(["project", "rm", "FIX"]) == 1
+
+    def test_rm_default_fails(self, project_dir, capsys):
+        main(["project", "default"])
+        prefix = capsys.readouterr().out.strip()
+        assert main(["project", "rm", prefix]) == 1
+
+
+class TestPrefixDeprecated:
+    def test_prefix_show_still_works(self, project_dir, capsys):
+        assert main(["prefix"]) == 0
+        out = capsys.readouterr()
+        assert out.out.strip().isalpha()
+        assert "deprecated" in out.err.lower()
+
+    def test_prefix_set_still_works(self, project_dir, capsys):
+        main(["project", "add", "NEW", "New project"])
+        capsys.readouterr()
+        assert main(["prefix", "NEW"]) == 0
+        err = capsys.readouterr().err
+        assert "deprecated" in err.lower()
+
+    def test_prefix_set_nonexistent_fails(self, project_dir):
+        assert main(["prefix", "ZZZ"]) == 1
 
 
 class TestNoCommand:

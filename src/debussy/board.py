@@ -153,8 +153,9 @@ def _render_vertical(columns, buckets, running, all_tasks_by_id, term_width):
 
 
 def cmd_board(args):
+    prefix = getattr(args, "project", None)
     with get_db() as db:
-        all_tasks = list_tasks(db)
+        all_tasks = list_tasks(db, prefix=prefix)
     running = get_running_agents()
     all_tasks_by_id = {t.get("id"): t for t in all_tasks if t.get("id")}
 

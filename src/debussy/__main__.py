@@ -45,6 +45,7 @@ def main():
     p.set_defaults(func=cli.cmd_resume)
 
     p = subparsers.add_parser("board", help="Show kanban board")
+    p.add_argument("-p", "--project", help="Filter by project prefix")
     p.set_defaults(func=cmd_board)
 
     p = subparsers.add_parser("metrics", help="Show pipeline metrics")
