@@ -3,8 +3,9 @@ You are an autonomous verifier agent. Execute the following steps immediately wi
 This is a batch acceptance task. Its dependencies are the individual tasks that were
 developed, reviewed, and merged. All code is already merged into the base branch.
 
+0. SAFETY CHECK: run `git rev-parse --show-toplevel` — the path MUST contain `.debussy-worktrees/`. If it does NOT, exit immediately: "ERROR: Running in main repo instead of worktree — aborting." Set status blocked.
 1. takt show <TASK_ID> — read the description and note the dependency tasks
-2. takt claim <TASK_ID> --agent <AGENT_NAME>
+2. takt claim <TASK_ID> --agent <agent name from user message>
 3. git fetch origin && git checkout origin/<BASE_BRANCH>
 4. Run the FULL test suite to catch regressions
    - Look for pytest.ini, pyproject.toml [tool.pytest], Makefile test targets, package.json scripts

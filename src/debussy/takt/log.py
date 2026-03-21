@@ -6,21 +6,9 @@ import json
 import sqlite3
 
 from .models import get_task, update_task
+from ..config import NEXT_STAGE, SECURITY_NEXT_STAGE
 
 MAX_REJECTIONS = 3
-
-NEXT_STAGE = {
-    "backlog": "development",
-    "development": "reviewing",
-    "reviewing": "merging",
-    "security_review": "merging",
-    "merging": "done",
-    "acceptance": "done",
-}
-
-SECURITY_NEXT_STAGE = {
-    "reviewing": "security_review",
-}
 
 
 # --- Log operations ---

@@ -5,10 +5,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from debussy.transitions import (
-    MAX_REJECTIONS, MAX_RETRIES,
+    MAX_RETRIES,
     _compute_next_stage, _dispatch_transition, _handle_agent_success,
     _handle_empty_branch, _is_terminal_stage, _remote_branch_exists,
-    handle_rejection, ensure_stage_transition,
+    ensure_stage_transition,
 )
 from debussy.takt import get_db, init_db, create_task, advance_task, update_task, get_task
 from debussy.takt.log import add_log
@@ -140,47 +140,6 @@ class TestSecurityRouting:
         assert get_task(db, task["id"])["stage"] == "merging"
 
 
-class TestRejection:
-    def test_rejection_sends_to_development(self, db):
-        task = _make_dev_task(db)
-        advance_task(db, task["id"])  # → reviewing
-        watcher = _make_watcher()
-        agent = _make_agent(bead=task["id"], spawned_stage="reviewing")
-
-        handle_rejection(watcher, agent, db)
-
-        updated = get_task(db, task["id"])
-        assert updated["stage"] == "development"
-        assert updated["rejection_count"] == 1
-        assert watcher.rejections[task["id"]] == 1
-
-    def test_max_rejections_blocks(self, db):
-        task = _make_dev_task(db)
-        advance_task(db, task["id"])  # → reviewing
-        # Pre-set 2 rejections
-        update_task(db, task["id"], rejection_count=MAX_REJECTIONS - 1)
-        watcher = _make_watcher()
-        agent = _make_agent(bead=task["id"], spawned_stage="reviewing")
-
-        handle_rejection(watcher, agent, db)
-
-        updated = get_task(db, task["id"])
-        assert updated["status"] == "blocked"
-
-
-class TestAcceptanceRejection:
-    def test_acceptance_rejection_blocks(self, db):
-        task = create_task(db, "Acceptance task")
-        advance_task(db, task["id"], to_stage="acceptance")
-        watcher = _make_watcher()
-        agent = _make_agent(bead=task["id"], spawned_stage="acceptance")
-
-        handle_rejection(watcher, agent, db)
-
-        updated = get_task(db, task["id"])
-        assert updated["status"] == "blocked"
-
-
 class TestInProgressReset:
     def test_resets_to_pending(self, db):
         task = _make_dev_task(db)
@@ -207,21 +166,6 @@ class TestClosed:
 
         assert get_task(db, task["id"])["stage"] == "done"
         mock_delete.assert_called_once_with(f"feature/{task['id']}")
-
-    @patch("debussy.transitions._verify_merge_landed", return_value=True)
-    @patch("debussy.transitions.delete_branch")
-    def test_closed_clears_rejections(self, mock_delete, mock_verify, db):
-        task = _make_dev_task(db)
-        advance_task(db, task["id"])  # → reviewing
-        advance_task(db, task["id"])  # → merging
-        watcher = _make_watcher()
-        watcher.rejections[task["id"]] = 2
-        agent = _make_agent(bead=task["id"], spawned_stage="merging")
-
-        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
-
-        assert task["id"] not in watcher.rejections
-
 
 class TestBlocked:
     def test_blocked_stays(self, db):

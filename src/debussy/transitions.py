@@ -11,17 +11,17 @@ from .config import (
     get_config, log,
 )
 from .takt import (
-    get_db, get_task, advance_task, reject_task, release_task,
+    get_db, get_task, advance_task, release_task,
     block_task, add_comment, update_task,
 )
-from .takt.log import add_log, NEXT_STAGE, SECURITY_NEXT_STAGE
+from .takt.log import add_log
+from .config import NEXT_STAGE, SECURITY_NEXT_STAGE
 from .worktree import delete_branch
 
 if TYPE_CHECKING:
     from .watcher import AgentInfo, Watcher
 
 MAX_RETRIES = 3
-from .takt.log import MAX_REJECTIONS
 
 
 def _remote_branch_exists(task_id: str) -> bool | None:
@@ -45,7 +45,8 @@ def _branch_has_commits(task_id: str, base: str) -> bool:
         )
         return result.returncode == 0 and int(result.stdout.strip()) > 0
     except (subprocess.SubprocessError, OSError, ValueError):
-        return True
+        log(f"Git error checking commits for feature/{task_id}, treating as no commits", "⚠️")
+        return False
 
 
 # Stages where agent completion means "task is done" (watcher moves to done)
@@ -58,9 +59,11 @@ def _is_terminal_stage(stage: str) -> bool:
 
 def _verify_merge_landed(task_id: str) -> bool:
     base = get_config().get("base_branch", "master")
+    log(f"Fetching origin to verify merge for {task_id}", "🔄")
     try:
-        subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=30)
+        subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=10)
     except (subprocess.SubprocessError, OSError):
+        log(f"Git fetch failed/timed out for {task_id}, cannot verify merge", "⚠️")
         return False
     try:
         ref_check = subprocess.run(
@@ -77,6 +80,7 @@ def _verify_merge_landed(task_id: str) -> bool:
         )
         return result.returncode == 0
     except (subprocess.SubprocessError, OSError):
+        log(f"Git error verifying merge for {task_id}, treating as unverified", "⚠️")
         return False
 
 
@@ -133,8 +137,6 @@ def _handle_agent_success(watcher: Watcher, agent: AgentInfo, task: dict, db) ->
                 log(f"Merge not verified on base branch for {task_id}, retrying merge", "⚠️")
                 add_log(db, task_id, "transition", "watcher", "unverified merge, retrying")
                 return True
-        watcher.rejections.pop(task_id, None)
-        watcher._save_rejections()
         delete_branch(f"feature/{task_id}")
         update_task(db, task_id, stage="done")
         log(f"Closed {task_id}: {stage} complete", "✅")
@@ -176,30 +178,6 @@ def _handle_empty_branch(watcher: Watcher, agent: AgentInfo, task: dict, db) -> 
     add_log(db, task_id, "transition", "watcher", f"empty branch retry {count}/{MAX_RETRIES}")
     # Keep at development stage for another attempt
     release_task(db, task_id)
-    return True
-
-
-def handle_rejection(watcher: Watcher, agent: AgentInfo, db) -> bool:
-    """Handle a rejected task — called by watcher when it detects rejection signal."""
-    task_id = agent.task
-
-    if agent.spawned_stage == STAGE_ACCEPTANCE:
-        log(f"Acceptance failed {task_id}: blocked for conductor to create fix tasks", "🚫")
-        block_task(db, task_id)
-        return True
-
-    result = reject_task(db, task_id, author="watcher")
-    count = result["rejection_count"]
-
-    if result["status"] == STATUS_BLOCKED:
-        log(f"Blocked {task_id}: rejected {count} times, needs conductor", "🚫")
-        add_comment(db, task_id, "watcher",
-                    f"Blocked after {count} rejection loops — needs conductor intervention")
-    else:
-        log(f"Rejected {task_id} ({count}/{MAX_REJECTIONS}): {agent.spawned_stage} → development", "↩️")
-
-    watcher.rejections[task_id] = count
-    watcher._save_rejections()
     return True
 
 

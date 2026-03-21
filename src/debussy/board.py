@@ -38,7 +38,7 @@ def _categorize_task(task):
     return BOARD_STAGE_MAP.get(stage, "backlog")
 
 
-def _build_buckets(tasks, running, all_tasks_by_id):
+def _build_buckets(tasks, running, unresolved_deps):
     buckets = {k: [] for k, _ in BOARD_COLUMNS}
 
     for task in tasks:
@@ -50,16 +50,15 @@ def _build_buckets(tasks, running, all_tasks_by_id):
         if key == "done":
             bucket.sort(key=lambda t: t.get("id", ""), reverse=True)
         else:
-            bucket.sort(key=lambda t: _sort_key(t, running, all_tasks_by_id))
+            bucket.sort(key=lambda t: _sort_key(t, running, unresolved_deps))
 
     return buckets
 
 
-def _sort_key(task, running, all_tasks_by_id):
+def _sort_key(task, running, unresolved_deps):
     task_id = task.get("id", "")
     is_running = task_id in running
-    with get_db() as db:
-        is_blocked = task.get("status") == STATUS_BLOCKED or bool(get_unresolved_deps(db, task_id))
+    is_blocked = task.get("status") == STATUS_BLOCKED or bool(unresolved_deps.get(task_id))
     has_priority = LABEL_PRIORITY in task.get("tags", [])
     return (not is_running, not is_blocked, not has_priority, task_id)
 
@@ -70,13 +69,12 @@ def _priority_tag(task):
     return ""
 
 
-def _task_marker(task, running, all_tasks_by_id):
+def _task_marker(task, running, unresolved_deps):
     task_id = task.get("id", "")
     if task_id in running:
         agent = running[task_id].get("agent", "")
         return f" \U0001f504 {agent}"
-    with get_db() as db:
-        deps = get_unresolved_deps(db, task_id)
+    deps = unresolved_deps.get(task_id, [])
     if task.get("status") == STATUS_BLOCKED or deps:
         if deps:
             short = [d.split("-")[-1] if "-" in d else d for d in deps]
@@ -105,7 +103,7 @@ def _render_done_content(done_tasks, content_width):
     return content_lines
 
 
-def _render_vertical(columns, buckets, running, all_tasks_by_id, term_width):
+def _render_vertical(columns, buckets, running, unresolved_deps, term_width):
     label_width = max(len(title) for _, title in columns) + 5
     content_width = term_width - label_width - 3
 
@@ -134,7 +132,7 @@ def _render_vertical(columns, buckets, running, all_tasks_by_id, term_width):
                 for task in shown:
                     task_id = task.get("id", "")
                     task_title = task.get("title", "")
-                    marker = _task_marker(task, running, all_tasks_by_id)
+                    marker = _task_marker(task, running, unresolved_deps)
                     pri = _priority_tag(task)
                     entry = f"{task_id}{pri} {task_title}{marker}"
                     content_lines.append(_board_truncate(entry, content_width).ljust(content_width))
@@ -156,13 +154,19 @@ def cmd_board(args):
     prefix = getattr(args, "project", None)
     with get_db() as db:
         all_tasks = list_tasks(db, prefix=prefix)
+        unresolved_deps = {}
+        for task in all_tasks:
+            task_id = task.get("id", "")
+            if task_id:
+                deps = get_unresolved_deps(db, task_id)
+                if deps:
+                    unresolved_deps[task_id] = deps
     running = get_running_agents()
-    all_tasks_by_id = {t.get("id"): t for t in all_tasks if t.get("id")}
 
-    buckets = _build_buckets(all_tasks, running, all_tasks_by_id)
+    buckets = _build_buckets(all_tasks, running, unresolved_deps)
     term_width = shutil.get_terminal_size().columns
 
-    print(_render_vertical(BOARD_COLUMNS, buckets, running, all_tasks_by_id, term_width))
+    print(_render_vertical(BOARD_COLUMNS, buckets, running, unresolved_deps, term_width))
 
     print()
     print_runtime_info(running)

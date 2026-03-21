@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from .config import STAGE_DONE, get_config, log
+from .takt import get_db, list_tasks
 
 WORKTREES_DIR = ".debussy-worktrees"
 
@@ -21,6 +22,8 @@ def _repo_root() -> Path:
         ["git", "rev-parse", "--show-toplevel"],
         capture_output=True, text=True, timeout=5,
     )
+    if result.returncode != 0:
+        raise RuntimeError("Not inside a git repository")
     return Path(result.stdout.strip())
 
 
@@ -30,7 +33,7 @@ def _worktree_path(agent_name: str) -> Path:
 
 def _symlink_dirs(worktree: Path, repo: Path):
     wt_dir = repo / WORKTREES_DIR
-    if not str(worktree).startswith(str(wt_dir)):
+    if not str(worktree.resolve()).startswith(str(wt_dir.resolve()) + "/"):
         raise RuntimeError(
             f"Refusing to symlink into {worktree} — not inside {wt_dir}"
         )
@@ -69,6 +72,8 @@ def _remove_worktree_for_branch(branch: str):
                 remove_worktree(agent_name)
                 log(f"Removed stale worktree {agent_name} holding branch {branch}", "🧹")
             current_path = None
+        elif not line.strip():
+            current_path = None
 
 
 def create_worktree(agent_name: str, branch: str, start_point: str | None = None, new_branch: bool = False, detach: bool = False) -> Path:
@@ -88,23 +93,27 @@ def create_worktree(agent_name: str, branch: str, start_point: str | None = None
     if detach:
         cmd = ["git", "worktree", "add", "--detach", str(wt_path), branch]
     elif new_branch:
-        if _branch_exists(branch):
-            cmd = ["git", "worktree", "add", str(wt_path), branch]
-        else:
-            cmd = ["git", "worktree", "add", "-b", branch, str(wt_path)]
-            if start_point:
-                cmd.append(start_point)
+        cmd = ["git", "worktree", "add", "-b", branch, str(wt_path)]
+        if start_point:
+            cmd.append(start_point)
     else:
         cmd = ["git", "worktree", "add", str(wt_path), branch]
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-    if result.returncode != 0 and new_branch and start_point:
+    if result.returncode != 0 and new_branch and "already exists" in result.stderr:
+        if wt_path.exists():
+            shutil.rmtree(wt_path, ignore_errors=True)
+        cmd = ["git", "worktree", "add", str(wt_path), branch]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    if result.returncode != 0 and new_branch:
         subprocess.run(["git", "worktree", "prune"], capture_output=True, timeout=10)
         if _branch_exists(branch):
             subprocess.run(["git", "branch", "-D", branch], capture_output=True, timeout=10)
         if wt_path.exists():
             shutil.rmtree(wt_path, ignore_errors=True)
-        cmd = ["git", "worktree", "add", "-b", branch, str(wt_path), start_point]
+        cmd = ["git", "worktree", "add", "-b", branch, str(wt_path)]
+        if start_point:
+            cmd.append(start_point)
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
         raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
@@ -130,7 +139,6 @@ def remove_worktree(agent_name: str):
 
 def _get_done_task_ids() -> set[str]:
     try:
-        from .takt import get_db, list_tasks
         with get_db() as db:
             tasks = list_tasks(db, stage=STAGE_DONE)
         return {t["id"] for t in tasks}
@@ -224,7 +232,7 @@ def cleanup_stale_worktrees():
     active_paths = set()
     for line in result.stdout.split("\n"):
         if line.startswith("worktree "):
-            active_paths.add(Path(line.split(" ", 1)[1]))
+            active_paths.add(Path(line.split(" ", 1)[1]).resolve())
 
     for child in wt_dir.iterdir():
         if child.is_dir() and child.resolve() not in active_paths:
@@ -251,6 +259,18 @@ def _delete_tracking_ref(branch: str):
         ["git", "update-ref", "-d", f"refs/remotes/origin/{branch}"],
         capture_output=True, timeout=5,
     )
+
+
+def delete_task_branch(task_id: str) -> None:
+    """Delete a developer's feature branch locally if it exists."""
+    branch = f"feature/{task_id}"
+    if _branch_exists(branch):
+        _remove_worktree_for_branch(branch)
+        subprocess.run(
+            ["git", "branch", "-D", branch],
+            capture_output=True, timeout=10,
+        )
+        log(f"Deleted task branch: {branch}", "🧹")
 
 
 def delete_branch(branch: str):

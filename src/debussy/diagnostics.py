@@ -6,14 +6,14 @@ LOG_MAX_LINE_LEN = 200
 
 def read_log_tail(log_path: str, max_lines: int = LOG_TAIL_LINES, max_line_len: int = LOG_MAX_LINE_LEN) -> str:
     try:
-        with open(log_path) as f:
+        with open(log_path, "rb") as f:
             lines = f.readlines()
     except OSError:
         return ""
     tail = lines[-max_lines:] if len(lines) > max_lines else lines
     truncated = []
-    for line in tail:
-        line = line.rstrip("\n")
+    for raw_line in tail:
+        line = raw_line.decode("utf-8", errors="replace").rstrip("\n")
         if len(line) > max_line_len:
             line = line[:max_line_len] + "..."
         truncated.append(line)

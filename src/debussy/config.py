@@ -48,7 +48,7 @@ DEFAULTS = {
     "use_tmux_windows": False,
     "agent_provider": "claude",
     "role_models": {
-        "conductor": "claude-opus-4-6[1m]",
+        "conductor": "claude-opus-4-6",
         "developer": "claude-sonnet-4-6",
         "reviewer": "claude-opus-4-6",
         "security-reviewer": "claude-opus-4-6",
@@ -75,11 +75,12 @@ STAGE_TO_ROLE = {
 }
 
 NEXT_STAGE = {
+    STAGE_BACKLOG: STAGE_DEVELOPMENT,
     STAGE_DEVELOPMENT: STAGE_REVIEWING,
     STAGE_REVIEWING: STAGE_MERGING,
     STAGE_SECURITY_REVIEW: STAGE_MERGING,
-    STAGE_MERGING: None,
-    STAGE_ACCEPTANCE: None,
+    STAGE_MERGING: STAGE_DONE,
+    STAGE_ACCEPTANCE: STAGE_DONE,
 }
 
 SECURITY_NEXT_STAGE = {
@@ -124,15 +125,22 @@ def atomic_write(path: Path, data: str):
         raise
 
 
+_config_cache = {}
+_config_mtime = 0.0
+
+
 def get_config() -> dict:
-    if not CONFIG_FILE.exists():
-        return DEFAULTS.copy()
+    global _config_cache, _config_mtime
+    path = CONFIG_DIR / "config.json"
     try:
-        with open(CONFIG_FILE) as f:
-            cfg = json.load(f)
-        return {**DEFAULTS, **cfg}
-    except (OSError, ValueError):
-        return DEFAULTS.copy()
+        mtime = path.stat().st_mtime
+        if mtime != _config_mtime:
+            _config_cache = json.loads(path.read_text())
+            _config_mtime = mtime
+    except (FileNotFoundError, PermissionError, json.JSONDecodeError, OSError):
+        _config_cache = {}
+        _config_mtime = 0.0
+    return {**DEFAULTS, **_config_cache}
 
 
 def _read_config_file() -> dict:

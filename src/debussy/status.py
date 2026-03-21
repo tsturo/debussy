@@ -10,8 +10,15 @@ from .config import (
     STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
     get_config,
 )
-from .metrics import fmt_duration
 from .takt import get_db, get_log, get_unresolved_deps
+
+
+def _fmt_duration(seconds: float) -> str:
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    if seconds < 3600:
+        return f"{int(seconds / 60)}m"
+    return f"{seconds / 3600:.1f}h"
 
 
 def get_running_agents() -> dict:
@@ -168,7 +175,7 @@ def print_runtime_info(running):
             agent = info.get("agent", "?")
             role = info.get("role", "?")
             started = info.get("started_at")
-            dur = fmt_duration(now - started) if started else "?"
+            dur = _fmt_duration(now - started) if started else "?"
             print(f"  {agent} ({role}) \u2192 {task_id}  [{dur}]")
         print()
 

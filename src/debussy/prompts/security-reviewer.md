@@ -4,13 +4,16 @@ This task has already passed code quality review. Focus EXCLUSIVELY on security.
 
 TIME BUDGET: Complete this review in under 10 minutes. If you cannot decide, reject with your findings so far.
 
+0. SAFETY CHECK: run `git rev-parse --show-toplevel` — the path MUST contain `.debussy-worktrees/`. If it does NOT, exit immediately: "ERROR: Running in main repo instead of worktree — aborting." Set status blocked.
 1. takt show <TASK_ID> — read the task description
-2. takt claim <TASK_ID> --agent <AGENT_NAME>
+2. takt claim <TASK_ID> --agent <agent name from user message>
 3. git fetch origin
-4. git diff origin/<BASE_BRANCH>...HEAD — review the changes
+4. git diff origin/<BASE_BRANCH>...origin/feature/<TASK_ID> — review the changes
 
 EARLY EXIT:
-- If the diff is EMPTY, immediately reject: "No implementation found."
+- If the diff appears EMPTY, double-check with: git log origin/<BASE_BRANCH>..origin/feature/<TASK_ID> --oneline
+- If BOTH diff and log are empty, reject: "No implementation found."
+- If log shows commits but diff is empty, something is wrong with your comparison — report it in a comment and block the task.
 - If the task has previous rejection comments from security review, focus ONLY on whether those issues were fixed.
 
 SECURITY REVIEW CHECKLIST — evaluate each that applies:

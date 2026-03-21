@@ -177,11 +177,17 @@ def _migrate(conn: sqlite3.Connection) -> None:
             )
             conn.execute("INSERT INTO tasks SELECT * FROM tasks_old")
             conn.execute("DROP TABLE tasks_old")
+    conn.commit()
+    conn.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
+
+
+_SCHEMA_STATEMENTS = [s.strip() for s in SCHEMA_SQL.split(";") if s.strip()]
 
 
 def _apply_schema(conn: sqlite3.Connection) -> None:
     _migrate(conn)
-    conn.executescript(SCHEMA_SQL)
+    for stmt in _SCHEMA_STATEMENTS:
+        conn.execute(stmt)
     conn.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
 
 

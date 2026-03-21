@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .config import (
     SESSION_NAME, STATUS_ACTIVE, STATUS_PENDING,
-    clean_config, get_config, log, parse_value, set_config,
+    atomic_write, clean_config, get_config, log, parse_value, set_config,
 )
 from .takt import get_db, get_task, init_db, release_task, add_comment
 from .hooks import install_hooks
@@ -185,7 +185,7 @@ def _delete_orphan_branches(paused_tasks: set[str]):
             branch = line.strip().lstrip("* ")
             if not branch:
                 continue
-            task_id = branch.replace("feature/", "")
+            task_id = branch.removeprefix("feature/")
             if task_id in paused_tasks:
                 subprocess.run(
                     ["git", "branch", "-D", branch],
@@ -211,8 +211,7 @@ def _save_watcher_state(state: dict):
     state_file = Path(".debussy/watcher_state.json")
     if state:
         state_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(state_file, "w") as f:
-            json.dump(state, f)
+        atomic_write(state_file, json.dumps(state))
     elif state_file.exists():
         state_file.unlink()
 

@@ -32,12 +32,12 @@ class TestSpawnAgentWorktreeFailure(unittest.TestCase):
 
     @patch("debussy.spawner.preflight_spawn", return_value=None)
     @patch("debussy.spawner.create_agent_worktree", return_value="")
-    @patch("debussy.spawner.get_agent_name", return_value="reviewer-bach")
-    def test_spawn_aborts_when_worktree_fails_for_reviewer(self, _name, _wt, _pf):
+    @patch("debussy.spawner.get_agent_name", return_value="security-reviewer-bach")
+    def test_spawn_aborts_when_worktree_fails_for_security_reviewer(self, _name, _wt, _pf):
         from debussy.spawner import spawn_agent
 
         watcher = self._make_watcher()
-        result = spawn_agent(watcher, "reviewer", "bd-001", "stage:reviewing")
+        result = spawn_agent(watcher, "security-reviewer", "bd-001", "stage:security_review")
 
         self.assertFalse(result)
 

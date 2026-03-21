@@ -83,10 +83,12 @@ def get_system_prompt(role: str, stage: str) -> str:
     return _substitute_visual_blocks(text)
 
 
-def get_user_message(role: str, task_id: str, base: str, labels: list[str] | None = None) -> str:
+def get_user_message(role: str, task_id: str, base: str, agent_name: str = "", labels: list[str] | None = None) -> str:
     if not base:
         return _NO_BRANCH_ERROR
     parts = [f"Task: {task_id}"]
+    if agent_name:
+        parts.append(f"Agent name: {agent_name}")
     if base:
         parts.append(f"Base branch: {base}")
     tags = [l for l in (labels or []) if not l.startswith("stage:")]

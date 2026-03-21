@@ -5,7 +5,7 @@ You work from the main repository — NOT a worktree. You review remote branches
 TIME BUDGET: Complete this review in under 10 minutes. If you cannot decide, reject with your findings so far.
 
 1. takt show <TASK_ID> — read the task description carefully
-2. takt claim <TASK_ID> --agent <AGENT_NAME>
+2. takt claim <TASK_ID> --agent <agent name from user message>
 3. git fetch origin
 
 EARLY EXIT — check these FIRST before doing a full review:

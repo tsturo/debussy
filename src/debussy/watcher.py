@@ -5,10 +5,9 @@ import os
 import signal
 import subprocess
 import time
+import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
-
-os.environ.pop("ANTHROPIC_API_KEY", None)
 
 from .config import (
     AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
@@ -21,9 +20,19 @@ from .takt.log import add_log
 from .tmux import send_keys, run_tmux, tmux_window_id_names, tmux_window_ids as get_tmux_windows
 from .transitions import MAX_RETRIES, ensure_stage_transition
 from .diagnostics import comment_on_task, format_death_comment, read_log_tail
-from .worktree import cleanup_orphaned_branches, cleanup_stale_worktrees, remove_worktree
+from .worktree import cleanup_orphaned_branches, cleanup_stale_worktrees, delete_task_branch, remove_worktree
 
 MIN_AGENT_RUNTIME = 30
+
+
+def _repo_root() -> Path:
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        capture_output=True, text=True, timeout=5,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("Not inside a git repository")
+    return Path(result.stdout.strip())
 
 
 def _get_task_status(task_id: str) -> str | None:
@@ -57,7 +66,14 @@ class AgentInfo:
             return self.name in tmux_windows
         return self.proc is not None and self.proc.poll() is None
 
-    def is_done(self) -> bool:
+    def check_completion(self) -> bool:
+        """Check if the agent's task has moved past active status.
+
+        Mutates self.claimed as a side effect: once we observe STATUS_ACTIVE,
+        we record that the agent did claim the task.  This lets us distinguish
+        "agent died before claiming" from "agent finished work" when the
+        process/window disappears.
+        """
         current = _get_task_status(self.task)
         if current is None:
             return False
@@ -81,24 +97,22 @@ class AgentInfo:
 
 
 class Watcher:
-    LOCK_FILE = Path(".debussy/watcher.lock")
 
     def __init__(self):
+        self._root = _repo_root()
         self.running: dict[str, AgentInfo] = {}
         self.queued: set[str] = set()
         self.used_names: set[str] = set()
         self.failures: dict[str, int] = {}
         self.empty_branch_retries: dict[str, int] = {}
-        self.rejections: dict[str, int] = {}
         self.spawn_counts: dict[str, int] = {}
         self.blocked_failures: set[str] = set()
         self.should_exit = False
-        self.state_file = Path(".debussy/watcher_state.json")
-        self._rejections_file = Path(".debussy/rejections.json")
-        self._empty_branch_file = Path(".debussy/empty_branch_retries.json")
+        self.lock_file = self._root / ".debussy" / "watcher.lock"
+        self.state_file = self._root / ".debussy" / "watcher_state.json"
+        self._empty_branch_file = self._root / ".debussy" / "empty_branch_retries.json"
         self._cached_windows: set[str] | None = None
         self.last_notified_tasks: str = ""
-        self._load_rejections()
         self._load_empty_branch_retries()
         _ensure_gitignored()
         cleanup_stale_worktrees()
@@ -106,10 +120,10 @@ class Watcher:
         init_db()
 
     def _acquire_lock(self) -> bool:
-        self.LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
-        if self.LOCK_FILE.exists():
+        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
+        if self.lock_file.exists():
             try:
-                pid = int(self.LOCK_FILE.read_text().strip())
+                pid = int(self.lock_file.read_text().strip())
                 if pid != os.getpid():
                     os.kill(pid, 0)
                     os.kill(pid, signal.SIGTERM)
@@ -123,16 +137,25 @@ class Watcher:
                     else:
                         log(f"Previous watcher (PID {pid}) did not stop", "⚠️")
                         return False
+                # Old process confirmed dead — remove its lock so O_EXCL can succeed
+                self.lock_file.unlink(missing_ok=True)
             except (ValueError, OSError):
-                pass
-        self.LOCK_FILE.write_text(str(os.getpid()))
+                # Corrupt lock file or process already gone — remove stale lock
+                self.lock_file.unlink(missing_ok=True)
+        # Atomic lock creation: O_CREAT|O_EXCL ensures only one watcher wins
+        try:
+            fd = os.open(str(self.lock_file), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+        except FileExistsError:
+            return False
         return True
 
     def _kill_stale_watchers(self):
-        if not self.LOCK_FILE.exists():
+        if not self.lock_file.exists():
             return
         try:
-            pid = int(self.LOCK_FILE.read_text().strip())
+            pid = int(self.lock_file.read_text().strip())
             if pid == os.getpid():
                 return
             os.kill(pid, signal.SIGTERM)
@@ -142,25 +165,12 @@ class Watcher:
 
     def _release_lock(self):
         try:
-            if self.LOCK_FILE.exists():
-                pid = int(self.LOCK_FILE.read_text().strip())
+            if self.lock_file.exists():
+                pid = int(self.lock_file.read_text().strip())
                 if pid == os.getpid():
-                    self.LOCK_FILE.unlink()
+                    self.lock_file.unlink()
         except (ValueError, OSError):
             pass
-
-    def _load_rejections(self):
-        try:
-            if self._rejections_file.exists():
-                self.rejections = json.loads(self._rejections_file.read_text())
-        except (OSError, ValueError):
-            pass
-
-    def _save_rejections(self):
-        try:
-            atomic_write(self._rejections_file, json.dumps(self.rejections))
-        except OSError as e:
-            log(f"Failed to persist rejections: {e}", "⚠️")
 
     def _load_empty_branch_retries(self):
         try:
@@ -273,7 +283,7 @@ class Watcher:
         transitioned = False
         for key, agent in list(self.running.items()):
             if agent.tmux and agent.is_alive(self._cached_windows):
-                if agent.is_done():
+                if agent.check_completion():
                     log(f"{agent.name} completed {agent.task}", "✅")
                     agent.stop()
                     if ensure_stage_transition(self, agent):
@@ -304,6 +314,13 @@ class Watcher:
                     if task_status == STATUS_ACTIVE:
                         with get_db() as db:
                             release_task(db, agent.task)
+                    # Clean up stale task branch so next developer spawn gets a fresh checkout
+                    if agent.role == "developer":
+                        try:
+                            delete_task_branch(agent.task)
+                            log(f"Deleted stale branch feature/{agent.task} after agent death", "🧹")
+                        except (subprocess.SubprocessError, OSError) as e:
+                            log(f"Failed to delete branch for {agent.task}: {e}", "⚠️")
                 self._remove_agent(key, agent)
                 cleaned = True
 
@@ -373,8 +390,13 @@ class Watcher:
 
     def _shutdown(self):
         log("Stopping agents...", "🛑")
-        for agent in self.running.values():
+        for agent in list(self.running.values()):
             agent.stop()
+            if agent.worktree_path:
+                try:
+                    remove_worktree(agent.name)
+                except (subprocess.SubprocessError, OSError) as e:
+                    log(f"Failed to remove worktree for {agent.name}: {e}", "⚠️")
         self._release_lock()
         log("Watcher stopped")
 
@@ -382,6 +404,8 @@ class Watcher:
         self.should_exit = True
 
     def run(self):
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+
         signal.signal(signal.SIGINT, self.signal_handler)
         signal.signal(signal.SIGTERM, self.signal_handler)
         signal.signal(signal.SIGHUP, self.signal_handler)
@@ -420,8 +444,8 @@ class Watcher:
                     self._notify_conductor()
                     self._log_heartbeat()
                     cleanup_orphaned_branches()
-            except Exception as e:
-                log(f"Error: {e}", "⚠️")
+            except Exception:
+                log(f"Error in watcher loop:\n{traceback.format_exc()}", "⚠️")
             time.sleep(POLL_INTERVAL)
 
         self._shutdown()

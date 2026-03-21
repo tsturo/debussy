@@ -46,9 +46,11 @@ def create_agent_worktree(role: str, task_id: str, agent_name: str) -> str:
     cfg = get_config()
     base = cfg.get("base_branch", "master")
     try:
-        subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=30)
-    except (subprocess.SubprocessError, OSError):
-        pass
+        result = subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=30)
+        if result.returncode != 0:
+            log(f"git fetch failed: {result.stderr.strip()}", "⚠️")
+    except (subprocess.SubprocessError, OSError) as e:
+        log(f"git fetch failed: {e}", "⚠️")
     def _create(r, bid, name, b):
         if r == "developer":
             return str(create_worktree(name, f"feature/{bid}", start_point=f"origin/{b}", new_branch=True))
@@ -203,7 +205,7 @@ def spawn_agent(watcher, role: str, task_id: str, stage: str, labels: list[str] 
         watcher.failures[task_id] = watcher.failures.get(task_id, 0) + 1
         return False
     base = get_base_branch()
-    user_message = get_user_message(role, task_id, base, labels=labels)
+    user_message = get_user_message(role, task_id, base, agent_name=agent_name, labels=labels)
 
     cfg = get_config()
     use_tmux = cfg.get("use_tmux_windows", False) and os.environ.get("TMUX") is not None

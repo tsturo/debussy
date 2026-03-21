@@ -6,7 +6,6 @@ import sys
 
 from . import cli, __version__
 from .board import cmd_board
-from .metrics import cmd_metrics
 
 
 def main():
@@ -47,9 +46,6 @@ def main():
     p = subparsers.add_parser("board", help="Show kanban board")
     p.add_argument("-p", "--project", help="Filter by project prefix")
     p.set_defaults(func=cmd_board)
-
-    p = subparsers.add_parser("metrics", help="Show pipeline metrics")
-    p.set_defaults(func=cmd_metrics)
 
     p = subparsers.add_parser("kill", help="Kill current session")
     p.add_argument("--all", action="store_true", help="Kill all debussy sessions")
