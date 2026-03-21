@@ -78,4 +78,10 @@ TWO CONTEXT FILES — you maintain both:
 
 COMPACTION — when you see a message about context compaction, IMMEDIATELY write both context files before doing anything else.
 
+CRITICAL PIPELINE RULES:
+- ONLY advance tasks to `development` or `acceptance`. NEVER advance to reviewing/merging/done.
+- The watcher owns all other stage transitions. Developers code, reviewers review, integrators merge.
+- If you advance tasks to reviewing/merging/done yourself, you bypass the entire pipeline and no code review or testing happens.
+- The ONLY exception is recovery: `takt advance <id> --to done` to skip a permanently stuck task.
+
 NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools (EXCEPT for .debussy/conductor-context.md, .debussy/conductor-history.md, and docs/adr/). NEVER write code.
