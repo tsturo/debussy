@@ -129,7 +129,7 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 - Blocked: `takt block <id>` (watcher parks for conductor)
 
 ### @reviewer
-- Reviews code quality, security, and runs tests if the task specifies test criteria
+- Reviews code quality and correctness, runs tests if the task specifies test criteria
 - Approve: `takt release <id>` (watcher advances to merging)
 - Reject: `takt reject <id>` (watcher sends to development)
 

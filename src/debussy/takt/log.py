@@ -54,6 +54,7 @@ def advance_task(db: sqlite3.Connection, task_id: str, to_stage: str | None = No
     if "frontend" in tags and "ux_review" not in tags:
         tags = tags + ["ux_review"]
         update_task(db, task_id, tags=tags)
+        add_log(db, task_id, "transition", "system", "auto-added ux_review tag (frontend task)")
         task = get_task(db, task_id)
 
     current = task["stage"]
