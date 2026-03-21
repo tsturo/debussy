@@ -6,7 +6,7 @@ import json
 import sqlite3
 
 from .models import get_task, update_task
-from ..config import NEXT_STAGE, SECURITY_NEXT_STAGE
+from ..config import NEXT_STAGE, SECURITY_NEXT_STAGE, POST_MERGE_STAGES
 
 MAX_REJECTIONS = 3
 
@@ -124,11 +124,12 @@ def block_task(db: sqlite3.Connection, task_id: str) -> dict:
 
 
 def get_unresolved_deps(db: sqlite3.Connection, task_id: str) -> list[str]:
-    """Return dependency IDs where the dependency's stage is not 'done'."""
+    """Return dependency IDs where the dependency hasn't passed merging yet."""
+    placeholders = ",".join("?" * len(POST_MERGE_STAGES))
     rows = db.execute(
-        """SELECT d.depends_on_id FROM dependencies d
+        f"""SELECT d.depends_on_id FROM dependencies d
            JOIN tasks t ON t.id = d.depends_on_id
-           WHERE d.task_id = ? AND t.stage != 'done'""",
-        (task_id,),
+           WHERE d.task_id = ? AND t.stage NOT IN ({placeholders})""",
+        (task_id, *POST_MERGE_STAGES),
     ).fetchall()
     return [r["depends_on_id"] for r in rows]

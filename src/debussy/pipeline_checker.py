@@ -5,6 +5,7 @@ import subprocess
 from .config import (
     LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_BACKLOG, STAGE_DEVELOPMENT,
     STAGE_TO_ROLE, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
+    POST_MERGE_STAGES,
     get_config, log,
 )
 from .spawner import MAX_TOTAL_SPAWNS, spawn_agent
@@ -21,7 +22,7 @@ def get_unmerged_dep_branches(task: dict) -> list[str]:
     for dep_id in task.get("dependencies", []):
         with get_db() as db:
             dep_task = get_task(db, dep_id)
-        if dep_task and dep_task["stage"] == "done":
+        if dep_task and dep_task["stage"] in POST_MERGE_STAGES:
             continue
         try:
             result = subprocess.run(
