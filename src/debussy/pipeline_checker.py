@@ -3,6 +3,7 @@
 import subprocess
 
 from .config import (
+    ACCEPTANCE_ROLES,
     LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_BACKLOG, STAGE_DEVELOPMENT,
     STAGE_TO_ROLE, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
     POST_MERGE_STAGES,
@@ -93,10 +94,20 @@ def _try_release_task(watcher, task, status):
             log(f"Released {task_id}: deps resolved → {STAGE_DEVELOPMENT}", "🔓")
 
 
+def _is_role_running_for_task(watcher, role, task_id):
+    """Check if a specific role is already running for a task."""
+    key = f"{role}:{task_id}"
+    return key in watcher.running
+
+
 def _should_skip_task(watcher, task_id, task, role):
     if not task_id:
         return "no id"
-    if watcher.is_task_running(task_id):
+    # For acceptance, check if THIS role is already running, not just any agent
+    if role in ACCEPTANCE_ROLES and task.get("stage") == STAGE_ACCEPTANCE:
+        if _is_role_running_for_task(watcher, role, task_id):
+            return "already running"
+    elif watcher.is_task_running(task_id):
         return "already running"
     if watcher.failures.get(task_id, 0) >= MAX_RETRIES:
         _block_failed_task(watcher, task_id, "failures")
@@ -175,9 +186,34 @@ def _scan_stage(watcher, stage, role, spawn_budget: int) -> int:
 MAX_SPAWNS_PER_CYCLE = 2
 
 
+def _scan_acceptance(watcher, spawn_budget: int) -> int:
+    """Scan acceptance stage, spawning all required roles for each task."""
+    spawned = 0
+    with get_db() as db:
+        tasks = list_tasks(db, stage=STAGE_ACCEPTANCE, status=STATUS_PENDING)
+
+    for task in tasks:
+        if spawned >= spawn_budget:
+            break
+        task_id = task.get("id")
+        for role in ACCEPTANCE_ROLES:
+            if spawned >= spawn_budget:
+                break
+            skip = _should_skip_task(watcher, task_id, task, role)
+            if skip:
+                continue
+            watcher.queued.discard(task_id)
+            if spawn_agent(watcher, role, task_id, STAGE_ACCEPTANCE, labels=task.get("tags")):
+                spawned += 1
+    return spawned
+
+
 def check_pipeline(watcher):
     budget = MAX_SPAWNS_PER_CYCLE
     for stage, role in STAGE_TO_ROLE.items():
         if budget <= 0:
             break
-        budget -= _scan_stage(watcher, stage, role, budget)
+        if stage == STAGE_ACCEPTANCE:
+            budget -= _scan_acceptance(watcher, budget)
+        else:
+            budget -= _scan_stage(watcher, stage, role, budget)
