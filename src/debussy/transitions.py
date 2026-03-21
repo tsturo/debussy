@@ -24,6 +24,19 @@ MAX_RETRIES = 3
 from .takt.log import MAX_REJECTIONS
 
 
+def _remote_branch_exists(task_id: str) -> bool | None:
+    try:
+        result = subprocess.run(
+            ["git", "ls-remote", "--heads", "origin", f"feature/{task_id}"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0:
+            return None
+        return bool(result.stdout.strip())
+    except (subprocess.SubprocessError, OSError):
+        return None
+
+
 def _branch_has_commits(task_id: str, base: str) -> bool:
     try:
         result = subprocess.run(
@@ -128,8 +141,11 @@ def _handle_agent_success(watcher: Watcher, agent: AgentInfo, task: dict, db) ->
         add_log(db, task_id, "transition", "watcher", f"{stage} -> done")
         return True
 
-    # Development: check for empty branch before advancing
     if stage == STAGE_DEVELOPMENT:
+        subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=30)
+        remote_exists = _remote_branch_exists(task_id)
+        if remote_exists is False:
+            return _handle_empty_branch(watcher, agent, task, db)
         base = get_config().get("base_branch", "master")
         if not _branch_has_commits(task_id, base):
             return _handle_empty_branch(watcher, agent, task, db)

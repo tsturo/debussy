@@ -7,8 +7,8 @@ import pytest
 from debussy.transitions import (
     MAX_REJECTIONS, MAX_RETRIES,
     _compute_next_stage, _dispatch_transition, _handle_agent_success,
-    _handle_empty_branch, _is_terminal_stage, handle_rejection,
-    ensure_stage_transition,
+    _handle_empty_branch, _is_terminal_stage, _remote_branch_exists,
+    handle_rejection, ensure_stage_transition,
 )
 from debussy.takt import get_db, init_db, create_task, advance_task, update_task, get_task
 from debussy.takt.log import add_log
@@ -88,8 +88,9 @@ class TestTerminalStage:
 
 
 class TestDispatchAdvance:
+    @patch("debussy.transitions._remote_branch_exists", return_value=True)
     @patch("debussy.transitions._branch_has_commits", return_value=True)
-    def test_development_to_reviewing(self, mock_commits, db):
+    def test_development_to_reviewing(self, mock_commits, mock_remote, db):
         task = _make_dev_task(db)
         watcher = _make_watcher()
         agent = _make_agent(bead=task["id"], spawned_stage="development")
@@ -249,9 +250,10 @@ class TestExternalRemoval:
 
 
 class TestEmptyBranch:
+    @patch("debussy.transitions._remote_branch_exists", return_value=True)
     @patch("debussy.transitions._branch_has_commits", return_value=False)
     @patch("debussy.transitions.get_config", return_value={"base_branch": "master"})
-    def test_empty_branch_retries(self, mock_cfg, mock_commits, db):
+    def test_empty_branch_retries(self, mock_cfg, mock_commits, mock_remote, db):
         task = _make_dev_task(db)
         watcher = _make_watcher()
         agent = _make_agent(bead=task["id"], spawned_stage="development")
@@ -261,9 +263,10 @@ class TestEmptyBranch:
         assert watcher.empty_branch_retries[task["id"]] == 1
         assert get_task(db, task["id"])["stage"] == "development"
 
+    @patch("debussy.transitions._remote_branch_exists", return_value=True)
     @patch("debussy.transitions._branch_has_commits", return_value=False)
     @patch("debussy.transitions.get_config", return_value={"base_branch": "master"})
-    def test_empty_branch_max_retries_blocks(self, mock_cfg, mock_commits, db):
+    def test_empty_branch_max_retries_blocks(self, mock_cfg, mock_commits, mock_remote, db):
         task = _make_dev_task(db)
         watcher = _make_watcher()
         watcher.empty_branch_retries[task["id"]] = MAX_RETRIES - 1
@@ -272,6 +275,54 @@ class TestEmptyBranch:
         _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
         assert get_task(db, task["id"])["status"] == "blocked"
+
+
+class TestRemoteBranchExists:
+    @patch("debussy.transitions.subprocess.run")
+    def test_returns_true_when_branch_exists(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="abc123\trefs/heads/feature/TST-1\n",
+        )
+        assert _remote_branch_exists("TST-1") is True
+
+    @patch("debussy.transitions.subprocess.run")
+    def test_returns_false_when_branch_missing(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="")
+        assert _remote_branch_exists("TST-1") is False
+
+    @patch("debussy.transitions.subprocess.run")
+    def test_returns_none_on_nonzero_exit(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=128, stdout="")
+        assert _remote_branch_exists("TST-1") is None
+
+    @patch("debussy.transitions.subprocess.run", side_effect=OSError("network"))
+    def test_returns_none_on_exception(self, mock_run):
+        assert _remote_branch_exists("TST-1") is None
+
+
+class TestRemoteBranchGate:
+    @patch("debussy.transitions._remote_branch_exists", return_value=False)
+    def test_missing_remote_triggers_empty_branch(self, mock_remote, db):
+        task = _make_dev_task(db)
+        watcher = _make_watcher()
+        agent = _make_agent(bead=task["id"], spawned_stage="development")
+
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
+
+        assert watcher.empty_branch_retries[task["id"]] == 1
+        assert get_task(db, task["id"])["stage"] == "development"
+
+    @patch("debussy.transitions._branch_has_commits", return_value=True)
+    @patch("debussy.transitions._remote_branch_exists", return_value=None)
+    def test_network_failure_skips_remote_check(self, mock_remote, mock_commits, db):
+        task = _make_dev_task(db)
+        watcher = _make_watcher()
+        agent = _make_agent(bead=task["id"], spawned_stage="development")
+
+        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
+
+        assert get_task(db, task["id"])["stage"] == "reviewing"
 
 
 class TestMergeVerification:
@@ -310,8 +361,9 @@ class TestEnsureStageTransition:
     avoiding WAL write-lock conflicts when ensure_stage_transition opens its own connection.
     """
 
+    @patch("debussy.transitions._remote_branch_exists", return_value=True)
     @patch("debussy.transitions._branch_has_commits", return_value=True)
-    def test_advances_development_task_to_reviewing(self, mock_commits, project):
+    def test_advances_development_task_to_reviewing(self, mock_commits, mock_remote, project):
         """ensure_stage_transition advances a development task to reviewing when branch has commits."""
         with get_db() as db:
             task = _make_dev_task(db)
