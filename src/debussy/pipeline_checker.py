@@ -109,7 +109,8 @@ def _should_skip_task(watcher, task_id, task, role):
             return "already running"
     elif watcher.is_task_running(task_id):
         return "already running"
-    if watcher.failures.get(task_id, 0) >= MAX_RETRIES:
+    fail_key = f"{role}:{task_id}" if role in ACCEPTANCE_ROLES and task.get("stage") == STAGE_ACCEPTANCE else task_id
+    if watcher.failures.get(fail_key, 0) >= MAX_RETRIES:
         _block_failed_task(watcher, task_id, "failures")
         return "max failures"
     if watcher.spawn_counts.get(task_id, 0) >= MAX_TOTAL_SPAWNS:

@@ -178,10 +178,10 @@ class Watcher:
         return sum(1 for a in self._alive_agents() if a.role == role)
 
     def _all_acceptance_agents_done(self, task_id: str) -> bool:
-        """Check if all acceptance agents for a task have finished."""
+        """Check if all acceptance agents for a task have finished or been removed."""
         return not any(
             a.task == task_id and a.spawned_stage == STAGE_ACCEPTANCE
-            for a in self._alive_agents()
+            for a in self.running.values()
         )
 
     def _check_timeouts(self):
@@ -250,8 +250,9 @@ class Watcher:
                         transitioned = True
                     log(f"{agent.name} finished {agent.task}", "✔️")
                 else:
-                    self.failures[agent.task] = self.failures.get(agent.task, 0) + 1
-                    log(f"{agent.name} died on {agent.task} after {int(elapsed)}s, status={task_status} (attempt {self.failures[agent.task]}/{MAX_RETRIES})", "💥")
+                    fail_key = f"{agent.role}:{agent.task}" if agent.spawned_stage == STAGE_ACCEPTANCE else agent.task
+                    self.failures[fail_key] = self.failures.get(fail_key, 0) + 1
+                    log(f"{agent.name} died on {agent.task} after {int(elapsed)}s, status={task_status} (attempt {self.failures[fail_key]}/{MAX_RETRIES})", "💥")
                     log_tail = read_log_tail(agent.log_path) if agent.log_path else ""
                     comment = format_death_comment(agent.name, int(elapsed), str(task_status), log_tail)
                     comment_on_task(agent.task, comment)
