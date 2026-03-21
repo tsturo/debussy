@@ -5,7 +5,8 @@ import shutil
 from .config import (
     LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_BACKLOG, STAGE_DEVELOPMENT,
     STAGE_DONE, STAGE_MERGING, STAGE_REVIEWING,
-    STAGE_SECURITY_REVIEW, STATUS_BLOCKED,
+    STAGE_SECURITY_REVIEW, STAGE_UX_REVIEW, STAGE_PERF_REVIEW,
+    STATUS_BLOCKED,
 )
 from .status import get_running_agents, print_runtime_info
 from .takt import get_db, get_unresolved_deps, list_tasks
@@ -16,6 +17,8 @@ BOARD_COLUMNS = [
     ("review", "Review"),
     ("sec-review", "Sec Review"),
     ("merge", "Merge"),
+    ("ux-review", "UX Review"),
+    ("perf-review", "Perf Review"),
     ("accept", "Accept"),
     ("backlog", "Backlog"),
     ("done", "Done"),
@@ -25,6 +28,8 @@ BOARD_STAGE_MAP = {
     STAGE_REVIEWING: "review",
     STAGE_SECURITY_REVIEW: "sec-review",
     STAGE_MERGING: "merge",
+    STAGE_UX_REVIEW: "ux-review",
+    STAGE_PERF_REVIEW: "perf-review",
     STAGE_ACCEPTANCE: "accept",
     STAGE_BACKLOG: "backlog",
     STAGE_DONE: "done",
