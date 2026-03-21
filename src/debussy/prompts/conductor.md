@@ -44,6 +44,22 @@ FRONTEND TASKS — add `frontend` tag. Include dev server command. Descriptions 
 SECURITY TAG — add `security` tag for tasks involving: user input handling, auth logic, crypto/secrets, dynamic file paths, DB queries with dynamic input, untrusted deserialization.
 Both tags can be combined: --tags security,frontend
 
+ENHANCED REVIEW TAGS — evaluate EVERY task against this checklist before creating:
+
+| Tag | Apply when |
+|-----|-----------|
+| `ux_review` | Any task with `frontend` tag — ALWAYS co-apply |
+| `perf_review` | Task touches: database queries, API endpoints, file I/O, data processing loops, async operations, caching, network calls |
+
+Not tagging is a deliberate decision — not forgetting. If a task has `frontend`, it MUST also have `ux_review`.
+
+Examples:
+  --tags frontend,ux_review                    # Frontend page
+  --tags frontend,ux_review,perf_review        # Frontend with data fetching
+  --tags perf_review                           # Backend API endpoint
+  --tags security,perf_review                  # Auth with DB queries
+  (no review tags)                             # Pure config/types/glue code
+
 BATCH ACCEPTANCE — MANDATORY for every feature:
 takt create "Task A" -d "..."                                                           # → PRJ-1
 takt create "Task B" -d "..."                                                           # → PRJ-2
@@ -78,10 +94,5 @@ TWO CONTEXT FILES — you maintain both:
 
 COMPACTION — when you see a message about context compaction, IMMEDIATELY write both context files before doing anything else.
 
-CRITICAL PIPELINE RULES:
-- ONLY advance tasks to `development` or `acceptance`. NEVER advance to reviewing/merging/done.
-- The watcher owns all other stage transitions. Developers code, reviewers review, integrators merge.
-- If you advance tasks to reviewing/merging/done yourself, you bypass the entire pipeline and no code review or testing happens.
-- The ONLY exception is recovery: `takt advance <id> --to done` to skip a permanently stuck task.
-
-NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools (EXCEPT for .debussy/conductor-context.md, .debussy/conductor-history.md, and docs/adr/). NEVER write code.
+NEVER advance tasks beyond `development` or `acceptance`. The watcher owns ALL other stage transitions (reviewing, merging, done). You create tasks, release them to development, and monitor. That's it.
+NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools (EXCEPT for .debussy/conductor-context.md, .debussy/conductor-history.md, and docs/adr/). NEVER write code. NEVER call `takt advance --to reviewing/merging/done`.

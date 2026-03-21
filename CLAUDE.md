@@ -38,10 +38,13 @@ This project uses takt (built-in SQLite) for task tracking. The watcher automati
 Pipelines depending on task type:
 
 ```
-Per task:      backlog → development → reviewing → merging → done
-Security task: backlog → development → reviewing → security_review → merging → done
-Per batch:     acceptance task (deps on all tasks) → acceptance → done
+Per task:      backlog → development → reviewing → merging → [ux_review] → [perf_review] → done
+Security task: backlog → development → reviewing → security_review → merging → [ux_review] → [perf_review] → done
+Per batch:     acceptance task (deps on all tasks) → acceptance (tester + arch-reviewer + skeptic in parallel) → done
 ```
+
+Stages in `[brackets]` are tag-gated — skipped if the task doesn't have the corresponding tag.
+Dependencies unblock when a task exits `merging` (not at `done`).
 
 Tasks with the `security` tag (set by conductor) get routed through an extra security review after the standard code review. The watcher handles this conditionally.
 
@@ -56,6 +59,8 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 | `reviewing` | `pending` | Ready for reviewer agent |
 | `merging` | `pending` | Ready for integrator agent |
 | `acceptance` | `pending` | Ready for tester agent |
+| `ux_review` | `pending` | Ready for UX reviewer agent |
+| `perf_review` | `pending` | Ready for performance reviewer agent |
 | `backlog` | `pending` | Backlog/parked |
 | any | `blocked` | Waiting for deps / agent stuck |
 | `done` | `pending` | Pipeline complete |
@@ -70,7 +75,9 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 | `reviewing` | reviewer |
 | `security_review` | security-reviewer |
 | `merging` | integrator |
-| `acceptance` | tester |
+| `ux_review` | ux-reviewer |
+| `perf_review` | perf-reviewer |
+| `acceptance` | tester + arch-reviewer + skeptic (parallel) |
 
 **Parallelization:**
 - Total agents capped by `max_total_agents` (default 8)
@@ -122,7 +129,7 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 - Blocked: `takt block <id>` (watcher parks for conductor)
 
 ### @reviewer
-- Reviews code quality, security, and runs tests if the task specifies test criteria
+- Reviews code quality and correctness, runs tests if the task specifies test criteria
 - Approve: `takt release <id>` (watcher advances to merging)
 - Reject: `takt reject <id>` (watcher sends to development)
 
@@ -145,6 +152,31 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 - Approve: `takt release <id>` (watcher advances to merging)
 - Reject: `takt reject <id>` (watcher sends to development)
 - Blocked: `takt block <id>` (watcher parks for conductor)
+- **Does not write code**
+
+### @ux-reviewer
+- Post-merge review for tasks with `ux_review` tag
+- Checks design compliance, accessibility, responsive behavior, UX patterns
+- Creates follow-up tasks for issues found — never blocks pipeline
+- **Does not write code**
+
+### @perf-reviewer
+- Post-merge review for tasks with `perf_review` tag
+- Checks N+1 queries, unbounded operations, blocking I/O, resource leaks
+- Creates follow-up tasks for issues found — never blocks pipeline
+- **Does not write code**
+
+### @arch-reviewer
+- Batch acceptance review (runs in parallel with tester and skeptic)
+- Reviews cross-task coupling, duplicated responsibilities, data model consistency
+- Creates follow-up tasks — does not block acceptance
+- **Does not write code**
+
+### @skeptic
+- Batch acceptance review (runs in parallel with tester and arch-reviewer)
+- Challenges whether the batch delivers what was asked for
+- Reviews logical gaps, unstated assumptions, feature completeness
+- Creates follow-up tasks — does not block acceptance
 - **Does not write code**
 
 ---
@@ -211,6 +243,10 @@ src/debussy/
   diagnostics.py      # Failure diagnostics for agent deaths
   preflight.py        # Pre-spawn validation checks
   prompts/            # Agent prompt templates (one file per role)
+    ux-reviewer.md
+    perf-reviewer.md
+    arch-reviewer.md
+    skeptic.md
   takt/               # Built-in SQLite task tracking
     db.py             # Database connection and schema
     models.py         # Task CRUD operations

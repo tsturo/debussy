@@ -25,6 +25,10 @@ _ROLE_FILES = {
     "security-reviewer": "security-reviewer.md",
     "integrator": "integrator.md",
     "tester": "tester.md",
+    "ux-reviewer": "ux-reviewer.md",
+    "perf-reviewer": "perf-reviewer.md",
+    "arch-reviewer": "arch-reviewer.md",
+    "skeptic": "skeptic.md",
 }
 
 _ROLE_DOC_FOCUS = {
@@ -33,6 +37,10 @@ _ROLE_DOC_FOCUS = {
     "reviewer": "architecture, conventions, and constraints to validate implementation choices",
     "security-reviewer": "security policies, auth specs, and data flow documentation",
     "tester": "acceptance criteria, expected behaviors, and integration specs",
+    "ux-reviewer": "design specs, accessibility guidelines, and UX patterns",
+    "perf-reviewer": "performance requirements, data flow, and query patterns",
+    "arch-reviewer": "architecture decisions, module boundaries, and integration patterns",
+    "skeptic": "requirements, user stories, and acceptance criteria",
 }
 
 _NO_BRANCH_ERROR = (

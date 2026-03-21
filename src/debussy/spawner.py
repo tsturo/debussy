@@ -57,7 +57,7 @@ def create_agent_worktree(role: str, task_id: str, agent_name: str) -> str:
             return str(create_worktree(name, f"feature/{bid}", start_point=f"origin/{b}", new_branch=True))
         elif r in ("reviewer", "security-reviewer"):
             return str(create_worktree(name, f"origin/feature/{bid}", detach=True))
-        elif r in ("integrator", "tester"):
+        elif r in ("integrator", "tester", "ux-reviewer", "perf-reviewer", "arch-reviewer", "skeptic"):
             return str(create_worktree(name, f"origin/{b}", detach=True))
         return ""
 
