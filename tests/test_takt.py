@@ -37,7 +37,7 @@ def db_dir(tmp_path):
 
 class TestFullLifecycle:
     def test_task_through_full_pipeline(self, db):
-        """Create a task and advance it through backlog → development → reviewing → merging → done."""
+        """Create a task and advance it through backlog → development → reviewing → merging → ux_review → perf_review → done."""
         task = create_task(db, "Implement feature", description="Build the thing")
         assert task["stage"] == "backlog"
         assert task["status"] == "pending"
@@ -62,7 +62,15 @@ class TestFullLifecycle:
         task = advance_task(db, task["id"])
         assert task["stage"] == "merging"
 
-        # Advance merging → done
+        # Advance merging → ux_review
+        task = advance_task(db, task["id"])
+        assert task["stage"] == "ux_review"
+
+        # Advance ux_review → perf_review
+        task = advance_task(db, task["id"])
+        assert task["stage"] == "perf_review"
+
+        # Advance perf_review → done
         task = advance_task(db, task["id"])
         assert task["stage"] == "done"
 
@@ -72,7 +80,9 @@ class TestFullLifecycle:
         assert any("backlog -> development" in m for m in messages)
         assert any("development -> reviewing" in m for m in messages)
         assert any("reviewing -> merging" in m for m in messages)
-        assert any("merging -> done" in m for m in messages)
+        assert any("merging -> ux_review" in m for m in messages)
+        assert any("ux_review -> perf_review" in m for m in messages)
+        assert any("perf_review -> done" in m for m in messages)
 
     def test_security_pipeline(self, db):
         """Security-tagged task routes through security_review."""
@@ -83,6 +93,10 @@ class TestFullLifecycle:
         assert task["stage"] == "security_review"
         task = advance_task(db, task["id"])  # → merging
         assert task["stage"] == "merging"
+        task = advance_task(db, task["id"])  # → ux_review
+        assert task["stage"] == "ux_review"
+        task = advance_task(db, task["id"])  # → perf_review
+        assert task["stage"] == "perf_review"
         task = advance_task(db, task["id"])  # → done
         assert task["stage"] == "done"
 
@@ -118,6 +132,8 @@ class TestFullLifecycle:
         advance_task(db, t1["id"])  # → development
         advance_task(db, t1["id"])  # → reviewing
         advance_task(db, t1["id"])  # → merging
+        advance_task(db, t1["id"])  # → ux_review
+        advance_task(db, t1["id"])  # → perf_review
         advance_task(db, t1["id"])  # → done
 
         assert get_unresolved_deps(db, t2["id"]) == []
