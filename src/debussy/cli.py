@@ -6,6 +6,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from .agent import repo_root
 from .config import (
     SESSION_NAME, STATUS_ACTIVE, STATUS_PENDING,
     atomic_write, clean_config, get_config, log, parse_value, set_config,
@@ -196,8 +197,15 @@ def _delete_orphan_branches(paused_tasks: set[str]):
         log(f"Failed to clean branches: {e}", "\u26a0\ufe0f")
 
 
+def _state_file_path() -> Path:
+    try:
+        return repo_root() / ".debussy" / "watcher_state.json"
+    except RuntimeError:
+        return Path(".debussy/watcher_state.json")
+
+
 def _load_watcher_state() -> dict:
-    state_file = Path(".debussy/watcher_state.json")
+    state_file = _state_file_path()
     if state_file.exists():
         try:
             with open(state_file) as f:
@@ -208,7 +216,7 @@ def _load_watcher_state() -> dict:
 
 
 def _save_watcher_state(state: dict):
-    state_file = Path(".debussy/watcher_state.json")
+    state_file = _state_file_path()
     if state:
         state_file.parent.mkdir(parents=True, exist_ok=True)
         atomic_write(state_file, json.dumps(state))

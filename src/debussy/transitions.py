@@ -19,7 +19,8 @@ from .config import NEXT_STAGE, SECURITY_NEXT_STAGE
 from .worktree import delete_branch
 
 if TYPE_CHECKING:
-    from .watcher import AgentInfo, Watcher
+    from .agent import AgentInfo
+    from .watcher import Watcher
 
 MAX_RETRIES = 3
 

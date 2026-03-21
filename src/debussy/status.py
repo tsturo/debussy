@@ -5,6 +5,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from .agent import repo_root
 from .config import (
     COMMENT_TRUNCATE_LEN, STAGE_DONE, STAGE_TO_ROLE,
     STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
@@ -22,7 +23,10 @@ def _fmt_duration(seconds: float) -> str:
 
 
 def get_running_agents() -> dict:
-    state_file = Path(".debussy/watcher_state.json")
+    try:
+        state_file = repo_root() / ".debussy" / "watcher_state.json"
+    except RuntimeError:
+        return {}
     if not state_file.exists():
         return {}
     try:

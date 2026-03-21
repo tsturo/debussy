@@ -6,9 +6,9 @@ import signal
 import subprocess
 import time
 import traceback
-from dataclasses import dataclass, field
 from pathlib import Path
 
+from .agent import AgentInfo, get_task_status, repo_root
 from .config import (
     AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
     HEARTBEAT_TICKS, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
@@ -25,81 +25,10 @@ from .worktree import cleanup_orphaned_branches, cleanup_stale_worktrees, delete
 MIN_AGENT_RUNTIME = 30
 
 
-def _repo_root() -> Path:
-    result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True, timeout=5,
-    )
-    if result.returncode != 0:
-        raise RuntimeError("Not inside a git repository")
-    return Path(result.stdout.strip())
-
-
-def _get_task_status(task_id: str) -> str | None:
-    """Read current task status from takt."""
-    with get_db() as db:
-        task = get_task(db, task_id)
-    return task["status"] if task else None
-
-
-@dataclass
-class AgentInfo:
-    task: str
-    role: str
-    name: str
-    spawned_stage: str = ""
-    claimed: bool = False
-    tmux: bool = False
-    window_id: str = ""
-    proc: subprocess.Popen | None = None
-    log_path: str = ""
-    log_handle: object = field(default=None, repr=False)
-    started_at: float = field(default_factory=time.time)
-    worktree_path: str = ""
-
-    def is_alive(self, tmux_windows: set[str] | None = None) -> bool:
-        if self.tmux:
-            if tmux_windows is None:
-                tmux_windows = get_tmux_windows()
-            if self.window_id:
-                return self.window_id in tmux_windows
-            return self.name in tmux_windows
-        return self.proc is not None and self.proc.poll() is None
-
-    def check_completion(self) -> bool:
-        """Check if the agent's task has moved past active status.
-
-        Mutates self.claimed as a side effect: once we observe STATUS_ACTIVE,
-        we record that the agent did claim the task.  This lets us distinguish
-        "agent died before claiming" from "agent finished work" when the
-        process/window disappears.
-        """
-        current = _get_task_status(self.task)
-        if current is None:
-            return False
-        if current == STATUS_ACTIVE and not self.claimed:
-            self.claimed = True
-        return self.claimed and current != STATUS_ACTIVE
-
-    def stop(self):
-        if self.tmux:
-            target = self.window_id if self.window_id else f"{SESSION_NAME}:{self.name}"
-            subprocess.run(
-                ["tmux", "kill-window", "-t", target],
-                capture_output=True
-            )
-        elif self.proc:
-            self.proc.terminate()
-
-    def cleanup(self):
-        if self.log_handle:
-            self.log_handle.close()
-
-
 class Watcher:
 
     def __init__(self):
-        self._root = _repo_root()
+        self._root = repo_root()
         self.running: dict[str, AgentInfo] = {}
         self.queued: set[str] = set()
         self.used_names: set[str] = set()
@@ -295,7 +224,7 @@ class Watcher:
 
             if not agent.is_alive(self._cached_windows):
                 elapsed = time.time() - agent.started_at
-                task_status = _get_task_status(agent.task)
+                task_status = get_task_status(agent.task)
                 if agent.tmux:
                     agent_completed = agent.claimed and task_status not in (STATUS_ACTIVE, None)
                 else:

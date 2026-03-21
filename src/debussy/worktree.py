@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from .agent import repo_root
 from .config import STAGE_DONE, get_config, log
 from .takt import get_db, list_tasks
 
@@ -17,18 +18,8 @@ def _remove_symlinks(worktree_path: Path):
             link.unlink()
 
 
-def _repo_root() -> Path:
-    result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True, timeout=5,
-    )
-    if result.returncode != 0:
-        raise RuntimeError("Not inside a git repository")
-    return Path(result.stdout.strip())
-
-
 def _worktree_path(agent_name: str) -> Path:
-    return _repo_root() / WORKTREES_DIR / agent_name
+    return repo_root() / WORKTREES_DIR / agent_name
 
 
 def _symlink_dirs(worktree: Path, repo: Path):
@@ -60,7 +51,7 @@ def _remove_worktree_for_branch(branch: str):
         ["git", "worktree", "list", "--porcelain"],
         capture_output=True, text=True, timeout=10,
     )
-    wt_dir = _repo_root() / WORKTREES_DIR
+    wt_dir = repo_root() / WORKTREES_DIR
     current_path = None
     for line in result.stdout.split("\n"):
         if line.startswith("worktree "):
@@ -78,7 +69,7 @@ def _remove_worktree_for_branch(branch: str):
 
 def create_worktree(agent_name: str, branch: str, start_point: str | None = None, new_branch: bool = False, detach: bool = False) -> Path:
     wt_path = _worktree_path(agent_name)
-    repo = _repo_root()
+    repo = repo_root()
 
     subprocess.run(["git", "worktree", "prune"], capture_output=True, timeout=10)
 
@@ -220,7 +211,7 @@ def cleanup_orphaned_branches():
 
 def cleanup_stale_worktrees():
     subprocess.run(["git", "worktree", "prune"], capture_output=True, timeout=10)
-    repo = _repo_root()
+    repo = repo_root()
     wt_dir = repo / WORKTREES_DIR
     if not wt_dir.exists():
         return
@@ -283,7 +274,7 @@ def delete_branch(branch: str):
 
 
 def remove_all_worktrees():
-    repo = _repo_root()
+    repo = repo_root()
     wt_dir = repo / WORKTREES_DIR
     if not wt_dir.exists():
         return
