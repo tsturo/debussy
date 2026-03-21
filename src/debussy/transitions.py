@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from .config import (
     STAGE_ACCEPTANCE, STAGE_DEVELOPMENT, STAGE_MERGING,
     STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
+    STAGE_REQUIRED_TAGS,
     get_config, log,
 )
 from .takt import (
@@ -51,7 +52,7 @@ def _branch_has_commits(task_id: str, base: str) -> bool:
 
 
 # Stages where agent completion means "task is done" (watcher moves to done)
-_TERMINAL_STAGES = {STAGE_MERGING, STAGE_ACCEPTANCE}
+_TERMINAL_STAGES = {STAGE_ACCEPTANCE}
 
 
 def _is_terminal_stage(stage: str) -> bool:
@@ -86,12 +87,23 @@ def _verify_merge_landed(task_id: str) -> bool:
 
 
 def _compute_next_stage(spawned_stage: str, tags: list[str]) -> str | None:
-    """Compute the next stage for non-terminal stages. Returns None for terminal stages."""
+    """Compute the next stage, skipping tag-gated stages the task doesn't qualify for."""
     if _is_terminal_stage(spawned_stage):
         return None
     if "security" in tags and spawned_stage in SECURITY_NEXT_STAGE:
         return SECURITY_NEXT_STAGE[spawned_stage]
-    return NEXT_STAGE.get(spawned_stage)
+    next_s = NEXT_STAGE.get(spawned_stage)
+    if next_s is None:
+        return None
+    # Skip stages the task doesn't have the required tag for
+    while next_s in STAGE_REQUIRED_TAGS:
+        required_tag = STAGE_REQUIRED_TAGS[next_s]
+        if required_tag in tags:
+            return next_s
+        next_s = NEXT_STAGE.get(next_s)
+        if next_s is None:
+            return None
+    return next_s
 
 
 def _dispatch_transition(watcher: Watcher, agent: AgentInfo, task: dict, db) -> bool:
@@ -133,16 +145,18 @@ def _handle_agent_success(watcher: Watcher, agent: AgentInfo, task: dict, db) ->
 
     # Terminal stages: task is done
     if _is_terminal_stage(stage):
-        if stage == STAGE_MERGING:
-            if not _verify_merge_landed(task_id):
-                log(f"Merge not verified on base branch for {task_id}, retrying merge", "⚠️")
-                add_log(db, task_id, "transition", "watcher", "unverified merge, retrying")
-                return True
-        delete_branch(f"feature/{task_id}")
         update_task(db, task_id, stage="done")
         log(f"Closed {task_id}: {stage} complete", "✅")
         add_log(db, task_id, "transition", "watcher", f"{stage} -> done")
         return True
+
+    # Merging: verify merge landed, delete branch, then advance to post-merge
+    if stage == STAGE_MERGING:
+        if not _verify_merge_landed(task_id):
+            log(f"Merge not verified on base branch for {task_id}, retrying merge", "⚠️")
+            add_log(db, task_id, "transition", "watcher", "unverified merge, retrying")
+            return True
+        delete_branch(f"feature/{task_id}")
 
     if stage == STAGE_DEVELOPMENT:
         subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=30)
@@ -159,6 +173,9 @@ def _handle_agent_success(watcher: Watcher, agent: AgentInfo, task: dict, db) ->
     if next_stage:
         advance_task(db, task_id, to_stage=next_stage)
         log(f"Advancing {task_id}: {stage} → {next_stage}", "⏩")
+    else:
+        update_task(db, task_id, stage="done")
+        log(f"Closed {task_id}: no next stage from {stage}", "✅")
     return True
 
 
