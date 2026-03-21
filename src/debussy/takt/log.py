@@ -49,6 +49,13 @@ def advance_task(db: sqlite3.Connection, task_id: str, to_stage: str | None = No
     if task is None:
         raise ValueError(f"Task not found: {task_id}")
 
+    # Auto-add ux_review tag when frontend is present
+    tags = task["tags"]
+    if "frontend" in tags and "ux_review" not in tags:
+        tags = tags + ["ux_review"]
+        update_task(db, task_id, tags=tags)
+        task = get_task(db, task_id)
+
     current = task["stage"]
     if to_stage is not None:
         next_stage = to_stage
