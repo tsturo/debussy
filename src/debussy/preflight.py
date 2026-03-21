@@ -10,6 +10,18 @@ def check_base_branch() -> str | None:
     base = get_config().get("base_branch")
     if not base:
         return "base_branch not configured — run: debussy config base_branch <branch>"
+    # Check local ref first (fast path)
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", f"origin/{base}"],
+        capture_output=True, timeout=5,
+    )
+    if result.returncode == 0:
+        return None
+    # Local ref missing — try fetching before failing
+    try:
+        subprocess.run(["git", "fetch", "origin"], capture_output=True, timeout=15)
+    except (subprocess.SubprocessError, OSError):
+        pass
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--verify", f"origin/{base}"],
