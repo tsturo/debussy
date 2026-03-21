@@ -183,10 +183,12 @@ def spawn_agent(watcher, role: str, task_id: str, stage: str, labels: list[str] 
 
     preflight_err = preflight_spawn(role, task_id)
     if preflight_err:
-        log(f"Preflight failed for {task_id}: {preflight_err}", "🚫")
-        # Don't increment failures — preflight issues are transient infrastructure
-        # problems (missing ref, network), not agent failures. The task will be
-        # retried on the next watcher tick.
+        # Only log once per task to avoid spamming — preflight issues are
+        # transient (missing ref, network) and retried every tick
+        warn_key = f"{task_id}:{preflight_err}"
+        if warn_key not in watcher.preflight_warned:
+            log(f"Preflight failed for {task_id}: {preflight_err}", "🚫")
+            watcher.preflight_warned.add(warn_key)
         return False
 
     agent_name = get_agent_name(watcher.used_names, role)

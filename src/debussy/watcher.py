@@ -36,6 +36,7 @@ class Watcher:
         self.empty_branch_retries: dict[str, int] = {}
         self.spawn_counts: dict[str, int] = {}
         self.blocked_failures: set[str] = set()
+        self.preflight_warned: set[str] = set()
         self.should_exit = False
         self.lock_file = self._root / ".debussy" / "watcher.lock"
         self.state_file = self._root / ".debussy" / "watcher_state.json"
