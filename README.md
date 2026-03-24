@@ -8,19 +8,43 @@
 
 ---
 
+## Prerequisites
+
+- **Python 3.10+**
+- **tmux** — agents run in tmux panes/windows
+- **Claude Code** (`claude` CLI) — agents are Claude Code instances
+- **pipx** — for isolated CLI installation
+- **git** — your project must be a git repository with an `origin` remote
+
+## Installation
+
+```bash
+brew install tmux
+pipx install git+https://github.com/tsturo/debussy.git
+```
+
+To upgrade later:
+
+```bash
+debussy upgrade
+```
+
 ## Quick Start
 
 ```bash
-# Install
-brew install tmux
-pipx install git+https://github.com/tsturo/debussy.git
-
-# Run
 cd your-project
 debussy start
 ```
 
-**Prerequisites:** Your project must be a git repository with an `origin` remote configured.
+This opens a tmux session with four panes: conductor, board, watcher, and a shell. Talk to the conductor to plan work — it creates tasks, and the watcher automatically spawns agents to execute them.
+
+### First Run Checklist
+
+1. Verify your project has an `origin` remote: `git remote -v`
+2. Run `debussy start` — this creates `.debussy/` and `.takt/` directories (auto-added to `.gitignore`)
+3. The conductor will ask what you want to build, then create tasks and a feature branch
+4. The watcher picks up tasks and spawns developer/reviewer/integrator agents automatically
+5. When all tasks are done, merge the feature branch to master yourself (agents never touch master)
 
 ---
 
@@ -196,27 +220,11 @@ takt block <id>                        # Mark task as blocked
 takt reject <id>                       # Send task back to development
 takt comment <id> "message"            # Add comment to task
 takt log <id>                          # View task history
+takt project add <PREFIX> <NAME>       # Add a project
+takt project list                      # List projects
+takt project default [PREFIX]          # Show or switch default project
+takt project rm <PREFIX>               # Remove a project
 ```
-
----
-
-## Configuration
-
-```bash
-debussy config                          # Show all
-debussy config max_total_agents 8       # Max concurrent agents (default: 8)
-debussy config use_tmux_windows true    # Spawn agents as tmux windows (default: false)
-debussy config base_branch feature/foo  # Conductor's base branch
-debussy config agent_timeout 3600       # Agent timeout in seconds (default: 3600)
-```
-
-### tmux Windows Mode
-
-When `use_tmux_windows` is enabled, agents spawn as separate tmux windows instead of background processes:
-
-- Real-time output visible (no log buffering)
-- Switch between agents with `Ctrl-b n/p` or `Ctrl-b w`
-- Window closes when agent finishes
 
 ---
 
@@ -293,12 +301,42 @@ tests/
 
 ---
 
-## Setup for Existing Project
+## Configuration Reference
+
+Settings are stored in `.debussy/config.json`. Defaults:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `max_total_agents` | 8 | Max concurrent agents across all roles |
+| `use_tmux_windows` | false | Spawn agents as tmux windows instead of background processes |
+| `agent_timeout` | 3600 | Kill agents after this many seconds |
+| `base_branch` | — | Conductor's feature branch (set per feature) |
+| `role_models` | see below | Claude model per agent role |
+
+Default model assignments:
+
+| Role | Model |
+|------|-------|
+| conductor | claude-opus-4-6[1m] |
+| developer | claude-sonnet-4-6 |
+| reviewer | claude-opus-4-6 |
+| security-reviewer | claude-opus-4-6 |
+| integrator | claude-sonnet-4-6 |
+| tester | claude-sonnet-4-6 |
+
+Override any role's model:
 
 ```bash
-cd your-project
-debussy start
+debussy config role_models '{"developer": "claude-opus-4-6"}'
 ```
+
+### tmux Windows Mode
+
+When `use_tmux_windows` is enabled, agents spawn as separate tmux windows instead of background processes:
+
+- Real-time output visible (no log buffering)
+- Switch between agents with `Ctrl-b n/p` or `Ctrl-b w`
+- Window closes when agent finishes
 
 ---
 
