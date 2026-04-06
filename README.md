@@ -83,7 +83,7 @@ The watcher is the central state machine. It runs a loop every 5 seconds:
 1. **Check timeouts** - kill agents running longer than `agent_timeout` (default 1 hour)
 2. **Clean up finished agents** - detect completed agents and process their results
 3. **Reset orphaned tasks** - if an agent disappeared but task is still `active`, reset it
-4. **Resolve dependencies** - unblock tasks whose dependencies are all done
+4. **Resolve dependencies** - unblock tasks whose dependencies have passed merging
 5. **Spawn new agents** - for tasks with `status: pending` in an actionable stage, up to `max_total_agents`
 
 ### State Model
@@ -243,7 +243,7 @@ takt advance <task-id>    # moves backlog → development
 takt create "Acceptance testing" -d "Run full test suite" --deps "PRJ-1,PRJ-2"
 takt advance <id>
 ```
-The acceptance task stays blocked until all dependencies are done.
+The acceptance task stays blocked until all dependencies have passed merging.
 
 ---
 

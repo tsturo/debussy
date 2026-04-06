@@ -52,6 +52,19 @@ FRONTEND COMPLETENESS (for tasks with the `frontend` tag):
 - Reject with a checklist of missing/broken elements if anything is absent
 REVIEWER_VISUAL_BLOCK
 
+ARCHITECTURE:
+- Does this change fit the existing structure, or does it bolt something on sideways?
+- Are responsibilities in the right place? (e.g., business logic not leaking into CLI/API layer)
+- Cross-cutting concerns: will this cause coupling between unrelated modules?
+- Data model: are new fields/tables consistent with existing schema conventions?
+- If a new abstraction is introduced, is it justified by more than one use site?
+
+SKEPTIC:
+- Does this actually solve the problem stated in the task, or does it solve an adjacent problem?
+- Are there unstated assumptions that could break in production? (ordering, timing, scale)
+- What's the failure mode? If this breaks, is it loud or silent?
+- Could a simpler approach achieve the same result?
+
 TESTS:
 - If the task description includes test criteria, verify test code covers ALL of them by reading the test files
 - Do NOT run tests — the developer already ran them and the integrator will verify on merge

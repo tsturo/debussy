@@ -21,7 +21,7 @@ def get_unmerged_dep_branches(task: dict) -> list[str]:
     for dep_id in task.get("dependencies", []):
         with get_db() as db:
             dep_task = get_task(db, dep_id)
-        if dep_task and dep_task["stage"] == "done":
+        if dep_task and dep_task["stage"] in ("acceptance", "done"):
             continue
         try:
             result = subprocess.run(

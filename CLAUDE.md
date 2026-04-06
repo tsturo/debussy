@@ -43,6 +43,8 @@ Security task: backlog → development → reviewing → security_review → mer
 Per batch:     acceptance task (deps on all tasks) → acceptance → done
 ```
 
+Dependencies unblock when a task exits `merging` (not at `done`).
+
 Tasks with the `security` tag (set by conductor) get routed through an extra security review after the standard code review. The watcher handles this conditionally.
 
 Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verification during development. The developer starts a dev server, takes screenshots, verifies visually, and writes Playwright tests.
