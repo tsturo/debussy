@@ -136,8 +136,9 @@ def get_unresolved_deps(db: sqlite3.Connection, task_id: str) -> list[str]:
     placeholders = ",".join("?" * len(POST_MERGE_STAGES))
     rows = db.execute(
         f"""SELECT d.depends_on_id FROM dependencies d
-           JOIN tasks t ON t.id = d.depends_on_id
-           WHERE d.task_id = ? AND t.stage NOT IN ({placeholders})""",
+           LEFT JOIN tasks t ON t.id = d.depends_on_id
+           WHERE d.task_id = ?
+             AND (t.stage IS NULL OR t.stage NOT IN ({placeholders}))""",
         (task_id, *POST_MERGE_STAGES),
     ).fetchall()
     return [r["depends_on_id"] for r in rows]

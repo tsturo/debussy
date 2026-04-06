@@ -129,9 +129,7 @@ class TestSpawnAgentPreflight(unittest.TestCase):
         result = spawn_agent(watcher, "developer", "bd-001", "stage:development")
 
         self.assertFalse(result)
-        # Preflight failures should NOT increment watcher.failures —
-        # they are transient infrastructure issues, not agent failures
-        self.assertEqual(watcher.failures.get("bd-001", 0), 0)
+        self.assertEqual(watcher.failures.get("bd-001", 0), 1)
 
     @patch("debussy.spawner.preflight_spawn", return_value=None)
     @patch("debussy.spawner.create_agent_worktree", return_value="/fake/wt")
