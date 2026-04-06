@@ -137,6 +137,17 @@ def _get_done_task_ids() -> set[str]:
         return set()
 
 
+def _get_active_task_ids() -> set[str]:
+    try:
+        with get_db() as db:
+            rows = db.execute(
+                "SELECT id FROM tasks WHERE stage != ?", (STAGE_DONE,)
+            ).fetchall()
+        return {r["id"] for r in rows}
+    except Exception:
+        return set()
+
+
 def _worktree_branches() -> set[str]:
     try:
         result = subprocess.run(
@@ -163,6 +174,7 @@ def cleanup_orphaned_branches():
 
     base_branch = get_config().get("base_branch", "")
     closed = _get_done_task_ids()
+    active = _get_active_task_ids()
     in_use = _worktree_branches()
 
     result = subprocess.run(
@@ -172,7 +184,10 @@ def cleanup_orphaned_branches():
     if result.returncode == 0:
         for line in result.stdout.strip().splitlines():
             branch = line.strip().lstrip("+* ")
-            if not branch or branch in in_use:
+            if not branch or branch == base_branch or branch in in_use:
+                continue
+            task_id = branch.removeprefix("feature/")
+            if task_id in active:
                 continue
             remote_check = subprocess.run(
                 ["git", "rev-parse", "--verify", f"origin/{branch}"],
