@@ -63,23 +63,8 @@ class TestComputeNextStage:
     def test_security_review_to_merging(self):
         assert _compute_next_stage("security_review", []) == "merging"
 
-    def test_merging_to_ux_review_with_tag(self):
-        assert _compute_next_stage("merging", ["ux_review"]) == "ux_review"
-
-    def test_merging_to_perf_review_skipping_ux(self):
-        assert _compute_next_stage("merging", ["perf_review"]) == "perf_review"
-
-    def test_merging_to_done_no_tags(self):
-        assert _compute_next_stage("merging", []) == "done"
-
-    def test_ux_review_to_perf_review_with_tag(self):
-        assert _compute_next_stage("ux_review", ["ux_review", "perf_review"]) == "perf_review"
-
-    def test_ux_review_to_done_no_perf_tag(self):
-        assert _compute_next_stage("ux_review", ["ux_review"]) == "done"
-
-    def test_perf_review_to_done(self):
-        assert _compute_next_stage("perf_review", ["perf_review"]) == "done"
+    def test_merging_returns_none(self):
+        assert _compute_next_stage("merging", []) is None
 
     def test_acceptance_returns_none(self):
         assert _compute_next_stage("acceptance", []) is None
@@ -95,14 +80,8 @@ class TestTerminalStage:
     def test_security_review_is_not_terminal(self):
         assert not _is_terminal_stage("security_review")
 
-    def test_merging_is_not_terminal(self):
-        assert not _is_terminal_stage("merging")
-
-    def test_ux_review_is_not_terminal(self):
-        assert not _is_terminal_stage("ux_review")
-
-    def test_perf_review_is_not_terminal(self):
-        assert not _is_terminal_stage("perf_review")
+    def test_merging_is_terminal(self):
+        assert _is_terminal_stage("merging")
 
     def test_acceptance_is_terminal(self):
         assert _is_terminal_stage("acceptance")
@@ -176,7 +155,7 @@ class TestInProgressReset:
 class TestClosed:
     @patch("debussy.transitions._verify_merge_landed", return_value=True)
     @patch("debussy.transitions.delete_branch")
-    def test_merging_advances_to_done_no_tags(self, mock_delete, mock_verify, db):
+    def test_terminal_stage_closes(self, mock_delete, mock_verify, db):
         task = _make_dev_task(db)
         advance_task(db, task["id"])  # → reviewing
         advance_task(db, task["id"])  # → merging
@@ -288,74 +267,6 @@ class TestRemoteBranchGate:
         _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
 
         assert get_task(db, task["id"])["stage"] == "reviewing"
-
-
-class TestPostMergeTransitions:
-    @patch("debussy.transitions._verify_merge_landed", return_value=True)
-    @patch("debussy.transitions.delete_branch")
-    def test_merging_advances_to_ux_review_with_tag(self, mock_delete, mock_verify, db):
-        task = create_task(db, "Frontend task", tags=["frontend", "ux_review"])
-        advance_task(db, task["id"])  # → development
-        advance_task(db, task["id"])  # → reviewing
-        advance_task(db, task["id"])  # → merging
-        watcher = _make_watcher()
-        agent = _make_agent(bead=task["id"], spawned_stage="merging")
-
-        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
-
-        assert get_task(db, task["id"])["stage"] == "ux_review"
-        mock_delete.assert_called_once_with(f"feature/{task['id']}")
-
-    @patch("debussy.transitions._verify_merge_landed", return_value=True)
-    @patch("debussy.transitions.delete_branch")
-    def test_merging_skips_to_perf_review_without_ux_tag(self, mock_delete, mock_verify, db):
-        task = create_task(db, "API task", tags=["perf_review"])
-        advance_task(db, task["id"])  # → development
-        advance_task(db, task["id"])  # → reviewing
-        advance_task(db, task["id"])  # → merging
-        watcher = _make_watcher()
-        agent = _make_agent(bead=task["id"], spawned_stage="merging")
-
-        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
-
-        assert get_task(db, task["id"])["stage"] == "perf_review"
-
-    @patch("debussy.transitions._verify_merge_landed", return_value=True)
-    @patch("debussy.transitions.delete_branch")
-    def test_merging_skips_to_done_without_review_tags(self, mock_delete, mock_verify, db):
-        task = create_task(db, "Simple task")
-        advance_task(db, task["id"])  # → development
-        advance_task(db, task["id"])  # → reviewing
-        advance_task(db, task["id"])  # → merging
-        watcher = _make_watcher()
-        agent = _make_agent(bead=task["id"], spawned_stage="merging")
-
-        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
-
-        assert get_task(db, task["id"])["stage"] == "done"
-
-    def test_ux_review_advances_to_perf_review(self, db):
-        task = create_task(db, "Full review", tags=["ux_review", "perf_review"])
-        advance_task(db, task["id"])  # → development
-        advance_task(db, task["id"])  # → reviewing
-        advance_task(db, task["id"])  # → merging
-        update_task(db, task["id"], stage="ux_review")
-        watcher = _make_watcher()
-        agent = _make_agent(bead=task["id"], spawned_stage="ux_review")
-
-        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
-
-        assert get_task(db, task["id"])["stage"] == "perf_review"
-
-    def test_perf_review_advances_to_done(self, db):
-        task = create_task(db, "Perf only", tags=["perf_review"])
-        update_task(db, task["id"], stage="perf_review")
-        watcher = _make_watcher()
-        agent = _make_agent(bead=task["id"], spawned_stage="perf_review")
-
-        _dispatch_transition(watcher, agent, get_task(db, task["id"]), db)
-
-        assert get_task(db, task["id"])["stage"] == "done"
 
 
 class TestMergeVerification:

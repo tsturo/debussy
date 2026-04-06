@@ -11,7 +11,7 @@ from pathlib import Path
 from .agent import AgentInfo, get_task_status, repo_root
 from .config import (
     AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
-    HEARTBEAT_TICKS, STAGE_ACCEPTANCE, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
+    HEARTBEAT_TICKS, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
     _ensure_gitignored, atomic_write, get_config, log,
 )
 from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
@@ -120,8 +120,7 @@ class Watcher:
         has_tmux = use_tmux or any(a.tmux for a in self.running.values())
         self._cached_windows = get_tmux_windows() if has_tmux else None
 
-    AGENT_ROLES = {"developer", "reviewer", "security-reviewer", "integrator", "tester",
-                   "ux-reviewer", "perf-reviewer", "arch-reviewer", "skeptic"}
+    AGENT_ROLES = {"developer", "reviewer", "security-reviewer", "integrator", "tester"}
 
     def _kill_orphan_windows(self):
         info = tmux_window_id_names()
@@ -152,7 +151,6 @@ class Watcher:
         for agent in self._alive_agents():
             entry = {
                 "agent": agent.name,
-                "task": agent.task,
                 "role": agent.role,
                 "log": agent.log_path,
                 "tmux": agent.tmux,
@@ -161,7 +159,7 @@ class Watcher:
             }
             if agent.proc:
                 entry["pid"] = agent.proc.pid
-            state[agent.name] = entry
+            state[agent.task] = entry
         atomic_write(self.state_file, json.dumps(state))
 
     def is_task_running(self, task_id: str) -> bool:
@@ -176,13 +174,6 @@ class Watcher:
 
     def count_running_role(self, role: str) -> int:
         return sum(1 for a in self._alive_agents() if a.role == role)
-
-    def _all_acceptance_agents_done(self, task_id: str) -> bool:
-        """Check if all acceptance agents for a task have finished or been removed."""
-        return not any(
-            a.task == task_id and a.spawned_stage == STAGE_ACCEPTANCE
-            for a in self.running.values()
-        )
 
     def _check_timeouts(self):
         now = time.time()
@@ -225,12 +216,10 @@ class Watcher:
                 if agent.check_completion():
                     log(f"{agent.name} completed {agent.task}", "✅")
                     agent.stop()
-                    self._remove_agent(key, agent)
-                    if agent.spawned_stage == STAGE_ACCEPTANCE and not self._all_acceptance_agents_done(agent.task):
-                        log(f"Waiting for other acceptance agents on {agent.task}", "⏳")
-                    elif ensure_stage_transition(self, agent):
+                    if ensure_stage_transition(self, agent):
                         self.failures.pop(agent.task, None)
                         transitioned = True
+                    self._remove_agent(key, agent)
                     cleaned = True
                 continue
 
@@ -242,17 +231,13 @@ class Watcher:
                 else:
                     agent_completed = elapsed >= MIN_AGENT_RUNTIME and task_status != STATUS_ACTIVE
                 if agent_completed:
-                    self._remove_agent(key, agent)
-                    if agent.spawned_stage == STAGE_ACCEPTANCE and not self._all_acceptance_agents_done(agent.task):
-                        log(f"Waiting for other acceptance agents on {agent.task}", "⏳")
-                    elif ensure_stage_transition(self, agent):
+                    if ensure_stage_transition(self, agent):
                         self.failures.pop(agent.task, None)
                         transitioned = True
                     log(f"{agent.name} finished {agent.task}", "✔️")
                 else:
-                    fail_key = f"{agent.role}:{agent.task}" if agent.spawned_stage == STAGE_ACCEPTANCE else agent.task
-                    self.failures[fail_key] = self.failures.get(fail_key, 0) + 1
-                    log(f"{agent.name} died on {agent.task} after {int(elapsed)}s, status={task_status} (attempt {self.failures[fail_key]}/{MAX_RETRIES})", "💥")
+                    self.failures[agent.task] = self.failures.get(agent.task, 0) + 1
+                    log(f"{agent.name} died on {agent.task} after {int(elapsed)}s, status={task_status} (attempt {self.failures[agent.task]}/{MAX_RETRIES})", "💥")
                     log_tail = read_log_tail(agent.log_path) if agent.log_path else ""
                     comment = format_death_comment(agent.name, int(elapsed), str(task_status), log_tail)
                     comment_on_task(agent.task, comment)
@@ -266,7 +251,7 @@ class Watcher:
                             log(f"Deleted stale branch feature/{agent.task} after agent death", "🧹")
                         except (subprocess.SubprocessError, OSError) as e:
                             log(f"Failed to delete branch for {agent.task}: {e}", "⚠️")
-                    self._remove_agent(key, agent)
+                self._remove_agent(key, agent)
                 cleaned = True
 
         if cleaned:

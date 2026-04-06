@@ -30,8 +30,6 @@ STAGE_SECURITY_REVIEW = "security_review"
 STAGE_MERGING = "merging"
 STAGE_ACCEPTANCE = "acceptance"
 STAGE_DONE = "done"
-STAGE_UX_REVIEW = "ux_review"
-STAGE_PERF_REVIEW = "perf_review"
 
 STATUS_PENDING = "pending"
 STATUS_ACTIVE = "active"
@@ -39,15 +37,6 @@ STATUS_BLOCKED = "blocked"
 
 
 LABEL_PRIORITY = "priority"
-
-POST_MERGE_STAGES = {STAGE_UX_REVIEW, STAGE_PERF_REVIEW, STAGE_DONE}
-
-STAGE_REQUIRED_TAGS = {
-    STAGE_UX_REVIEW: "ux_review",
-    STAGE_PERF_REVIEW: "perf_review",
-}
-
-ACCEPTANCE_ROLES = ["tester", "arch-reviewer", "skeptic"]
 
 TAKT_DIR = ".takt"
 
@@ -65,10 +54,6 @@ DEFAULTS = {
         "security-reviewer": "claude-opus-4-6",
         "integrator": "claude-sonnet-4-6",
         "tester": "claude-sonnet-4-6",
-        "ux-reviewer": "claude-sonnet-4-6",
-        "perf-reviewer": "claude-sonnet-4-6",
-        "arch-reviewer": "claude-opus-4-6",
-        "skeptic": "claude-opus-4-6",
     },
     "monitor_interval": 240,
     "notify_conductor": False,
@@ -78,10 +63,6 @@ DEFAULTS = {
         "security-reviewer": 10,
         "integrator": 10,
         "tester": 10,
-        "ux-reviewer": 10,
-        "perf-reviewer": 10,
-        "arch-reviewer": 1,
-        "skeptic": 1,
     },
 }
 
@@ -91,8 +72,6 @@ STAGE_TO_ROLE = {
     STAGE_SECURITY_REVIEW: "security-reviewer",
     STAGE_REVIEWING: "reviewer",
     STAGE_DEVELOPMENT: "developer",
-    STAGE_UX_REVIEW: "ux-reviewer",
-    STAGE_PERF_REVIEW: "perf-reviewer",
 }
 
 NEXT_STAGE = {
@@ -100,9 +79,7 @@ NEXT_STAGE = {
     STAGE_DEVELOPMENT: STAGE_REVIEWING,
     STAGE_REVIEWING: STAGE_MERGING,
     STAGE_SECURITY_REVIEW: STAGE_MERGING,
-    STAGE_MERGING: STAGE_UX_REVIEW,
-    STAGE_UX_REVIEW: STAGE_PERF_REVIEW,
-    STAGE_PERF_REVIEW: STAGE_DONE,
+    STAGE_MERGING: STAGE_DONE,
     STAGE_ACCEPTANCE: STAGE_DONE,
 }
 
@@ -116,8 +93,6 @@ STAGE_SHORT = {
     STAGE_REVIEWING: "rev",
     STAGE_SECURITY_REVIEW: "sec",
     STAGE_MERGING: "merge",
-    STAGE_UX_REVIEW: "ux",
-    STAGE_PERF_REVIEW: "perf",
     STAGE_ACCEPTANCE: "accept",
     STAGE_DONE: "done",
 }

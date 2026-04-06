@@ -21,8 +21,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     description     TEXT DEFAULT '',
     stage           TEXT DEFAULT 'backlog'
                     CHECK(stage IN ('backlog','development','reviewing',
-                                    'security_review','merging','acceptance',
-                                    'ux_review','perf_review','done')),
+                                    'security_review','merging','acceptance','done')),
     status          TEXT DEFAULT 'pending'
                     CHECK(status IN ('pending','active','blocked')),
     tags            TEXT DEFAULT '[]',
@@ -168,8 +167,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 "title TEXT NOT NULL, description TEXT DEFAULT '', "
                 "stage TEXT DEFAULT 'backlog' "
                 "CHECK(stage IN ('backlog','development','reviewing',"
-                "'security_review','merging','acceptance',"
-                "'ux_review','perf_review','done')), "
+                "'security_review','merging','acceptance','done')), "
                 "status TEXT DEFAULT 'pending' "
                 "CHECK(status IN ('pending','active','blocked')), "
                 "tags TEXT DEFAULT '[]', "

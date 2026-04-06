@@ -39,6 +39,12 @@ CORRECTNESS:
 - Would this break with unexpected but valid input?
 - Resource cleanup: file handles, connections, temp files closed/released?
 
+SECURITY (for code touching external input or system calls):
+- Input validation at system boundaries (user input, CLI args, API data)
+- No shell injection (subprocess with shell=True + dynamic input)
+- No path traversal (unsanitized path joins with user-provided values)
+- No hardcoded secrets or credentials
+
 FRONTEND COMPLETENESS (for tasks with the `frontend` tag):
 - Read the task description's element list — every listed element must exist in the code
 - If a design ref file is mentioned, read it and compare against the implementation

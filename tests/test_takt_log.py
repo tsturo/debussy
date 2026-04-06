@@ -85,31 +85,21 @@ class TestAdvanceTask:
         result = advance_task(db, task["id"])
         assert result["stage"] == "merging"
 
-    def test_merging_to_ux_review(self, db):
+    def test_merging_to_done(self, db):
         task = _make_task(db)
         advance_task(db, task["id"])  # -> development
         advance_task(db, task["id"])  # -> reviewing
         advance_task(db, task["id"])  # -> merging
-        result = advance_task(db, task["id"])
-        assert result["stage"] == "ux_review"
-
-    def test_perf_review_to_done(self, db):
-        task = _make_task(db)
-        advance_task(db, task["id"])  # -> development
-        advance_task(db, task["id"])  # -> reviewing
-        advance_task(db, task["id"])  # -> merging
-        advance_task(db, task["id"])  # -> ux_review
-        advance_task(db, task["id"])  # -> perf_review
         result = advance_task(db, task["id"])
         assert result["stage"] == "done"
 
     def test_full_pipeline(self, db):
         task = _make_task(db)
         stages = []
-        for _ in range(6):
+        for _ in range(4):
             task = advance_task(db, task["id"])
             stages.append(task["stage"])
-        assert stages == ["development", "reviewing", "merging", "ux_review", "perf_review", "done"]
+        assert stages == ["development", "reviewing", "merging", "done"]
 
     def test_security_routing(self, db):
         task = _make_task(db, tags=["security"])
