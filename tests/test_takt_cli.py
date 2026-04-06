@@ -182,6 +182,43 @@ class TestWorkflow:
         assert "blocked" in capsys.readouterr().out
 
 
+class TestUpdate:
+    def test_update_description(self, project_dir, capsys):
+        main(["create", "Task", "-d", "Old desc"])
+        task_id = capsys.readouterr().out.strip()
+        assert main(["update", task_id, "-d", "New desc"]) == 0
+        capsys.readouterr()
+        main(["show", task_id, "--json"])
+        data = json.loads(capsys.readouterr().out)
+        assert data["description"] == "New desc"
+
+    def test_update_title(self, project_dir, capsys):
+        main(["create", "Old title"])
+        task_id = capsys.readouterr().out.strip()
+        assert main(["update", task_id, "-t", "New title"]) == 0
+        capsys.readouterr()
+        main(["show", task_id, "--json"])
+        data = json.loads(capsys.readouterr().out)
+        assert data["title"] == "New title"
+
+    def test_update_tags(self, project_dir, capsys):
+        main(["create", "Task", "--tags", "old"])
+        task_id = capsys.readouterr().out.strip()
+        assert main(["update", task_id, "--tags", "new,frontend"]) == 0
+        capsys.readouterr()
+        main(["show", task_id, "--json"])
+        data = json.loads(capsys.readouterr().out)
+        assert data["tags"] == ["new", "frontend"]
+
+    def test_update_nothing(self, project_dir, capsys):
+        main(["create", "Task"])
+        task_id = capsys.readouterr().out.strip()
+        assert main(["update", task_id]) == 1
+
+    def test_update_not_found(self, project_dir):
+        assert main(["update", "XXX-999", "-d", "nope"]) == 1
+
+
 class TestComment:
     def test_add_comment(self, project_dir, capsys):
         main(["create", "Task"])

@@ -111,6 +111,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_comment.add_argument("message")
     p_comment.add_argument("--author", default="user")
 
+    p_update = sub.add_parser("update", help="Update a task")
+    p_update.add_argument("id")
+    p_update.add_argument("-t", "--title")
+    p_update.add_argument("-d", "--description")
+    p_update.add_argument("--tags", help="Comma-separated tags (replaces existing)")
+
     p_log = sub.add_parser("log", help="Show task log")
     p_log.add_argument("id")
     p_log.add_argument("--type", choices=["transition", "comment", "assignment"])
@@ -227,6 +233,25 @@ def _dispatch(args: argparse.Namespace, db) -> int:
     if cmd == "block":
         task = block_task(db, args.id)
         print(f"{task['id']}: blocked")
+        return 0
+
+    if cmd == "update":
+        task = get_task(db, args.id)
+        if task is None:
+            print(f"Task not found: {args.id}", file=sys.stderr)
+            return 1
+        fields = {}
+        if args.title is not None:
+            fields["title"] = args.title
+        if args.description is not None:
+            fields["description"] = args.description
+        if args.tags is not None:
+            fields["tags"] = [t.strip() for t in args.tags.split(",")]
+        if not fields:
+            print("Nothing to update. Use -t, -d, or --tags.", file=sys.stderr)
+            return 1
+        task = update_task(db, args.id, **fields)
+        _print_task(task)
         return 0
 
     if cmd == "comment":
