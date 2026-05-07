@@ -239,6 +239,7 @@ debussy start              # Start system (tmux)
 debussy watch              # Run watcher
 debussy board [-p PREFIX]              # Show kanban board
 debussy config base_branch feature/<name>  # Set conductor's base branch
+debussy config test_command "<cmd>"        # Override integrator's test command (used when auto-discovery finds none)
 takt project add <PREFIX> <NAME> [--default]  # Add a project
 takt project list                              # List projects
 takt project default [PREFIX]                  # Show or switch default
