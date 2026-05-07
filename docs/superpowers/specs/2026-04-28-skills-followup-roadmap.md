@@ -3,7 +3,7 @@
 **Date:** 2026-04-28
 **Status:** Outline only — full specs will be written when each is ready to start.
 
-This document captures design ideas deferred from the bundled spec discussion on 2026-04-28, after splitting the work into manageable specs. Spec 1 (`2026-04-28-pipeline-simplification-design.md`) is the only spec currently approved for implementation. The two below are placeholders so we don't lose context.
+This document captures design ideas deferred from the bundled spec discussion on 2026-04-28, after splitting the work into manageable specs. Spec 1 (`2026-04-28-pipeline-simplification-design.md`) is the only spec currently approved for implementation; it has since been narrowed to **just the integrator change** because most of the originally-planned pipeline simplification (drop skeptic, fold review perspectives, remove post-merge stages) was already done on origin in commit `c2c19a4` (2026-04-06). The two specs below are placeholders so we don't lose context.
 
 ## Spec 2: Skill Extraction (planned, not yet specced)
 
