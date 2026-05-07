@@ -136,8 +136,10 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 
 ### @integrator
 - Merges feature branches to conductor's base branch
-- Success: `takt release <id>` (task done, acceptance happens in batch)
-- Conflict: `takt reject <id>` (watcher sends to development)
+- Success (clean merge or trivial auto-resolve): `takt release <id>` (task done, acceptance happens in batch)
+- Conflict beyond auto-resolve bounds: `takt block <id>` (parks for conductor)
+- Tests fail after auto-resolve: `takt block <id>` (parks for conductor)
+- Push failure / branch missing: `takt reject <id>` (watcher sends to development)
 - **Never merges to master**
 
 ### @security-reviewer
@@ -238,6 +240,7 @@ debussy start              # Start system (tmux)
 debussy watch              # Run watcher
 debussy board [-p PREFIX]              # Show kanban board
 debussy config base_branch feature/<name>  # Set conductor's base branch
+debussy config test_command "<cmd>"        # Override integrator's test command (used when auto-discovery finds none)
 takt project add <PREFIX> <NAME> [--default]  # Add a project
 takt project list                              # List projects
 takt project default [PREFIX]                  # Show or switch default
