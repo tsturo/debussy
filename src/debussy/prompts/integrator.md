@@ -29,17 +29,6 @@ IF PUSH FAILS (non-fast-forward):
   Exit
 
 IF MERGE CONFLICTS:
-  Attempt auto-resolve ONLY when ALL conflicts in the merge satisfy at least one of:
-    - Non-overlapping hunks: conflict markers (<<<<<<<, =======, >>>>>>>) in the same
-      file are separated by at least one line of unmodified context. If markers are
-      adjacent or interleaved, treat as same-block.
-    - Pure formatting differences: the conflicting hunks differ only in whitespace,
-      trailing newlines, or quote style. Run `git diff -w` on the conflict region —
-      if `-w` shows no diff, it is formatting-only.
-    - Import statement additions: both sides added new import lines and there are no
-      removed imports anywhere in the conflict. Adding both sets is safe; never remove
-      an import that any side added.
-
   Evaluate BLOCK conditions FIRST. If any BLOCK condition holds, block regardless of
   whether a permissive criterion also matches.
 
@@ -62,8 +51,21 @@ IF MERGE CONFLICTS:
     takt block <TASK_ID>
     Exit
 
-  After ANY non-trivial resolution (anything beyond pure formatting or import
-  additions), run the project test suite before pushing.
+  Otherwise, attempt auto-resolve ONLY when ALL conflicts in the merge satisfy at
+  least one of:
+    - Non-overlapping hunks: conflict markers (<<<<<<<, =======, >>>>>>>) in the same
+      file are separated by at least one line of unmodified context. If markers are
+      adjacent or interleaved, treat as same-block.
+    - Pure formatting differences: the conflicting hunks differ only in whitespace,
+      trailing newlines, or quote style. Run `git diff -w` on the conflict region —
+      if `-w` shows no diff, it is formatting-only.
+    - Import statement additions: both sides added new import lines and there are no
+      removed imports anywhere in the conflict. Adding both sets is safe; never remove
+      an import that any side added.
+
+  After ANY non-trivial resolution (a non-trivial resolution is anything beyond pure
+  formatting or import-only additions; non-overlapping-hunks resolutions count as
+  non-trivial), run the project test suite before pushing.
 
   EVERY Bash invocation that runs tests MUST include `timeout: 600000` (10 minutes).
   This applies to the initial run, retries, narrowed reruns, and single-test
@@ -72,7 +74,7 @@ IF MERGE CONFLICTS:
   use the default 2-minute Bash timeout — that will silently block the task on any
   non-trivial test suite.
 
-  If tests fail after a non-trivial resolution:
+  If tests fail after a non-trivial resolution (anything beyond formatting/imports):
     takt comment <TASK_ID> "Tests failed after conflict resolution: [details]"
     takt block <TASK_ID>
     Exit

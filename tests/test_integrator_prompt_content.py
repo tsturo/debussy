@@ -87,10 +87,21 @@ def test_block_precedes_permissive_in_conflict_section(prompt):
 
 
 def test_test_discovery_order(prompt):
-    """Auto-discovery order is pytest → make test → npm test → operator override."""
+    """Auto-discovery order is pytest → make test → npm test → operator override.
+
+    Anchored on phrases unique to the discovery section so an unrelated future
+    mention of a token (e.g., 'pytest' in a header) cannot silently shift the
+    ordering check onto an unintended occurrence.
+    """
+    pytest_anchor = "use `pytest` if"
+    make_anchor = "`make test` if a `Makefile`"
+    npm_anchor = "`npm test` if `package.json`"
+    override_anchor = "operator-supplied override"
+    for anchor in (pytest_anchor, make_anchor, npm_anchor, override_anchor):
+        assert prompt.count(anchor) == 1, f"expected exactly one {anchor!r} in prompt"
     assert (
-        prompt.index("pytest")
-        < prompt.index("make test")
-        < prompt.index("npm test")
-        < prompt.index("debussy config test_command")
+        prompt.index(pytest_anchor)
+        < prompt.index(make_anchor)
+        < prompt.index(npm_anchor)
+        < prompt.index(override_anchor)
     )
