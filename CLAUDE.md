@@ -137,7 +137,7 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 ### @integrator
 - Merges feature branches to conductor's base branch
 - Success (clean merge or trivial auto-resolve): `takt release <id>` (task done, acceptance happens in batch)
-- Conflict beyond auto-resolve bounds: `takt block <id>` (parks for conductor)
+- Conflict beyond auto-resolve bounds, or tests fail after auto-resolve: `takt block <id>` (parks for conductor)
 - Push failure / branch missing: `takt reject <id>` (watcher sends to development)
 - **Never merges to master**
 

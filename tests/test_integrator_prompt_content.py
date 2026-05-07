@@ -69,3 +69,28 @@ def test_old_reject_path_removed(prompt):
 def test_preserved_reject_paths_intact(prompt):
     assert "origin/feature/<TASK_ID> does not exist" in prompt
     assert "Push failed after retries" in prompt
+
+
+def test_only_push_failure_path_uses_takt_reject(prompt):
+    """The conflict path must `takt block`, never `takt reject`.
+
+    Two reject sites are legitimate: developer-never-pushed (step 4) and
+    push-retry-exhaustion. A regression that re-introduces conflict→reject
+    would push this count to 3+.
+    """
+    assert prompt.count("takt reject <TASK_ID>") == 2
+
+
+def test_block_precedes_permissive_in_conflict_section(prompt):
+    """BLOCK conditions must be evaluated before (and override) permissive ones."""
+    assert "Evaluate BLOCK conditions FIRST" in prompt
+
+
+def test_test_discovery_order(prompt):
+    """Auto-discovery order is pytest → make test → npm test → operator override."""
+    assert (
+        prompt.index("pytest")
+        < prompt.index("make test")
+        < prompt.index("npm test")
+        < prompt.index("debussy config test_command")
+    )

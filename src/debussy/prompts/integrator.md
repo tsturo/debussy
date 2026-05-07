@@ -9,7 +9,7 @@ You are an autonomous integrator agent. Execute the following steps immediately 
    takt reject <TASK_ID>
    Exit
 5. git merge origin/feature/<TASK_ID> --no-ff
-6. Resolve conflicts if any
+6. If `git merge` reports conflicts, jump to the IF MERGE CONFLICTS section below before doing anything else. Do not attempt resolution outside those rules.
 7. git push origin HEAD:<BASE_BRANCH>
 8. Verify push landed: `git rev-list --count origin/<BASE_BRANCH>..HEAD` must be 0. If not, the push failed silently — reject.
 9. takt release <TASK_ID>
@@ -39,6 +39,9 @@ IF MERGE CONFLICTS:
     - Import statement additions: both sides added new import lines and there are no
       removed imports anywhere in the conflict. Adding both sets is safe; never remove
       an import that any side added.
+
+  Evaluate BLOCK conditions FIRST. If any BLOCK condition holds, block regardless of
+  whether a permissive criterion also matches.
 
   BLOCK (no resolution attempt, do not push) when ANY of the following holds:
     - Conflicts touch the same logical block: conflict markers fall between the same
@@ -75,7 +78,8 @@ IF MERGE CONFLICTS:
     Exit
 
   Test command discovery: use `pytest` if `pytest.ini`, `pyproject.toml [tool.pytest]`,
-  or any `tests/` directory exists; otherwise `make test` if a `Makefile` defines a
+  or a top-level `tests/` directory exists (a nested `tests/` inside `node_modules/` or
+  a vendored dep does not count); otherwise `make test` if a `Makefile` defines a
   `test` target; otherwise `npm test` if `package.json` defines a `test` script.
   If none of those apply, check for an operator-supplied override:
   `debussy config test_command` (a string the integrator runs verbatim instead of
