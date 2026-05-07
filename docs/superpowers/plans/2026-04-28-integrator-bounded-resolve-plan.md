@@ -138,11 +138,11 @@ Not doing it. The spec's acceptance criterion #5 calls helper extraction optiona
 Each step is its own commit. After each commit, run `pytest` and confirm green before the next.
 
 1. **Add the static-content test file first** (`tests/test_integrator_prompt_content.py`). This commit alone fails the test (the prompt hasn't been updated yet) — so the actual sequence is to write the test in the same commit as the prompt edit, OR write the test file, run it once locally to confirm it fails as expected, then fold the prompt edit into the next commit. Choosing the simpler version: **commits 1 and 2 below are bundled into a single commit** that adds both the failing-then-passing assertions and the prompt change. Rationale: a deliberately-failing intermediate commit on `master`'s history is more confusing than helpful, and the static-content test has no value separated from the prompt it tests.
-2. **Commit A — `prompts/integrator.md` + `tests/test_integrator_prompt_content.py`** together. Subject: `[bounded-resolve] Replace integrator conflict-reject with bounded auto-resolve`. After commit, `pytest tests/test_integrator_prompt_content.py` must pass.
-3. **Commit B — `src/debussy/config.py`** add `test_command` to `KNOWN_KEYS`. Subject: `[bounded-resolve] Allow test_command config key for integrator override`. After commit, full `pytest` must pass.
-4. **Commit C — `CLAUDE.md`** `@integrator` section update. Subject: `[bounded-resolve] Document integrator block-on-conflict behavior in CLAUDE.md`. No test change.
+2. **Commit A — `prompts/integrator.md` + `tests/test_integrator_prompt_content.py`** together. Subject: `Replace integrator conflict-reject with bounded auto-resolve`. After commit, `pytest tests/test_integrator_prompt_content.py` must pass.
+3. **Commit B — `src/debussy/config.py`** add `test_command` to `KNOWN_KEYS`. Subject: `Allow test_command as a known config key`. After commit, full `pytest` must pass.
+4. **Commit C — `CLAUDE.md`** `@integrator` section update. Subject: `Document integrator block-on-conflict behavior`. No test change.
 
-All commits use a HEREDOC body and end with the `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` trailer matching recent commits. Files staged by name; no `git add .` / `-A`.
+All commits use plain-prose subject lines (no bracketed prefix) to match the style of recent spec-related commits on master (`Narrow pipeline simplification spec to integrator change only`, `Add pipeline simplification spec and skills roadmap`). The `CLAUDE.md` `[PRJ-N]` convention applies to in-pipeline takt tasks; this work is outside the takt pipeline so plain prose is the correct match. All commits use a HEREDOC body and end with the `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` trailer matching recent commits. Files staged by name; no `git add .` / `-A`.
 
 ## Manual verification cases (for the user post-merge)
 
