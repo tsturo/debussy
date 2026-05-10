@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import type { AgentRole, Stage } from '../../shared/types'
 import { STAGE_COLORS } from '../lib/stage-colors'
 import { formatElapsed } from '../lib/format'
@@ -37,7 +37,6 @@ function AgentAvatar({
         onClick={onClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        title={`${agent.name} · ${agent.role} · ${agent.taskId} · ${elapsed}`}
         style={{
           width: 32,
           height: 32,
@@ -55,7 +54,8 @@ function AgentAvatar({
           padding: 0,
           animation: 'agent-pulse 2s ease-in-out infinite',
           flexShrink: 0,
-        }}
+          '--pulse-color': hexToRgba(stageColor, 0.20),
+        } as React.CSSProperties}
         aria-label={`${agent.name} · ${agent.role} · ${agent.taskId} · ${elapsed}`}
       >
         {initial}
@@ -104,7 +104,7 @@ export function AgentBar({ agents, watcherRunning, onAgentClick }: AgentBarProps
         style={{
           height: 48,
           background: 'transparent',
-          borderBottom: '1px solid rgba(232,237,243,0.15)',
+          borderBottom: '1px solid color-mix(in srgb, var(--t-border) 15%, transparent)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
