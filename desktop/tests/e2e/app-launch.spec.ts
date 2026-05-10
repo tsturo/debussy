@@ -47,6 +47,8 @@ test('default launch applies dark theme', async () => {
   )
   expect(bgColor).toBe('#0a0f1a')
 
+  await page.screenshot({ path: `${SCREENSHOT_DIR}/09-dark-launch.png`, fullPage: true })
+
   await app.close()
 })
 
