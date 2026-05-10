@@ -54,7 +54,7 @@ export interface AppState {
   setConductorStreaming: (val: boolean) => void
   setTheme: (theme: Theme) => void
   setConductorDefaultVisibility: (v: ConductorDefaultVisibility) => void
-  setActiveGroup: (id: string) => void
+  setActiveGroup: (id: string) => Promise<void>
   setActiveProject: (groupId: string, path: string) => Promise<void>
   addProject: (groupId: string, path: string) => Promise<{ success: boolean; error?: string }>
   addWorkspaceGroup: (name: string) => Promise<{ success: boolean; error?: string }>
@@ -133,8 +133,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  setActiveGroup: (id: string) => {
+  setActiveGroup: async (id: string) => {
+    // Update local state immediately for a snappy UI
     set({ activeGroupId: id })
+
+    // Persist to backend: switch to the first project of the selected group
+    const { workspaceGroups } = get()
+    const group = workspaceGroups.find((g) => g.id === id)
+    const firstProject = group?.projects[0]
+    if (firstProject) {
+      try {
+        await window.debussy.workspace.setActive(id, firstProject.path)
+        set({ activeProjectPath: firstProject.path })
+        await get().fetchAll()
+      } catch (err) {
+        console.error('[app-store] setActiveGroup persist failed:', err)
+      }
+    }
   },
 
   setActiveProject: async (groupId: string, path: string) => {

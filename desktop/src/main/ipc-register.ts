@@ -339,7 +339,8 @@ export function registerIPC(): void {
 
   ipcMain.handle(IPC.DIALOG_OPEN_DIRECTORY, async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
-    const result = await dialog.showOpenDialog(win!, {
+    if (!win) return null
+    const result = await dialog.showOpenDialog(win, {
       title: 'Select Project Folder',
       properties: ['openDirectory'],
     })

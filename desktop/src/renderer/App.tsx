@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ConductorMessage, LogEntry, Stage } from '../shared/types'
+import { useWorkspaceHandlers } from './hooks/useWorkspaceHandlers'
 
 import { Sidebar } from './components/Sidebar'
 import { Board } from './components/Board'
@@ -13,8 +14,6 @@ import type { PaletteAction } from './components/CommandPalette'
 
 import { useAppStore } from './store/app-store'
 import { useBreakpoint } from './lib/use-media-query'
-
-// ── App ──────────────────────────────────────────────────────────────────────
 
 function App() {
   // ── Store selectors ────────────────────────────────────────────────────────
@@ -43,8 +42,14 @@ function App() {
   const setTheme = useAppStore((s) => s.setTheme)
   const setActiveGroup = useAppStore((s) => s.setActiveGroup)
   const setActiveProject = useAppStore((s) => s.setActiveProject)
-  const addProject = useAppStore((s) => s.addProject)
-  const addWorkspaceGroup = useAppStore((s) => s.addWorkspaceGroup)
+
+  const [toast, setToast] = useState<string | null>(null)
+  const showToast = useCallback((msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2500)
+  }, [])
+
+  const { handleAddProject, handleNewWorkspace } = useWorkspaceHandlers(showToast)
 
   // ── Theme application ──────────────────────────────────────────────────────
 
@@ -105,24 +110,9 @@ function App() {
     setConductorOverride((prev) => !(prev ?? defaultConductorVisible))
   }, [defaultConductorVisible])
 
-  // ── Settings modal state ──────────────────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = useState(false)
-
-  // ── New task dialog state ─────────────────────────────────────────────────
   const [newTaskOpen, setNewTaskOpen] = useState(false)
-
-  // ── Toast state ───────────────────────────────────────────────────────────
-  const [toast, setToast] = useState<string | null>(null)
-
-  function showToast(message: string) {
-    setToast(message)
-    setTimeout(() => setToast(null), 2500)
-  }
-
-  // ── Command palette state ──────────────────────────────────────────────────
   const [paletteOpen, setPaletteOpen] = useState(false)
-
-  // ── Task log entries (fetched when selectedTaskId changes) ────────────────
   const [taskLogEntries, setTaskLogEntries] = useState<LogEntry[]>([])
 
   useEffect(() => {
@@ -283,30 +273,6 @@ function App() {
       action: () => setTheme('system'),
     },
   ], [advanceTask, handleToggleConductor, handleToggleSidebar, setTheme, setPaletteOpen])
-
-  // ── Workspace handlers ─────────────────────────────────────────────────────
-
-  async function handleAddProject(groupId: string) {
-    try {
-      const path = await window.debussy.dialog.openDirectory()
-      if (!path) return  // user cancelled
-      const result = await addProject(groupId, path)
-      if (!result.success) {
-        showToast(result.error ?? 'Could not add project')
-      }
-    } catch (err) {
-      console.error('[App] handleAddProject failed:', err)
-    }
-  }
-
-  async function handleNewWorkspace() {
-    const name = window.prompt('Workspace name:')
-    if (!name?.trim()) return
-    const result = await addWorkspaceGroup(name.trim())
-    if (!result.success) {
-      showToast(result.error ?? 'Could not create workspace')
-    }
-  }
 
   // ── Watcher toggle handler ─────────────────────────────────────────────────
 
