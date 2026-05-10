@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import type { Task, AgentInfo, DebussyConfig, ConductorMessage } from '../../shared/types'
 
+export type ThemePreference = 'system' | 'dark' | 'light'
+
 export interface AppState {
   // Data
   tasks: Task[]
@@ -13,6 +15,7 @@ export interface AppState {
   conductorVisible: boolean
   sidebarCollapsed: boolean
   conductorMessages: ConductorMessage[]
+  theme: ThemePreference
 
   // Actions
   fetchAll: () => Promise<void>
@@ -23,6 +26,19 @@ export interface AppState {
   blockTask: (id: string) => Promise<void>
   commentOnTask: (id: string, msg: string) => Promise<void>
   addConductorMessage: (msg: ConductorMessage) => void
+  setTheme: (theme: ThemePreference) => void
+}
+
+const THEME_KEY = 'debussy-theme'
+
+function readThemeFromStorage(): ThemePreference {
+  try {
+    const stored = localStorage.getItem(THEME_KEY)
+    if (stored === 'dark' || stored === 'light' || stored === 'system') return stored
+  } catch {
+    // localStorage may be unavailable in some contexts
+  }
+  return 'system'
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -37,6 +53,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   conductorVisible: true,
   sidebarCollapsed: false,
   conductorMessages: [],
+  theme: readThemeFromStorage(),
 
   // Fetch all data via IPC
   fetchAll: async () => {
@@ -96,4 +113,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addConductorMessage: (msg) =>
     set((s) => ({ conductorMessages: [...s.conductorMessages, msg] })),
+
+  setTheme: (theme) => {
+    try {
+      localStorage.setItem(THEME_KEY, theme)
+    } catch {
+      // localStorage may be unavailable
+    }
+    set({ theme })
+  },
 }))

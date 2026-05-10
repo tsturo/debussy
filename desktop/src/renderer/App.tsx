@@ -30,6 +30,28 @@ function App() {
   const blockTask = useAppStore((s) => s.blockTask)
   const commentOnTask = useAppStore((s) => s.commentOnTask)
   const addConductorMessage = useAppStore((s) => s.addConductorMessage)
+  const theme = useAppStore((s) => s.theme)
+
+  // ── Theme application ──────────────────────────────────────────────────────
+
+  useEffect(() => {
+    function resolveTheme(pref: typeof theme): 'dark' | 'light' {
+      if (pref !== 'system') return pref
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+
+    function applyTheme() {
+      document.documentElement.setAttribute('data-theme', resolveTheme(theme))
+    }
+
+    applyTheme()
+
+    if (theme === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)')
+      mq.addEventListener('change', applyTheme)
+      return () => mq.removeEventListener('change', applyTheme)
+    }
+  }, [theme])
 
   // ── Task log entries (fetched when selectedTaskId changes) ────────────────
   const [taskLogEntries, setTaskLogEntries] = useState<LogEntry[]>([])
