@@ -1,49 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ConductorMessage } from '../../shared/types'
-
-// ── Mock data ────────────────────────────────────────────────────────────────
-
-export const DEFAULT_MESSAGES: ConductorMessage[] = [
-  {
-    id: '1',
-    role: 'user',
-    content: 'Create tasks for auth: user model, login endpoint, JWT middleware',
-    timestamp: Date.now() - 5 * 60 * 1000,
-  },
-  {
-    id: '2',
-    role: 'assistant',
-    content:
-      "Created 3 tasks ready for development:\n• DBS-1: User model (Pydantic schema + DB migration)\n• DBS-2: Login endpoint (POST /auth/login, bcrypt)\n• DBS-6: JWT middleware (access + refresh tokens)\n▸ takt create \"User model\" -d \"...\"\n▸ takt create \"Login endpoint\" -d \"...\"\n▸ takt create \"JWT middleware\" -d \"...\"\n▸ takt advance DBS-1\n▸ takt advance DBS-2\n▸ takt advance DBS-6",
-    timestamp: Date.now() - 4 * 60 * 1000,
-  },
-  {
-    id: '3',
-    role: 'user',
-    content: 'DBS-6 keeps getting rejected — what\'s wrong?',
-    timestamp: Date.now() - 2 * 60 * 1000,
-  },
-  {
-    id: '4',
-    role: 'assistant',
-    content:
-      "The reviewer flagged a token refresh race condition — two simultaneous refresh requests can both succeed and generate conflicting tokens. Fix: add a Redis lock around the refresh flow, or use a short-lived single-use refresh nonce.\n▸ takt log DBS-6\n▸ takt comment DBS-6 \"Add refresh lock before re-advancing\"",
-    timestamp: Date.now() - 90 * 1000,
-  },
-  {
-    id: '5',
-    role: 'user',
-    content: 'Got it. Can you check the board and tell me what\'s blocked?',
-    timestamp: Date.now() - 30 * 1000,
-  },
-  {
-    id: '6',
-    role: 'assistant',
-    content:
-      'DBS-6 is blocked pending the refresh fix. Everything else looks healthy — DBS-1 is in reviewing, DBS-2 just merged. You\'re on track.\n▸ debussy board',
-    timestamp: Date.now() - 15 * 1000,
-  },
-]
+import { useAppStore } from '../store/app-store'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -156,25 +113,104 @@ function AssistantBubble({ message }: { message: ConductorMessage }) {
   )
 }
 
+/** Animated pulsing dots shown while the conductor is streaming a response. */
+function StreamingIndicator({ content }: { content: string }) {
+  return (
+    <div
+      style={{
+        maxWidth: '85%',
+        alignSelf: 'flex-start',
+        background: 'var(--t-bg)',
+        border: '1px solid var(--t-border)',
+        borderRadius: '14px 14px 14px 4px',
+        padding: '7px 10px',
+        fontSize: 11,
+        color: 'var(--t-text-2)',
+        lineHeight: 1.5,
+        wordBreak: 'break-word',
+      }}
+    >
+      {content ? (
+        <span style={{ whiteSpace: 'pre-wrap' }}>{content}</span>
+      ) : (
+        <span style={{ display: 'flex', gap: 3, alignItems: 'center', height: 16 }}>
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: '50%',
+                background: 'var(--t-text-3)',
+                display: 'inline-block',
+                animation: `conductor-dot 1.2s ease-in-out ${i * 0.2}s infinite`,
+              }}
+            />
+          ))}
+        </span>
+      )}
+    </div>
+  )
+}
+
 // ── Conductor ────────────────────────────────────────────────────────────────
 
 export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
   const [inputValue, setInputValue] = useState('')
   const [activeTab, setActiveTab] = useState<TabKey>('watcher')
+  const [streamingContent, setStreamingContent] = useState('')
   const chatEndRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll to bottom when messages change
+  const isStreaming = useAppStore((s) => s.conductorStreaming)
+  const setConductorStreaming = useAppStore((s) => s.setConductorStreaming)
+  const addConductorMessage = useAppStore((s) => s.addConductorMessage)
+
+  // ── IPC listeners ──────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    window.debussy.conductor.onChunk((chunk) => {
+      setStreamingContent((prev) => prev + chunk)
+    })
+
+    window.debussy.conductor.onDone(() => {
+      setStreamingContent((prev) => {
+        if (prev) {
+          addConductorMessage({
+            id: `cm-ai-${Date.now()}`,
+            role: 'assistant',
+            content: prev,
+            timestamp: Date.now(),
+          })
+        }
+        return ''
+      })
+      setConductorStreaming(false)
+    })
+
+    return () => {
+      window.debussy.conductor.removeListeners()
+    }
+  }, [addConductorMessage, setConductorStreaming])
+
+  // Auto-scroll to bottom when messages or streaming content change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, streamingContent])
 
   if (!isVisible) return null
 
   function handleSend() {
     const trimmed = inputValue.trim()
-    if (!trimmed) return
+    if (!trimmed || isStreaming) return
     onSend(trimmed)
     setInputValue('')
+    setStreamingContent('')
+  }
+
+  function handleCancel() {
+    window.debussy.conductor.cancel()
+    setStreamingContent('')
+    setConductorStreaming(false)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -276,6 +312,7 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
             <AssistantBubble key={msg.id} message={msg} />
           )
         )}
+        {isStreaming && <StreamingIndicator content={streamingContent} />}
         <div ref={chatEndRef} />
       </div>
 
@@ -296,6 +333,7 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Talk to conductor..."
+          disabled={isStreaming}
           style={{
             flex: 1,
             background: 'var(--t-bg)',
@@ -307,46 +345,90 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
             outline: 'none',
             fontFamily: 'inherit',
             minWidth: 0,
+            opacity: isStreaming ? 0.5 : 1,
           }}
         />
-        <button
-          onClick={handleSend}
-          aria-label="Send message"
-          style={{
-            width: 32,
-            height: 32,
-            flexShrink: 0,
-            background: 'var(--t-gradient)',
-            border: 'none',
-            borderRadius: 9,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            transition: 'opacity var(--t-dur-fast)',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-        >
-          {/* Arrow icon */}
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            aria-hidden="true"
+
+        {/* Cancel button — only visible while streaming */}
+        {isStreaming ? (
+          <button
+            onClick={handleCancel}
+            aria-label="Cancel response"
+            title="Cancel"
+            style={{
+              width: 32,
+              height: 32,
+              flexShrink: 0,
+              background: 'var(--t-surface)',
+              border: '1px solid var(--t-border)',
+              borderRadius: 9,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--t-text-2)',
+              transition: 'opacity var(--t-dur-fast)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
           >
-            <path
-              d="M2 7h10M8 3l4 4-4 4"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+            {/* X icon */}
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+              <path
+                d="M1 1l8 8M9 1L1 9"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        ) : (
+          <button
+            onClick={handleSend}
+            aria-label="Send message"
+            style={{
+              width: 32,
+              height: 32,
+              flexShrink: 0,
+              background: 'var(--t-gradient)',
+              border: 'none',
+              borderRadius: 9,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              transition: 'opacity var(--t-dur-fast)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+          >
+            {/* Arrow icon */}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M2 7h10M8 3l4 4-4 4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
       </div>
+
+      <style>{`
+        @keyframes conductor-dot {
+          0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+          40%            { opacity: 1;   transform: scale(1); }
+        }
+      `}</style>
     </div>
   )
 }

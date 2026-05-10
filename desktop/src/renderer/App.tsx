@@ -33,6 +33,7 @@ function App() {
   const startWatcher = useAppStore((s) => s.startWatcher)
   const stopWatcher = useAppStore((s) => s.stopWatcher)
   const addConductorMessage = useAppStore((s) => s.addConductorMessage)
+  const setConductorStreaming = useAppStore((s) => s.setConductorStreaming)
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
 
@@ -281,22 +282,15 @@ function App() {
 
   // ── Conductor send handler ─────────────────────────────────────────────────
 
-  function handleSendConductorMessage(message: string) {
-    const userMsg: ConductorMessage = {
+  async function handleSendConductorMessage(message: string) {
+    addConductorMessage({
       id: `cm-user-${Date.now()}`,
       role: 'user',
       content: message,
       timestamp: Date.now(),
-    }
-    addConductorMessage(userMsg)
-    // Echo for dev/test feedback — real conductor integration comes later
-    const echoMsg: ConductorMessage = {
-      id: `cm-echo-${Date.now()}`,
-      role: 'assistant',
-      content: `(echo) You said: "${message}"`,
-      timestamp: Date.now() + 500,
-    }
-    addConductorMessage(echoMsg)
+    })
+    setConductorStreaming(true)
+    await window.debussy.conductor.send(message)
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────

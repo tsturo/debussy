@@ -16,6 +16,7 @@ export interface AppState {
   conductorVisible: boolean
   sidebarCollapsed: boolean
   conductorMessages: ConductorMessage[]
+  conductorStreaming: boolean
 
   // Settings
   theme: Theme
@@ -32,6 +33,7 @@ export interface AppState {
   startWatcher: () => Promise<{ alreadyRunning?: boolean }>
   stopWatcher: () => Promise<void>
   addConductorMessage: (msg: ConductorMessage) => void
+  setConductorStreaming: (val: boolean) => void
   setTheme: (theme: Theme) => void
   setConductorDefaultVisibility: (v: ConductorDefaultVisibility) => void
 }
@@ -60,6 +62,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   conductorVisible: true,
   sidebarCollapsed: false,
   conductorMessages: [],
+  conductorStreaming: false,
 
   // Settings defaults
   theme: readThemeFromStorage(),
@@ -143,6 +146,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addConductorMessage: (msg) =>
     set((s) => ({ conductorMessages: [...s.conductorMessages, msg] })),
+
+  setConductorStreaming: (val) => set({ conductorStreaming: val }),
 
   setTheme: (theme) => {
     try {
