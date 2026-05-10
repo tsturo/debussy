@@ -290,7 +290,12 @@ function App() {
       timestamp: Date.now(),
     })
     setConductorStreaming(true)
-    await window.debussy.conductor.send(message)
+    try {
+      await window.debussy.conductor.send(message)
+    } catch (err) {
+      console.error('[conductor] send failed:', err)
+      setConductorStreaming(false)
+    }
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
