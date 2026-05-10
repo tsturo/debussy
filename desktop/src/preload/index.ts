@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld('debussy', {
     removeLogListener: ()                                                    => ipcRenderer.removeAllListeners('agent-log:line'),
   },
   config: {
-    get: () => ipcRenderer.invoke(IPC.CONFIG_GET),
+    get: ()                            => ipcRenderer.invoke(IPC.CONFIG_GET),
     set: (key: string, value: unknown) => ipcRenderer.invoke(IPC.CONFIG_SET, key, value),
   },
   watcher: {

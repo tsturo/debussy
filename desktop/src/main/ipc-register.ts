@@ -26,6 +26,7 @@ const DEFAULT_CONFIG: DebussyConfig = {
   project_type:         null,
   conductor_session_id: null,
   test_command:         null,
+  auto_start_watcher:   false,
 }
 
 // ── Module state ──────────────────────────────────────────────────────────────
@@ -247,22 +248,36 @@ export function registerIPC(): void {
 
   // ── Config write handler ───────────────────────────────────────────────────
 
-  ipcMain.handle(IPC.CONFIG_SET, (_event, key: string, value: unknown) => {
+  ipcMain.handle(IPC.CONFIG_SET, (_event, key: string, value: unknown): { success: boolean; error?: string } => {
+    // Validate known keys and value ranges
+    if (key === 'max_total_agents') {
+      const n = Number(value)
+      if (!Number.isInteger(n) || n < 1 || n > 16) {
+        return { success: false, error: 'max_total_agents must be an integer between 1 and 16' }
+      }
+    } else if (key === 'agent_timeout') {
+      const n = Number(value)
+      if (!Number.isFinite(n) || n <= 0) {
+        return { success: false, error: 'agent_timeout must be a positive number' }
+      }
+    }
+
     const configPath = join(getProjectPath(), '.debussy', 'config.json')
+    const tmpPath    = configPath + '.tmp'
+
+    // Read existing config (or start from empty object)
+    let current: Record<string, unknown> = {}
     try {
-      let current: Record<string, unknown> = {}
-      try {
-        current = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      } catch {
-        // Start fresh if file missing or unreadable
-      }
-      if (value === null || value === undefined) {
-        delete current[key]
-      } else {
-        current[key] = value
-      }
-      fs.mkdirSync(join(getProjectPath(), '.debussy'), { recursive: true })
-      fs.writeFileSync(configPath, JSON.stringify(current, null, 2) + '\n', 'utf-8')
+      current = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+    } catch {
+      // Missing or unreadable — start fresh
+    }
+
+    current[key] = value
+
+    try {
+      fs.writeFileSync(tmpPath, JSON.stringify(current, null, 2), 'utf-8')
+      fs.renameSync(tmpPath, configPath)
       return { success: true }
     } catch (err) {
       return { success: false, error: String(err) }
