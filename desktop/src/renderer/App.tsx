@@ -6,6 +6,7 @@ import { Board } from './components/Board'
 import { Conductor } from './components/Conductor'
 import { TaskDetailShell } from './components/TaskDetailShell'
 import { TaskDetailBody } from './components/TaskDetailBody'
+import { Settings } from './components/Settings'
 
 import { useAppStore } from './store/app-store'
 import { useBreakpoint } from './lib/use-media-query'
@@ -88,6 +89,9 @@ function App() {
     setConductorOverride((prev) => !(prev ?? defaultConductorVisible))
   }, [defaultConductorVisible])
 
+  // ── Settings modal state ──────────────────────────────────────────────────
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
   // ── Task log entries (fetched when selectedTaskId changes) ────────────────
   const [taskLogEntries, setTaskLogEntries] = useState<LogEntry[]>([])
 
@@ -115,9 +119,16 @@ function App() {
     function handleKeyDown(e: KeyboardEvent) {
       const meta = e.metaKey || e.ctrlKey
 
-      // Escape → close TaskDetail
+      // Escape → close TaskDetail (settings closes itself via its own handler)
       if (e.key === 'Escape') {
         selectTask(null)
+        return
+      }
+
+      // Cmd/Ctrl+, → open Settings
+      if (meta && e.key === ',') {
+        e.preventDefault()
+        setSettingsOpen(true)
         return
       }
 
@@ -203,7 +214,7 @@ function App() {
         projects={[]}
         collapsed={sidebarCollapsed}
         onProjectSelect={(name) => console.log('project selected:', name)}
-        onSettingsClick={() => console.log('settings clicked')}
+        onSettingsClick={() => setSettingsOpen(true)}
         onAddProject={() => console.log('add project clicked')}
       />
 
@@ -320,6 +331,12 @@ function App() {
           onSend={handleSendConductorMessage}
         />
       )}
+
+      {/* ── Settings modal ──────────────────────────────────────────────────── */}
+      <Settings
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   )
 }

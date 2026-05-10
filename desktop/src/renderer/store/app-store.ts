@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import type { Task, AgentInfo, DebussyConfig, ConductorMessage } from '../../shared/types'
 
-export type ThemePreference = 'system' | 'dark' | 'light'
+export type Theme = 'system' | 'dark' | 'light'
+export type ConductorDefaultVisibility = 'always' | 'auto' | 'hidden'
 
 export interface AppState {
   // Data
@@ -15,7 +16,10 @@ export interface AppState {
   conductorVisible: boolean
   sidebarCollapsed: boolean
   conductorMessages: ConductorMessage[]
-  theme: ThemePreference
+
+  // Settings
+  theme: Theme
+  conductorDefaultVisibility: ConductorDefaultVisibility
 
   // Actions
   fetchAll: () => Promise<void>
@@ -26,12 +30,13 @@ export interface AppState {
   blockTask: (id: string) => Promise<void>
   commentOnTask: (id: string, msg: string) => Promise<void>
   addConductorMessage: (msg: ConductorMessage) => void
-  setTheme: (theme: ThemePreference) => void
+  setTheme: (theme: Theme) => void
+  setConductorDefaultVisibility: (v: ConductorDefaultVisibility) => void
 }
 
 const THEME_KEY = 'debussy-theme'
 
-function readThemeFromStorage(): ThemePreference {
+function readThemeFromStorage(): Theme {
   try {
     const stored = localStorage.getItem(THEME_KEY)
     if (stored === 'dark' || stored === 'light' || stored === 'system') return stored
@@ -53,7 +58,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   conductorVisible: true,
   sidebarCollapsed: false,
   conductorMessages: [],
+
+  // Settings defaults
   theme: readThemeFromStorage(),
+  conductorDefaultVisibility: 'auto',
 
   // Fetch all data via IPC
   fetchAll: async () => {
@@ -122,4 +130,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     set({ theme })
   },
+
+  setConductorDefaultVisibility: (conductorDefaultVisibility) =>
+    set({ conductorDefaultVisibility }),
 }))
