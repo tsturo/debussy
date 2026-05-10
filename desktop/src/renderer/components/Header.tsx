@@ -65,7 +65,7 @@ export function Header({
             padding: '5px 10px',
             background: 'var(--t-surface)',
             border: '1px solid var(--t-border)',
-            borderRadius: '9px',
+            borderRadius: 'var(--t-radius-sm)',
             cursor: 'pointer',
             fontSize: '13px',
             color: 'var(--t-text-3)',
@@ -92,7 +92,7 @@ export function Header({
             padding: '5px 12px',
             background: 'var(--t-gradient)',
             border: 'none',
-            borderRadius: '9px',
+            borderRadius: 'var(--t-radius-sm)',
             cursor: 'pointer',
             fontSize: '13px',
             fontWeight: 600,
@@ -118,10 +118,10 @@ function AgentPill({
     <span
       style={{
         padding: '3px 10px',
-        borderRadius: '100px',
+        borderRadius: 'var(--t-radius-pill)',
         fontSize: '11px',
         color: 'var(--t-text-2)',
-        background: 'rgba(108, 92, 231, 0.06)',
+        background: 'var(--t-agent-pill-bg)',
       }}
     >
       {agentCount}/{maxAgents} agents
@@ -134,10 +134,10 @@ function BlockedPill({ blockedCount }: { blockedCount: number }) {
     <span
       style={{
         padding: '3px 10px',
-        borderRadius: '100px',
+        borderRadius: 'var(--t-radius-pill)',
         fontSize: '11px',
         color: 'var(--t-error)',
-        background: 'rgba(217, 112, 112, 0.08)',
+        background: 'var(--t-blocked-pill-bg)',
       }}
     >
       {blockedCount} blocked
