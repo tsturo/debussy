@@ -7,6 +7,8 @@ import { Conductor } from './components/Conductor'
 import { TaskDetailShell } from './components/TaskDetailShell'
 import { TaskDetailBody } from './components/TaskDetailBody'
 import { Settings } from './components/Settings'
+import { CommandPalette } from './components/CommandPalette'
+import type { PaletteAction } from './components/CommandPalette'
 
 import { useAppStore } from './store/app-store'
 import { useBreakpoint } from './lib/use-media-query'
@@ -29,6 +31,7 @@ function App() {
   const commentOnTask = useAppStore((s) => s.commentOnTask)
   const addConductorMessage = useAppStore((s) => s.addConductorMessage)
   const theme = useAppStore((s) => s.theme)
+  const setTheme = useAppStore((s) => s.setTheme)
 
   // ── Theme application ──────────────────────────────────────────────────────
 
@@ -92,6 +95,9 @@ function App() {
   // ── Settings modal state ──────────────────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = useState(false)
 
+  // ── Command palette state ──────────────────────────────────────────────────
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
   // ── Task log entries (fetched when selectedTaskId changes) ────────────────
   const [taskLogEntries, setTaskLogEntries] = useState<LogEntry[]>([])
 
@@ -119,8 +125,12 @@ function App() {
     function handleKeyDown(e: KeyboardEvent) {
       const meta = e.metaKey || e.ctrlKey
 
-      // Escape → close TaskDetail (settings closes itself via its own handler)
+      // Escape → close palette first, then task detail
       if (e.key === 'Escape') {
+        if (paletteOpen) {
+          setPaletteOpen(false)
+          return
+        }
         selectTask(null)
         return
       }
@@ -139,16 +149,16 @@ function App() {
         return
       }
 
-      // Cmd/Ctrl+K → placeholder (command palette — future)
+      // Cmd/Ctrl+K → open command palette
       if (meta && e.key === 'k') {
         e.preventDefault()
-        console.log('command palette — not yet implemented')
+        setPaletteOpen((open) => !open)
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectTask, handleToggleConductor])
+  }, [selectTask, handleToggleConductor, paletteOpen])
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
@@ -179,6 +189,68 @@ function App() {
     const latest = sorted[0]
     return `${latest.name} working on ${latest.taskId}`
   })()
+
+  // ── Command palette actions ────────────────────────────────────────────────
+
+  const paletteActions: PaletteAction[] = useMemo(() => [
+    // Tasks
+    {
+      id: 'new-task',
+      name: 'New Task',
+      category: 'Tasks',
+      shortcut: null,
+      action: () => { console.log('new task') },
+    },
+    {
+      id: 'advance-task',
+      name: 'Advance Task...',
+      category: 'Tasks',
+      action: () => {
+        const id = window.prompt('Task ID to advance:')
+        if (id?.trim()) advanceTask(id.trim())
+      },
+    },
+    // Navigation
+    {
+      id: 'toggle-conductor',
+      name: 'Toggle Conductor Panel',
+      category: 'Navigation',
+      shortcut: '⌘\\',
+      action: handleToggleConductor,
+    },
+    {
+      id: 'toggle-sidebar',
+      name: 'Toggle Sidebar',
+      category: 'Navigation',
+      action: handleToggleSidebar,
+    },
+    {
+      id: 'open-settings',
+      name: 'Open Settings',
+      category: 'Navigation',
+      shortcut: '⌘,',
+      action: () => setSettingsOpen(true),
+    },
+    // Appearance
+    {
+      id: 'theme-dark',
+      name: 'Switch to Dark Theme',
+      category: 'Appearance',
+      action: () => setTheme('dark'),
+    },
+    {
+      id: 'theme-light',
+      name: 'Switch to Light Theme',
+      category: 'Appearance',
+      action: () => setTheme('light'),
+    },
+    {
+      id: 'theme-system',
+      name: 'Use System Theme',
+      category: 'Appearance',
+      action: () => setTheme('system'),
+    },
+  ], [advanceTask, handleToggleConductor, handleToggleSidebar, setTheme])
 
   // ── Conductor send handler ─────────────────────────────────────────────────
 
@@ -337,6 +409,13 @@ function App() {
       <Settings
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+      />
+
+      {/* ── Command palette ─────────────────────────────────────────────────── */}
+      <CommandPalette
+        isOpen={paletteOpen}
+        actions={paletteActions}
+        onClose={() => setPaletteOpen(false)}
       />
     </div>
   )
