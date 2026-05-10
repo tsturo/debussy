@@ -245,7 +245,7 @@ export function CommandPalette({ isOpen, actions, onClose }: CommandPaletteProps
               width: '100%',
               border: 'none',
               outline: 'none',
-              background: 'transparent',
+              background: 'var(--t-bg)',
               fontSize: 14,
               color: 'var(--t-text)',
               fontFamily: 'inherit',
