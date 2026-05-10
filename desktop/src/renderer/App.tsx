@@ -7,6 +7,7 @@ import { Conductor } from './components/Conductor'
 import { TaskDetailShell } from './components/TaskDetailShell'
 import { TaskDetailBody } from './components/TaskDetailBody'
 import { Settings } from './components/Settings'
+import { NewTaskDialog } from './components/NewTaskDialog'
 import { CommandPalette } from './components/CommandPalette'
 import type { PaletteAction } from './components/CommandPalette'
 
@@ -94,6 +95,17 @@ function App() {
 
   // ── Settings modal state ──────────────────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // ── New task dialog state ─────────────────────────────────────────────────
+  const [newTaskOpen, setNewTaskOpen] = useState(false)
+
+  // ── Toast state ───────────────────────────────────────────────────────────
+  const [toast, setToast] = useState<string | null>(null)
+
+  function showToast(message: string) {
+    setToast(message)
+    setTimeout(() => setToast(null), 2500)
+  }
 
   // ── Command palette state ──────────────────────────────────────────────────
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -199,7 +211,10 @@ function App() {
       name: 'New Task',
       category: 'Tasks',
       shortcut: null,
-      action: () => { console.log('new task') },
+      action: () => {
+        setPaletteOpen(false)
+        setNewTaskOpen(true)
+      },
     },
     {
       id: 'advance-task',
@@ -250,7 +265,7 @@ function App() {
       category: 'Appearance',
       action: () => setTheme('system'),
     },
-  ], [advanceTask, handleToggleConductor, handleToggleSidebar, setTheme])
+  ], [advanceTask, handleToggleConductor, handleToggleSidebar, setTheme, setPaletteOpen])
 
   // ── Conductor send handler ─────────────────────────────────────────────────
 
@@ -343,7 +358,7 @@ function App() {
             watcherRunning={watcherRunning}
             showBacklog={isLarge}
             onTaskSelect={(taskId) => selectTask(taskId)}
-            onNewTask={() => console.log('new task clicked')}
+            onNewTask={() => setNewTaskOpen(true)}
           />
         </div>
 
@@ -412,12 +427,54 @@ function App() {
         onClose={() => setSettingsOpen(false)}
       />
 
+      {/* ── New task dialog ──────────────────────────────────────────────────── */}
+      <NewTaskDialog
+        isOpen={newTaskOpen}
+        onClose={() => setNewTaskOpen(false)}
+        onCreated={() => {
+          showToast('Task created')
+          fetchAll()
+        }}
+      />
+
+      {/* ── Toast notification ───────────────────────────────────────────────── */}
+      {toast && (
+        <div
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 300,
+            padding: '8px 16px',
+            background: 'var(--t-surface)',
+            border: '1px solid var(--t-border)',
+            borderRadius: 'var(--t-radius-pill)',
+            fontSize: 13,
+            color: 'var(--t-text)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+            animation: 'toast-in 200ms var(--t-ease) both',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {toast}
+        </div>
+      )}
+
       {/* ── Command palette ─────────────────────────────────────────────────── */}
       <CommandPalette
         isOpen={paletteOpen}
         actions={paletteActions}
         onClose={() => setPaletteOpen(false)}
       />
+
+      <style>{`
+        @keyframes toast-in {
+          from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+      `}</style>
     </div>
   )
 }
