@@ -4,6 +4,8 @@ import type { Theme, ConductorDefaultVisibility } from '../store/app-store'
 import { ThemeSwatch } from './ThemeSwatch'
 import { GitSettings } from './settings/GitSettings'
 import { AboutPage } from './settings/AboutPage'
+import { PipelineSettings } from './settings/PipelineSettings'
+import type { PipelineSection } from './settings/PipelineSettings'
 
 export interface SettingsProps {
   isOpen: boolean
@@ -35,8 +37,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     groupLabel: 'Pipeline',
     items: [
-      { label: 'Agents', id: 'agents', disabled: true },
-      { label: 'Watcher', id: 'watcher', disabled: true },
+      { label: 'Agents', id: 'agents', disabled: false },
+      { label: 'Watcher', id: 'watcher', disabled: false },
       { label: 'Git & Branches', id: 'git', disabled: false },
     ],
   },
@@ -184,24 +186,20 @@ function AppearancePage() {
   )
 }
 
+// ── Page title map ────────────────────────────────────────────────────────────
+
+const PAGE_TITLES: Record<string, string> = {
+  appearance: 'Appearance',
+  agents:     'Agents',
+  watcher:    'Watcher',
+  git:        'Git & Branches',
+  about:      'About',
+}
+
 // ── Settings modal ────────────────────────────────────────────────────────────
 
-type PageId = 'appearance' | 'git' | 'about'
-
-const PAGE_LABELS: Record<PageId, string> = {
-  appearance: 'Appearance',
-  git: 'Git & Branches',
-  about: 'About',
-}
-
-function SettingsPageContent({ pageId }: { pageId: PageId }) {
-  if (pageId === 'git') return <GitSettings />
-  if (pageId === 'about') return <AboutPage />
-  return <AppearancePage />
-}
-
 export function Settings({ isOpen, onClose }: SettingsProps) {
-  const [activePage, setActivePage] = useState<PageId>('appearance')
+  const [activePage, setActivePage] = useState<string>('appearance')
 
   // Close on Escape
   useEffect(() => {
@@ -299,9 +297,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     <button
                       key={item.id}
                       disabled={item.disabled}
-                      onClick={() => {
-                        if (!item.disabled) setActivePage(item.id as PageId)
-                      }}
+                      onClick={() => { if (!item.disabled) setActivePage(item.id) }}
                       aria-current={isActive ? 'page' : undefined}
                       style={{
                         display: 'block',
@@ -358,7 +354,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   color: 'var(--t-text)',
                 }}
               >
-                {PAGE_LABELS[activePage]}
+                {PAGE_TITLES[activePage] ?? activePage}
               </span>
 
               {/* Close button */}
@@ -405,7 +401,12 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 padding: '20px',
               }}
             >
-              <SettingsPageContent pageId={activePage} />
+              {activePage === 'appearance' && <AppearancePage />}
+              {(activePage === 'agents' || activePage === 'watcher') && (
+                <PipelineSettings section={activePage as PipelineSection} />
+              )}
+              {activePage === 'git' && <GitSettings />}
+              {activePage === 'about' && <AboutPage />}
             </div>
           </div>
         </div>
