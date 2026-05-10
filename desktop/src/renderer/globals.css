@@ -141,6 +141,17 @@
   --t-gradient: linear-gradient(135deg, #6c5ce7, #00cec9);
 }
 
+/* ─── Component tokens ───────────────────────────────────────────────────── */
+:root {
+  --t-agent-pill-bg:   rgba(108, 92, 231, 0.06);
+  --t-blocked-pill-bg: rgba(217, 112, 112, 0.08);
+}
+
+[data-theme="dark"] {
+  --t-agent-pill-bg:   rgba(108, 92, 231, 0.12);
+  --t-blocked-pill-bg: rgba(217, 112, 112, 0.12);
+}
+
 /* ─── Status colors ──────────────────────────────────────────────────────── */
 :root {
   --t-warn:  #d4a843;
