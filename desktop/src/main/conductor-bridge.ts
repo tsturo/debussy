@@ -49,7 +49,9 @@ export class ConductorBridge {
         : `Error: ${err.message}`
       this.broadcast(IPC.CONDUCTOR_RESPONSE_CHUNK, msg)
       this.broadcast(IPC.CONDUCTOR_RESPONSE_DONE, null)
-      this.currentProcess = null
+      if (this.currentProcess === child) {
+        this.currentProcess = null
+      }
     })
 
     child.on('close', (_code: number | null, signal: string | null) => {
@@ -57,7 +59,9 @@ export class ConductorBridge {
         // Normal exit — signal done
         this.broadcast(IPC.CONDUCTOR_RESPONSE_DONE, null)
       }
-      this.currentProcess = null
+      if (this.currentProcess === child) {
+        this.currentProcess = null
+      }
     })
   }
 
