@@ -80,3 +80,52 @@ export function saveWorkspaces(data: WorkspaceData): void {
 export function getActiveProject(): string | null {
   return loadWorkspaces().activeProjectPath
 }
+
+/**
+ * Remove a project from a group. Returns an error string on failure, null on success.
+ * Mutates data in-place; caller must call saveWorkspaces afterwards.
+ */
+export function removeProject(data: WorkspaceData, groupId: string, projectPath: string): string | null {
+  const group = data.groups.find((g) => g.id === groupId)
+  if (!group) return `Group not found: ${groupId}`
+
+  const before = group.projects.length
+  group.projects = group.projects.filter((p) => p.path !== projectPath)
+  if (group.projects.length === before) return 'Project not found in group'
+
+  if (data.activeProjectPath === projectPath) {
+    data.activeProjectPath = group.projects[0]?.path ?? null
+  }
+  return null
+}
+
+/**
+ * Remove an entire workspace group. Returns an error string on failure, null on success.
+ * Mutates data in-place; caller must call saveWorkspaces afterwards.
+ * If the removed group was active, switches to the first remaining group.
+ */
+export function removeGroup(data: WorkspaceData, groupId: string): string | null {
+  const idx = data.groups.findIndex((g) => g.id === groupId)
+  if (idx === -1) return `Group not found: ${groupId}`
+
+  const wasActive = data.activeGroupId === groupId
+  data.groups.splice(idx, 1)
+
+  if (wasActive) {
+    const nextGroup = data.groups[0] ?? null
+    data.activeGroupId = nextGroup?.id ?? null
+    data.activeProjectPath = nextGroup?.projects[0]?.path ?? null
+  }
+  return null
+}
+
+/**
+ * Rename a workspace group. Returns an error string on failure, null on success.
+ * Mutates data in-place; caller must call saveWorkspaces afterwards.
+ */
+export function renameGroup(data: WorkspaceData, groupId: string, newName: string): string | null {
+  const group = data.groups.find((g) => g.id === groupId)
+  if (!group) return `Group not found: ${groupId}`
+  group.name = newName
+  return null
+}

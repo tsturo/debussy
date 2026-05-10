@@ -49,7 +49,13 @@ function App() {
     setTimeout(() => setToast(null), 2500)
   }, [])
 
-  const { handleAddProject, handleNewWorkspace } = useWorkspaceHandlers(showToast)
+  const {
+    handleAddProject,
+    handleNewWorkspace,
+    handleRemoveProject,
+    handleRemoveGroup,
+    handleRenameGroup,
+  } = useWorkspaceHandlers(showToast)
 
   // ── Theme application ──────────────────────────────────────────────────────
 
@@ -319,7 +325,10 @@ function App() {
         onGroupSelect={setActiveGroup}
         onProjectSelect={setActiveProject}
         onAddProject={handleAddProject}
+        onRemoveProject={handleRemoveProject}
         onNewWorkspace={handleNewWorkspace}
+        onRenameGroup={handleRenameGroup}
+        onRemoveGroup={handleRemoveGroup}
         onSettingsClick={() => setSettingsOpen(true)}
       />
 

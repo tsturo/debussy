@@ -26,6 +26,8 @@ export const IPC = {
   WORKSPACE_ADD_GROUP:      'workspace:add-group',
   WORKSPACE_ADD_PROJECT:    'workspace:add-project',
   WORKSPACE_REMOVE_PROJECT: 'workspace:remove-project',
+  WORKSPACE_REMOVE_GROUP:   'workspace:remove-group',
+  WORKSPACE_RENAME_GROUP:   'workspace:rename-group',
   WORKSPACE_SET_ACTIVE:     'workspace:set-active',
   DIALOG_OPEN_DIRECTORY:    'dialog:open-directory',
 } as const

@@ -59,6 +59,9 @@ export interface AppState {
   setActiveProject: (groupId: string, path: string) => Promise<void>
   addProject: (groupId: string, path: string) => Promise<{ success: boolean; error?: string }>
   addWorkspaceGroup: (name: string) => Promise<{ success: boolean; error?: string }>
+  removeProject: (groupId: string, path: string) => Promise<{ success: boolean; error?: string }>
+  removeGroup: (groupId: string) => Promise<{ success: boolean; error?: string }>
+  renameGroup: (groupId: string, newName: string) => Promise<{ success: boolean; error?: string }>
 }
 
 const THEME_KEY = 'debussy-theme'
@@ -186,6 +189,45 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { success: result.success, error: result.error }
     } catch (err) {
       console.error('[app-store] addWorkspaceGroup failed:', err)
+      return { success: false, error: String(err) }
+    }
+  },
+
+  removeProject: async (groupId: string, path: string) => {
+    try {
+      const result = await window.debussy.workspace.removeProject(groupId, path)
+      if (result.success) {
+        await get().fetchWorkspaces()
+      }
+      return result
+    } catch (err) {
+      console.error('[app-store] removeProject failed:', err)
+      return { success: false, error: String(err) }
+    }
+  },
+
+  removeGroup: async (groupId: string) => {
+    try {
+      const result = await window.debussy.workspace.removeGroup(groupId)
+      if (result.success) {
+        await get().fetchWorkspaces()
+      }
+      return result
+    } catch (err) {
+      console.error('[app-store] removeGroup failed:', err)
+      return { success: false, error: String(err) }
+    }
+  },
+
+  renameGroup: async (groupId: string, newName: string) => {
+    try {
+      const result = await window.debussy.workspace.renameGroup(groupId, newName)
+      if (result.success) {
+        await get().fetchWorkspaces()
+      }
+      return result
+    } catch (err) {
+      console.error('[app-store] renameGroup failed:', err)
       return { success: false, error: String(err) }
     }
   },

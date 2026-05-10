@@ -98,6 +98,48 @@ export function PlusPurpleIcon() {
   )
 }
 
+export function PencilIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ color: 'var(--t-text-3)', flexShrink: 0 }}
+    >
+      <path
+        d="M8.5 1.5a1.414 1.414 0 0 1 2 2L3.5 10.5l-3 .5.5-3 7.5-6.5Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function TrashIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ color: 'var(--t-error, #e05450)', flexShrink: 0 }}
+    >
+      <path
+        d="M1.5 3h9M4 3V2h4v1M10 3l-.75 7.5h-6.5L2 3"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export function CheckIcon() {
   return (
     <svg

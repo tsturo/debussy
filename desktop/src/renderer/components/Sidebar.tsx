@@ -14,7 +14,10 @@ export interface SidebarProps {
   onGroupSelect: (groupId: string) => void
   onProjectSelect: (groupId: string, path: string) => void
   onAddProject: (groupId: string) => void
+  onRemoveProject: (groupId: string, path: string) => void
   onNewWorkspace: () => void
+  onRenameGroup: (groupId: string, newName: string) => void
+  onRemoveGroup: (groupId: string) => void
   onSettingsClick: () => void
 }
 
@@ -24,56 +27,103 @@ function ProjectRow({
   name,
   isActive,
   onClick,
+  onRemove,
 }: {
   name: string
   isActive: boolean
   onClick: () => void
+  onRemove: () => void
 }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        width: '100%',
-        padding: '6px 8px',
-        borderRadius: 9,
-        border: 'none',
-        cursor: 'pointer',
-        background: isActive ? 'var(--t-surface)' : 'transparent',
-        boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-        textAlign: 'left',
-        transition: 'background var(--t-dur-fast) var(--t-ease)',
-      }}
-    >
-      {/* Status dot */}
-      <div
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: '50%',
-          flexShrink: 0,
-          backgroundColor: isActive ? 'var(--t-teal)' : 'var(--t-text-3)',
-          opacity: isActive ? 1 : 0.4,
-        }}
-      />
+  const [hovered, setHovered] = useState(false)
 
-      {/* Project name */}
-      <span
+  return (
+    <div
+      style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <button
+        onClick={onClick}
         style={{
           flex: 1,
-          fontSize: 12,
-          fontWeight: isActive ? 500 : 400,
-          color: isActive ? 'var(--t-text)' : 'var(--t-text-3)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: hovered ? '6px 24px 6px 8px' : '6px 8px',
+          borderRadius: 9,
+          border: 'none',
+          cursor: 'pointer',
+          background: isActive ? 'var(--t-surface)' : 'transparent',
+          boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+          textAlign: 'left',
+          transition: 'background var(--t-dur-fast) var(--t-ease)',
+          minWidth: 0,
         }}
       >
-        {name}
-      </span>
-    </button>
+        {/* Status dot */}
+        <div
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            flexShrink: 0,
+            backgroundColor: isActive ? 'var(--t-teal)' : 'var(--t-text-3)',
+            opacity: isActive ? 1 : 0.4,
+          }}
+        />
+
+        {/* Project name */}
+        <span
+          style={{
+            flex: 1,
+            fontSize: 12,
+            fontWeight: isActive ? 500 : 400,
+            color: isActive ? 'var(--t-text)' : 'var(--t-text-3)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {name}
+        </span>
+      </button>
+
+      {/* Remove button — shown on hover */}
+      {hovered && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove()
+          }}
+          title="Remove from workspace"
+          aria-label={`Remove ${name} from workspace`}
+          style={{
+            position: 'absolute',
+            right: 6,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: 16,
+            height: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: 'none',
+            background: 'transparent',
+            cursor: 'pointer',
+            borderRadius: 4,
+            color: 'var(--t-text-3)',
+            fontSize: 14,
+            lineHeight: 1,
+            padding: 0,
+            opacity: 0.6,
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.6' }}
+        >
+          ×
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -88,7 +138,10 @@ export function Sidebar({
   onGroupSelect,
   onProjectSelect,
   onAddProject,
+  onRemoveProject,
   onNewWorkspace,
+  onRenameGroup,
+  onRemoveGroup,
   onSettingsClick,
 }: SidebarProps) {
   const width = collapsed ? 48 : 248
@@ -195,6 +248,13 @@ export function Sidebar({
             onNewWorkspace()
             setDropdownOpen(false)
           }}
+          onRenameGroup={(groupId, newName) => {
+            onRenameGroup(groupId, newName)
+          }}
+          onRemoveGroup={(groupId) => {
+            onRemoveGroup(groupId)
+            setDropdownOpen(false)
+          }}
           onClose={() => setDropdownOpen(false)}
         />
       )}
@@ -233,6 +293,7 @@ export function Sidebar({
               name={project.name}
               isActive={project.path === activeProjectPath}
               onClick={() => onProjectSelect(activeGroupId ?? '', project.path)}
+              onRemove={() => onRemoveProject(activeGroupId ?? '', project.path)}
             />
           ))}
 

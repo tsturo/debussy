@@ -322,6 +322,36 @@ export function registerIPC(): void {
     return { success: true }
   })
 
+  ipcMain.handle(IPC.WORKSPACE_REMOVE_GROUP, (_event, groupId: string) => {
+    const data = workspaceStore.loadWorkspaces()
+    const wasActiveGroup = data.activeGroupId === groupId
+    const error = workspaceStore.removeGroup(data, groupId)
+    if (error) return { success: false, error }
+
+    workspaceStore.saveWorkspaces(data)
+
+    if (wasActiveGroup) {
+      const newPath = data.activeProjectPath
+      if (newPath) {
+        switchProject(newPath)
+      } else {
+        dbReader.closeDatabase(db)
+        db = null
+        activeProjectPath = process.cwd()
+      }
+    }
+
+    return { success: true }
+  })
+
+  ipcMain.handle(IPC.WORKSPACE_RENAME_GROUP, (_event, groupId: string, newName: string) => {
+    const data = workspaceStore.loadWorkspaces()
+    const error = workspaceStore.renameGroup(data, groupId, newName)
+    if (error) return { success: false, error }
+    workspaceStore.saveWorkspaces(data)
+    return { success: true }
+  })
+
   ipcMain.handle(IPC.WORKSPACE_SET_ACTIVE, (_event, groupId: string, projectPath: string) => {
     const data = workspaceStore.loadWorkspaces()
     const group = data.groups.find((g) => g.id === groupId)
