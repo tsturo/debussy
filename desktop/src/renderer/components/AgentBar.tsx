@@ -103,8 +103,8 @@ export function AgentBar({ agents, watcherRunning, onAgentClick }: AgentBarProps
       <div
         style={{
           height: 48,
-          background: 'transparent',
-          borderBottom: '1px solid color-mix(in srgb, var(--t-border) 15%, transparent)',
+          background: 'var(--t-surface)',
+          borderBottom: '1px solid var(--t-border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
