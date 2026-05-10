@@ -301,7 +301,7 @@ export function TaskDetailShell({
         {/* Title */}
         <span
           style={{
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: 600,
             color: 'var(--t-text)',
             overflow: 'hidden',
