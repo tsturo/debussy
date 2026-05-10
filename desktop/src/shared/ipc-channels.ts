@@ -21,6 +21,11 @@ export const IPC = {
   CONDUCTOR_RESPONSE_CHUNK: 'conductor:response-chunk',
   CONDUCTOR_RESPONSE_DONE:  'conductor:response-done',
   AGENT_LOG_LINE:           'agent-log:line',
+  WORKSPACE_LIST:           'workspace:list',
+  WORKSPACE_ADD_GROUP:      'workspace:add-group',
+  WORKSPACE_ADD_PROJECT:    'workspace:add-project',
+  WORKSPACE_REMOVE_PROJECT: 'workspace:remove-project',
+  WORKSPACE_SET_ACTIVE:     'workspace:set-active',
 } as const
 
 export type IpcChannel = typeof IPC[keyof typeof IPC]

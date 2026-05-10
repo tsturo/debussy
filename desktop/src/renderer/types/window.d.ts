@@ -5,6 +5,24 @@ export interface TaskDetail extends Task {
   log: LogEntry[]
 }
 
+interface WorkspaceProject {
+  path: string
+  name: string
+}
+
+interface WorkspaceGroup {
+  id: string
+  name: string
+  iconLetter: string
+  projects: WorkspaceProject[]
+}
+
+interface WorkspaceData {
+  groups: WorkspaceGroup[]
+  activeGroupId: string | null
+  activeProjectPath: string | null
+}
+
 interface DebussyAPI {
   tasks: {
     list:    ()                            => Promise<Task[]>
@@ -35,6 +53,13 @@ interface DebussyAPI {
     onChunk:         (callback: (chunk: string) => void)  => void
     onDone:          (callback: () => void)               => void
     removeListeners: ()                                   => void
+  }
+  workspace: {
+    list:          ()                                                   => Promise<WorkspaceData>
+    addGroup:      (name: string, iconLetter: string)                   => Promise<{ success: boolean; group?: WorkspaceGroup; error?: string }>
+    addProject:    (groupId: string, projectPath: string)               => Promise<{ success: boolean; error?: string }>
+    removeProject: (groupId: string, projectPath: string)               => Promise<{ success: boolean; error?: string }>
+    setActive:     (groupId: string, projectPath: string)               => Promise<{ success: boolean; error?: string }>
   }
 }
 
