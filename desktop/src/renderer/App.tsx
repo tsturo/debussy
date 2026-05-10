@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react'
-import type { ConductorMessage, Stage } from '../shared/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { ConductorMessage, LogEntry, Stage } from '../shared/types'
 
 import { Sidebar } from './components/Sidebar'
 import { Board } from './components/Board'
@@ -30,6 +30,21 @@ function App() {
   const blockTask = useAppStore((s) => s.blockTask)
   const commentOnTask = useAppStore((s) => s.commentOnTask)
   const addConductorMessage = useAppStore((s) => s.addConductorMessage)
+
+  // ── Task log entries (fetched when selectedTaskId changes) ────────────────
+  const [taskLogEntries, setTaskLogEntries] = useState<LogEntry[]>([])
+
+  useEffect(() => {
+    if (!selectedTaskId) {
+      setTaskLogEntries([])
+      return
+    }
+    window.debussy.tasks.get(selectedTaskId).then((result) => {
+      setTaskLogEntries(result?.log ?? [])
+    }).catch(() => {
+      setTaskLogEntries([])
+    })
+  }, [selectedTaskId])
 
   // ── Polling ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -208,7 +223,7 @@ function App() {
           {selectedTask && (
             <TaskDetailBody
               task={selectedTask}
-              logEntries={[]}
+              logEntries={taskLogEntries}
               onComment={(message) =>
                 selectedTaskId && commentOnTask(selectedTaskId, message)
               }

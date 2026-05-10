@@ -70,8 +70,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   advanceTask: async (id) => {
     try {
       await window.debussy.tasks.advance(id)
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[app-store] advanceTask failed:', err)
     }
     await get().fetchAll()
   },
@@ -79,8 +79,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   blockTask: async (id) => {
     try {
       await window.debussy.tasks.block(id)
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[app-store] blockTask failed:', err)
     }
     await get().fetchAll()
   },
@@ -88,8 +88,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   commentOnTask: async (id, msg) => {
     try {
       await window.debussy.tasks.comment(id, msg)
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[app-store] commentOnTask failed:', err)
     }
     await get().fetchAll()
   },
