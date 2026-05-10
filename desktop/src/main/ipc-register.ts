@@ -177,10 +177,6 @@ export function registerIPC(): void {
     runTakt(['advance', id, '--to', toStage])
   )
 
-  ipcMain.handle(IPC.TASK_RELEASE, (_event, id: string) =>
-    runTakt(['release', id])
-  )
-
   ipcMain.handle(IPC.TASK_BLOCK, (_event, id: string) =>
     runTakt(['block', id])
   )
