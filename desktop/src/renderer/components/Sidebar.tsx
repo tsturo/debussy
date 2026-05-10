@@ -1,27 +1,22 @@
-export interface SidebarProject {
-  name: string
-  isActive: boolean
-  agentCount: number
-  status: 'active' | 'running' | 'idle'
-}
+import { useState, useRef, useEffect } from 'react'
+import type { WorkspaceGroupData } from '../store/app-store'
+
+export type { WorkspaceGroupData }
 
 export interface SidebarProps {
-  workspaceName: string
-  workspaceInitial: string
-  projects: SidebarProject[]
+  workspaceGroups: WorkspaceGroupData[]
+  activeGroupId: string | null
+  activeProjectPath: string | null
   collapsed: boolean
   onToggle?: () => void
-  onProjectSelect: (name: string) => void
+  onGroupSelect: (groupId: string) => void
+  onProjectSelect: (groupId: string, path: string) => void
+  onAddProject: (groupId: string) => void
+  onNewWorkspace: () => void
   onSettingsClick: () => void
-  onAddProject: () => void
 }
 
-// Status dot colors per project status (using CSS variables from globals.css)
-const STATUS_DOT_COLOR: Record<SidebarProject['status'], string> = {
-  active:  'var(--t-teal)',           // teal — active watcher
-  running: 'var(--t-warn)',           // amber — has agents
-  idle:    'var(--t-text-3)',         // gray at 40% (applied via opacity)
-}
+// ── Icon components ──────────────────────────────────────────────────────────
 
 function GradientAvatar({ initial }: { initial: string }) {
   return (
@@ -47,7 +42,7 @@ function GradientAvatar({ initial }: { initial: string }) {
   )
 }
 
-function ChevronDownIcon() {
+function ChevronDownIcon({ open }: { open?: boolean }) {
   return (
     <svg
       width="12"
@@ -55,7 +50,12 @@ function ChevronDownIcon() {
       viewBox="0 0 12 12"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      style={{ color: 'var(--t-text-3)', flexShrink: 0 }}
+      style={{
+        color: 'var(--t-text-3)',
+        flexShrink: 0,
+        transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+        transition: 'transform 150ms ease',
+      }}
     >
       <path
         d="M2 4l4 4 4-4"
@@ -116,18 +116,173 @@ function PlusPurpleIcon() {
   )
 }
 
-function ProjectRow({
-  project,
-  onSelect,
-}: {
-  project: SidebarProject
-  onSelect: () => void
-}) {
-  const isIdle = project.status === 'idle'
+function CheckIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ color: 'var(--t-teal)', flexShrink: 0 }}
+    >
+      <path
+        d="M2 6l3 3 5-5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+// ── Workspace switcher dropdown ──────────────────────────────────────────────
+
+interface WorkspaceDropdownProps {
+  groups: WorkspaceGroupData[]
+  activeGroupId: string | null
+  anchorRect: DOMRect | null
+  onGroupSelect: (groupId: string) => void
+  onNewWorkspace: () => void
+  onClose: () => void
+}
+
+function WorkspaceDropdown({
+  groups,
+  activeGroupId,
+  anchorRect,
+  onGroupSelect,
+  onNewWorkspace,
+  onClose,
+}: WorkspaceDropdownProps) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleMousedown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+    function handleKeydown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', handleMousedown)
+    document.addEventListener('keydown', handleKeydown)
+    return () => {
+      document.removeEventListener('mousedown', handleMousedown)
+      document.removeEventListener('keydown', handleKeydown)
+    }
+  }, [onClose])
+
+  const top = anchorRect ? anchorRect.bottom + 4 : 48
+  const left = anchorRect ? anchorRect.left : 8
 
   return (
+    <div
+      ref={ref}
+      style={{
+        position: 'fixed',
+        top,
+        left,
+        width: 232,
+        zIndex: 200,
+        background: 'var(--t-surface)',
+        border: '1px solid var(--t-border)',
+        borderRadius: 10,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+        overflow: 'hidden',
+        padding: '4px 0',
+      }}
+    >
+      {/* Group list */}
+      {groups.map((group) => (
+        <button
+          key={group.id}
+          onClick={() => { onGroupSelect(group.id); onClose() }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            width: '100%',
+            padding: '7px 10px',
+            border: 'none',
+            background: 'transparent',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.background = 'var(--t-bg)'
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.background = 'transparent'
+          }}
+        >
+          <GradientAvatar initial={group.iconLetter} />
+          <span
+            style={{
+              flex: 1,
+              fontSize: 13,
+              fontWeight: group.id === activeGroupId ? 600 : 400,
+              color: 'var(--t-text)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {group.name}
+          </span>
+          {group.id === activeGroupId && <CheckIcon />}
+        </button>
+      ))}
+
+      {/* Divider */}
+      <div style={{ height: 1, background: 'var(--t-border)', margin: '4px 0' }} />
+
+      {/* New Workspace */}
+      <button
+        onClick={() => { onNewWorkspace(); onClose() }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          width: '100%',
+          padding: '7px 10px',
+          border: 'none',
+          background: 'transparent',
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.background = 'var(--t-bg)'
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.background = 'transparent'
+        }}
+      >
+        <PlusPurpleIcon />
+        <span style={{ fontSize: 13, color: 'var(--t-purple)', fontWeight: 500 }}>
+          New Workspace
+        </span>
+      </button>
+    </div>
+  )
+}
+
+// ── Project row ──────────────────────────────────────────────────────────────
+
+function ProjectRow({
+  name,
+  isActive,
+  onClick,
+}: {
+  name: string
+  isActive: boolean
+  onClick: () => void
+}) {
+  return (
     <button
-      onClick={onSelect}
+      onClick={onClick}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -137,10 +292,8 @@ function ProjectRow({
         borderRadius: 9,
         border: 'none',
         cursor: 'pointer',
-        background: project.isActive ? 'var(--t-surface)' : 'transparent',
-        boxShadow: project.isActive
-          ? '0 1px 3px rgba(0,0,0,0.08)'
-          : 'none',
+        background: isActive ? 'var(--t-surface)' : 'transparent',
+        boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
         textAlign: 'left',
         transition: 'background var(--t-dur-fast) var(--t-ease)',
       }}
@@ -152,8 +305,8 @@ function ProjectRow({
           height: 6,
           borderRadius: '50%',
           flexShrink: 0,
-          backgroundColor: STATUS_DOT_COLOR[project.status],
-          opacity: isIdle ? 0.4 : 1,
+          backgroundColor: isActive ? 'var(--t-teal)' : 'var(--t-text-3)',
+          opacity: isActive ? 1 : 0.4,
         }}
       />
 
@@ -162,48 +315,62 @@ function ProjectRow({
         style={{
           flex: 1,
           fontSize: 12,
-          fontWeight: project.isActive ? 500 : 400,
-          color: project.isActive ? 'var(--t-text)' : 'var(--t-text-3)',
+          fontWeight: isActive ? 500 : 400,
+          color: isActive ? 'var(--t-text)' : 'var(--t-text-3)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
         }}
       >
-        {project.name}
+        {name}
       </span>
-
-      {/* Agent count badge */}
-      {project.agentCount > 0 && (
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 600,
-            color: 'var(--t-purple)',
-            background: 'color-mix(in srgb, var(--t-purple) 12%, transparent)',
-            borderRadius: 100,
-            padding: '1px 6px',
-            flexShrink: 0,
-            lineHeight: '16px',
-          }}
-        >
-          {project.agentCount}
-        </span>
-      )}
     </button>
   )
 }
 
+// ── Sidebar ──────────────────────────────────────────────────────────────────
+
 export function Sidebar({
-  workspaceName,
-  workspaceInitial,
-  projects,
+  workspaceGroups,
+  activeGroupId,
+  activeProjectPath,
   collapsed,
   onToggle,
+  onGroupSelect,
   onProjectSelect,
-  onSettingsClick,
   onAddProject,
+  onNewWorkspace,
+  onSettingsClick,
 }: SidebarProps) {
   const width = collapsed ? 48 : 248
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  // Derive active group's projects
+  const activeGroup = workspaceGroups.find((g) => g.id === activeGroupId) ?? null
+  const projects = activeGroup?.projects ?? []
+
+  // Workspace display: show first group name or placeholder
+  const displayGroup = activeGroup ?? workspaceGroups[0] ?? null
+  const workspaceName = displayGroup?.name ?? 'Workspace'
+  const workspaceInitial = displayGroup?.iconLetter ?? 'W'
+
+  function handleWorkspaceClick() {
+    if (collapsed) {
+      onToggle?.()
+      return
+    }
+    if (triggerRef.current) {
+      setAnchorRect(triggerRef.current.getBoundingClientRect())
+    }
+    setDropdownOpen((open) => !open)
+  }
+
+  // Close dropdown when sidebar collapses
+  useEffect(() => {
+    if (collapsed) setDropdownOpen(false)
+  }, [collapsed])
 
   return (
     <div
@@ -221,23 +388,26 @@ export function Sidebar({
         boxSizing: 'border-box',
       }}
     >
-      {/* ── Workspace header ─────────────────────────────────────────── */}
+      {/* ── Workspace header ─────────────────────────────────────────────── */}
       <button
-        onClick={collapsed ? onToggle : undefined /* onWorkspaceClick — future */}
-        aria-label={collapsed ? 'Expand sidebar' : undefined}
-        title={collapsed ? 'Expand sidebar' : undefined}
+        ref={triggerRef}
+        onClick={handleWorkspaceClick}
+        aria-label={collapsed ? 'Expand sidebar' : 'Switch workspace'}
+        title={collapsed ? 'Expand sidebar' : 'Switch workspace'}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 10,
           padding: collapsed ? '10px 10px' : '10px 12px',
           border: 'none',
-          background: 'transparent',
-          cursor: collapsed ? 'pointer' : 'default',
+          background: dropdownOpen ? 'color-mix(in srgb, var(--t-surface) 60%, transparent)' : 'transparent',
+          cursor: 'pointer',
           flexShrink: 0,
           width: '100%',
           textAlign: 'left',
           overflow: 'hidden',
+          borderRadius: 0,
+          transition: 'background var(--t-dur-fast) var(--t-ease)',
         }}
       >
         <GradientAvatar initial={workspaceInitial} />
@@ -257,12 +427,30 @@ export function Sidebar({
             >
               {workspaceName}
             </span>
-            <ChevronDownIcon />
+            <ChevronDownIcon open={dropdownOpen} />
           </>
         )}
       </button>
 
-      {/* ── Project list (scrollable) ────────────────────────────────── */}
+      {/* ── Workspace switcher dropdown ──────────────────────────────────── */}
+      {dropdownOpen && !collapsed && (
+        <WorkspaceDropdown
+          groups={workspaceGroups}
+          activeGroupId={activeGroupId}
+          anchorRect={anchorRect}
+          onGroupSelect={(id) => {
+            onGroupSelect(id)
+            setDropdownOpen(false)
+          }}
+          onNewWorkspace={() => {
+            onNewWorkspace()
+            setDropdownOpen(false)
+          }}
+          onClose={() => setDropdownOpen(false)}
+        />
+      )}
+
+      {/* ── Project list (scrollable) ────────────────────────────────────── */}
       {!collapsed && (
         <div
           style={{
@@ -292,15 +480,16 @@ export function Sidebar({
           {/* Project rows */}
           {projects.map((project) => (
             <ProjectRow
-              key={project.name}
-              project={project}
-              onSelect={() => onProjectSelect(project.name)}
+              key={project.path}
+              name={project.name}
+              isActive={project.path === activeProjectPath}
+              onClick={() => onProjectSelect(activeGroupId ?? '', project.path)}
             />
           ))}
 
           {/* Add project link */}
           <button
-            onClick={onAddProject}
+            onClick={() => onAddProject(activeGroupId ?? '')}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -332,7 +521,7 @@ export function Sidebar({
       {/* Spacer in collapsed mode */}
       {collapsed && <div style={{ flex: 1 }} />}
 
-      {/* ── Footer ──────────────────────────────────────────────────── */}
+      {/* ── Footer ──────────────────────────────────────────────────────── */}
       {!collapsed && (
         <div
           style={{

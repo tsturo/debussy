@@ -25,7 +25,12 @@ function App() {
   const selectedTaskId = useAppStore((s) => s.selectedTaskId)
   const conductorMessages = useAppStore((s) => s.conductorMessages)
 
+  const workspaceGroups = useAppStore((s) => s.workspaceGroups)
+  const activeGroupId = useAppStore((s) => s.activeGroupId)
+  const activeProjectPath = useAppStore((s) => s.activeProjectPath)
+
   const fetchAll = useAppStore((s) => s.fetchAll)
+  const fetchWorkspaces = useAppStore((s) => s.fetchWorkspaces)
   const selectTask = useAppStore((s) => s.selectTask)
   const advanceTask = useAppStore((s) => s.advanceTask)
   const blockTask = useAppStore((s) => s.blockTask)
@@ -36,6 +41,10 @@ function App() {
   const setConductorStreaming = useAppStore((s) => s.setConductorStreaming)
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
+  const setActiveGroup = useAppStore((s) => s.setActiveGroup)
+  const setActiveProject = useAppStore((s) => s.setActiveProject)
+  const addProject = useAppStore((s) => s.addProject)
+  const addWorkspaceGroup = useAppStore((s) => s.addWorkspaceGroup)
 
   // ── Theme application ──────────────────────────────────────────────────────
 
@@ -127,6 +136,11 @@ function App() {
       setTaskLogEntries([])
     })
   }, [selectedTaskId])
+
+  // ── Workspace initial load ─────────────────────────────────────────────────
+  useEffect(() => {
+    fetchWorkspaces()
+  }, [fetchWorkspaces])
 
   // ── Polling ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -270,6 +284,30 @@ function App() {
     },
   ], [advanceTask, handleToggleConductor, handleToggleSidebar, setTheme, setPaletteOpen])
 
+  // ── Workspace handlers ─────────────────────────────────────────────────────
+
+  async function handleAddProject(groupId: string) {
+    try {
+      const path = await window.debussy.dialog.openDirectory()
+      if (!path) return  // user cancelled
+      const result = await addProject(groupId, path)
+      if (!result.success) {
+        showToast(result.error ?? 'Could not add project')
+      }
+    } catch (err) {
+      console.error('[App] handleAddProject failed:', err)
+    }
+  }
+
+  async function handleNewWorkspace() {
+    const name = window.prompt('Workspace name:')
+    if (!name?.trim()) return
+    const result = await addWorkspaceGroup(name.trim())
+    if (!result.success) {
+      showToast(result.error ?? 'Could not create workspace')
+    }
+  }
+
   // ── Watcher toggle handler ─────────────────────────────────────────────────
 
   const handleWatcherToggle = useCallback(async () => {
@@ -307,14 +345,16 @@ function App() {
     >
       {/* ── Sidebar ────────────────────────────────────────────────────────── */}
       <Sidebar
-        workspaceName="debussy"
-        workspaceInitial="D"
-        projects={[]}
+        workspaceGroups={workspaceGroups}
+        activeGroupId={activeGroupId}
+        activeProjectPath={activeProjectPath}
         collapsed={sidebarCollapsed}
         onToggle={handleToggleSidebar}
-        onProjectSelect={(name) => console.log('project selected:', name)}
+        onGroupSelect={setActiveGroup}
+        onProjectSelect={setActiveProject}
+        onAddProject={handleAddProject}
+        onNewWorkspace={handleNewWorkspace}
         onSettingsClick={() => setSettingsOpen(true)}
-        onAddProject={() => console.log('add project clicked')}
       />
 
       {/* ── Main area ─────────────────────────────────────────────────────── */}

@@ -26,6 +26,7 @@ export const IPC = {
   WORKSPACE_ADD_PROJECT:    'workspace:add-project',
   WORKSPACE_REMOVE_PROJECT: 'workspace:remove-project',
   WORKSPACE_SET_ACTIVE:     'workspace:set-active',
+  DIALOG_OPEN_DIRECTORY:    'dialog:open-directory',
 } as const
 
 export type IpcChannel = typeof IPC[keyof typeof IPC]
