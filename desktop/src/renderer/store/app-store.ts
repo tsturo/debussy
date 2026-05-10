@@ -43,7 +43,7 @@ function readThemeFromStorage(): Theme {
   } catch {
     // localStorage may be unavailable in some contexts
   }
-  return 'system'
+  return 'dark'
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
