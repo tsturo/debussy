@@ -2,6 +2,17 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import type { WorkspaceGroupData } from '../store/app-store'
 import { GradientAvatar, PlusPurpleIcon, CheckIcon, PencilIcon, TrashIcon } from './icons'
 
+const iconButtonStyle: React.CSSProperties = {
+  padding: '2px',
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  borderRadius: 4,
+  opacity: 0.7,
+}
+
 export interface WorkspaceDropdownProps {
   groups: WorkspaceGroupData[]
   activeGroupId: string | null
@@ -80,13 +91,8 @@ export function WorkspaceDropdown({
 
   const handleDeleteGroup = useCallback((group: WorkspaceGroupData, e: React.MouseEvent) => {
     e.stopPropagation()
-    const ok = window.confirm(
-      `Delete workspace "${group.name}"? Projects will not be deleted from disk.`
-    )
-    if (ok) {
-      onRemoveGroup(group.id)
-      onClose()
-    }
+    onRemoveGroup(group.id)
+    onClose()
   }, [onRemoveGroup, onClose])
 
   const top = anchorRect ? anchorRect.bottom + 4 : 48
@@ -189,16 +195,7 @@ export function WorkspaceDropdown({
                   <button
                     onClick={(e) => startRename(group, e)}
                     title="Rename workspace"
-                    style={{
-                      padding: '2px',
-                      border: 'none',
-                      background: 'transparent',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      borderRadius: 4,
-                      opacity: 0.7,
-                    }}
+                    style={iconButtonStyle}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.7' }}
                   >
@@ -207,16 +204,7 @@ export function WorkspaceDropdown({
                   <button
                     onClick={(e) => handleDeleteGroup(group, e)}
                     title="Delete workspace"
-                    style={{
-                      padding: '2px',
-                      border: 'none',
-                      background: 'transparent',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      borderRadius: 4,
-                      opacity: 0.7,
-                    }}
+                    style={iconButtonStyle}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.7' }}
                   >
