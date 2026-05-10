@@ -32,6 +32,8 @@ export const IPC = {
   DIALOG_OPEN_DIRECTORY:    'dialog:open-directory',
   APP_INFO:                 'app:info',
   SHELL_OPEN_EXTERNAL:      'shell:open-external',
+  CONDUCTOR_UPLOAD_IMAGE:   'conductor:upload-image',
+  CONDUCTOR_OPEN_FILE_DIALOG: 'conductor:open-file-dialog',
 } as const
 
 export type IpcChannel = typeof IPC[keyof typeof IPC]

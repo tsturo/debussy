@@ -49,12 +49,14 @@ interface DebussyAPI {
     stop:   () => Promise<{ success: boolean }>
   }
   conductor: {
-    send:            (message: string)                    => Promise<{ success: boolean }>
-    cancel:          ()                                   => void
-    newSession:      ()                                   => Promise<{ success: boolean }>
-    onChunk:         (callback: (chunk: string) => void)  => void
-    onDone:          (callback: () => void)               => void
-    removeListeners: ()                                   => void
+    send:            (text: string, images?: string[], tempPaths?: string[]) => Promise<{ success: boolean }>
+    cancel:          ()                                                       => void
+    newSession:      ()                                                       => Promise<{ success: boolean }>
+    onChunk:         (callback: (chunk: string) => void)                      => void
+    onDone:          (callback: () => void)                                   => void
+    removeListeners: ()                                                       => void
+    uploadImage:     (buffer: ArrayBuffer, mimeType: string)                  => Promise<string>
+    openFileDialog:  ()                                                       => Promise<string[]>
   }
   workspace: {
     list:          ()                                                   => Promise<WorkspaceData>

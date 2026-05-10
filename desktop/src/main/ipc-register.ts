@@ -184,9 +184,44 @@ export function registerIPC(): void {
 
   // ── Conductor IPC ──────────────────────────────────────────────────────────
 
-  ipcMain.handle(IPC.CONDUCTOR_SEND, (_event, message: string) => {
-    conductorBridge.sendMessage(message, getProjectPath())
+  ipcMain.handle(IPC.CONDUCTOR_SEND, (_event, text: string, images?: string[], tempPaths?: string[]) => {
+    conductorBridge.sendMessage({ text, images, tempPaths }, getProjectPath())
     return { success: true }
+  })
+
+  /**
+   * Save an image buffer (from clipboard or drag-and-drop) to a temp file.
+   * Returns the absolute path of the saved file so the renderer can pass it
+   * to the next sendMessage call.  The caller is responsible for passing the
+   * path back as a tempPath so it gets deleted after Claude exits.
+   */
+  ipcMain.handle(IPC.CONDUCTOR_UPLOAD_IMAGE, (_event, data: Uint8Array, mimeType: string) => {
+    const extMap: Record<string, string> = {
+      'image/png': '.png',
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/gif': '.gif',
+      'image/webp': '.webp',
+    }
+    const ext = extMap[mimeType] ?? '.png'
+    const tmpDir = app.getPath('temp')
+    const filename = `debussy-img-${randomUUID()}${ext}`
+    const filePath = join(tmpDir, filename)
+    fs.writeFileSync(filePath, Buffer.from(data))
+    return filePath
+  })
+
+  /** Open a native file picker restricted to images; returns selected paths. */
+  ipcMain.handle(IPC.CONDUCTOR_OPEN_FILE_DIALOG, async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
+    if (!win) return []
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Attach Images',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }],
+    })
+    if (result.canceled) return []
+    return result.filePaths
   })
 
   ipcMain.on(IPC.CONDUCTOR_CANCEL, () => {
