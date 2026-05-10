@@ -91,8 +91,13 @@ export function WorkspaceDropdown({
 
   const handleDeleteGroup = useCallback((group: WorkspaceGroupData, e: React.MouseEvent) => {
     e.stopPropagation()
-    onRemoveGroup(group.id)
-    onClose()
+    const ok = window.confirm(
+      `Delete workspace "${group.name}"? Projects will not be deleted from disk.`
+    )
+    if (ok) {
+      onRemoveGroup(group.id)
+      onClose()
+    }
   }, [onRemoveGroup, onClose])
 
   const top = anchorRect ? anchorRect.bottom + 4 : 48
