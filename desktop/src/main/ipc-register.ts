@@ -310,20 +310,9 @@ export function registerIPC(): void {
 
   ipcMain.handle(IPC.WORKSPACE_REMOVE_PROJECT, (_event, groupId: string, projectPath: string) => {
     const data = workspaceStore.loadWorkspaces()
-    const group = data.groups.find((g) => g.id === groupId)
-    if (!group) return { success: false, error: `Group not found: ${groupId}` }
-
-    const before = group.projects.length
-    group.projects = group.projects.filter((p) => p.path !== projectPath)
-    if (group.projects.length === before) {
-      return { success: false, error: 'Project not found in group' }
-    }
-
-    // Clear active pointers if the removed project was active
     const wasActive = data.activeProjectPath === projectPath
-    if (wasActive) {
-      data.activeProjectPath = group.projects[0]?.path ?? null
-    }
+    const error = workspaceStore.removeProject(data, groupId, projectPath)
+    if (error) return { success: false, error }
 
     workspaceStore.saveWorkspaces(data)
 
@@ -339,6 +328,36 @@ export function registerIPC(): void {
       }
     }
 
+    return { success: true }
+  })
+
+  ipcMain.handle(IPC.WORKSPACE_REMOVE_GROUP, (_event, groupId: string) => {
+    const data = workspaceStore.loadWorkspaces()
+    const wasActiveGroup = data.activeGroupId === groupId
+    const error = workspaceStore.removeGroup(data, groupId)
+    if (error) return { success: false, error }
+
+    workspaceStore.saveWorkspaces(data)
+
+    if (wasActiveGroup) {
+      const newPath = data.activeProjectPath
+      if (newPath) {
+        switchProject(newPath)
+      } else {
+        dbReader.closeDatabase(db)
+        db = null
+        activeProjectPath = process.cwd()
+      }
+    }
+
+    return { success: true }
+  })
+
+  ipcMain.handle(IPC.WORKSPACE_RENAME_GROUP, (_event, groupId: string, newName: string) => {
+    const data = workspaceStore.loadWorkspaces()
+    const error = workspaceStore.renameGroup(data, groupId, newName)
+    if (error) return { success: false, error }
+    workspaceStore.saveWorkspaces(data)
     return { success: true }
   })
 

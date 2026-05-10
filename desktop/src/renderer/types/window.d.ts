@@ -61,6 +61,8 @@ interface DebussyAPI {
     addGroup:      (name: string, iconLetter: string)                   => Promise<{ success: boolean; group?: WorkspaceGroup; error?: string }>
     addProject:    (groupId: string, projectPath: string)               => Promise<{ success: boolean; error?: string }>
     removeProject: (groupId: string, projectPath: string)               => Promise<{ success: boolean; error?: string }>
+    removeGroup:   (groupId: string)                                    => Promise<{ success: boolean; error?: string }>
+    renameGroup:   (groupId: string, newName: string)                   => Promise<{ success: boolean; error?: string }>
     setActive:     (groupId: string, projectPath: string)               => Promise<{ success: boolean; error?: string }>
   }
   dialog: {

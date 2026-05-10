@@ -43,6 +43,8 @@ contextBridge.exposeInMainWorld('debussy', {
     addGroup:      (name: string, iconLetter: string)                         => ipcRenderer.invoke(IPC.WORKSPACE_ADD_GROUP, name, iconLetter),
     addProject:    (groupId: string, projectPath: string)                     => ipcRenderer.invoke(IPC.WORKSPACE_ADD_PROJECT, groupId, projectPath),
     removeProject: (groupId: string, projectPath: string)                     => ipcRenderer.invoke(IPC.WORKSPACE_REMOVE_PROJECT, groupId, projectPath),
+    removeGroup:   (groupId: string)                                          => ipcRenderer.invoke(IPC.WORKSPACE_REMOVE_GROUP, groupId),
+    renameGroup:   (groupId: string, newName: string)                         => ipcRenderer.invoke(IPC.WORKSPACE_RENAME_GROUP, groupId, newName),
     setActive:     (groupId: string, projectPath: string)                     => ipcRenderer.invoke(IPC.WORKSPACE_SET_ACTIVE, groupId, projectPath),
   },
   dialog: {
