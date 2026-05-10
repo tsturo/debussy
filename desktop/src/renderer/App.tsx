@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ConductorMessage, LogEntry, Stage } from '../shared/types'
 
 import { Sidebar } from './components/Sidebar'
@@ -8,6 +8,7 @@ import { TaskDetailShell } from './components/TaskDetailShell'
 import { TaskDetailBody } from './components/TaskDetailBody'
 
 import { useAppStore } from './store/app-store'
+import { useBreakpoint } from './lib/use-media-query'
 
 // ── App ──────────────────────────────────────────────────────────────────────
 
@@ -18,14 +19,10 @@ function App() {
   const config = useAppStore((s) => s.config)
   const watcherRunning = useAppStore((s) => s.watcherRunning)
   const selectedTaskId = useAppStore((s) => s.selectedTaskId)
-  const conductorVisible = useAppStore((s) => s.conductorVisible)
-  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed)
   const conductorMessages = useAppStore((s) => s.conductorMessages)
 
   const fetchAll = useAppStore((s) => s.fetchAll)
   const selectTask = useAppStore((s) => s.selectTask)
-  const toggleConductor = useAppStore((s) => s.toggleConductor)
-  const toggleSidebar = useAppStore((s) => s.toggleSidebar)
   const advanceTask = useAppStore((s) => s.advanceTask)
   const blockTask = useAppStore((s) => s.blockTask)
   const commentOnTask = useAppStore((s) => s.commentOnTask)
@@ -52,6 +49,44 @@ function App() {
       return () => mq.removeEventListener('change', applyTheme)
     }
   }, [theme])
+
+  // ── Responsive breakpoints ─────────────────────────────────────────────────
+  const { isLarge, isMedium, isSmall } = useBreakpoint()
+
+  // Manual overrides — null means "use breakpoint default"
+  const [sidebarOverride, setSidebarOverride] = useState<boolean | null>(null)
+  const [conductorOverride, setConductorOverride] = useState<boolean | null>(null)
+
+  // Reset overrides when the breakpoint boundary changes so the layout snaps
+  // back to the breakpoint default on resize.
+  const prevBreakpoint = useRef({ isLarge, isMedium })
+  useEffect(() => {
+    const prev = prevBreakpoint.current
+    if (prev.isLarge !== isLarge || prev.isMedium !== isMedium) {
+      setSidebarOverride(null)
+      setConductorOverride(null)
+      prevBreakpoint.current = { isLarge, isMedium }
+    }
+  }, [isLarge, isMedium])
+
+  // Breakpoint defaults:
+  //   Large  (≥1920px): sidebar expanded, conductor visible, backlog shown
+  //   Medium (1366–1920px): sidebar collapsed, conductor hidden, no backlog
+  //   Small  (<1366px):  sidebar collapsed, conductor hidden (overlay on toggle)
+  const defaultSidebarCollapsed = !isLarge
+  const defaultConductorVisible = isLarge
+
+  // Effective UI state — user override wins; breakpoint default is the fallback
+  const sidebarCollapsed = sidebarOverride ?? defaultSidebarCollapsed
+  const conductorVisible = conductorOverride ?? defaultConductorVisible
+
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarOverride((prev) => !(prev ?? defaultSidebarCollapsed))
+  }, [defaultSidebarCollapsed])
+
+  const handleToggleConductor = useCallback(() => {
+    setConductorOverride((prev) => !(prev ?? defaultConductorVisible))
+  }, [defaultConductorVisible])
 
   // ── Task log entries (fetched when selectedTaskId changes) ────────────────
   const [taskLogEntries, setTaskLogEntries] = useState<LogEntry[]>([])
@@ -89,7 +124,7 @@ function App() {
       // Cmd/Ctrl+\ → toggle Conductor panel
       if (meta && e.key === '\\') {
         e.preventDefault()
-        toggleConductor()
+        handleToggleConductor()
         return
       }
 
@@ -102,7 +137,7 @@ function App() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectTask, toggleConductor])
+  }, [selectTask, handleToggleConductor])
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
@@ -179,7 +214,7 @@ function App() {
       >
         {/* Toggle sidebar button (thin strip on left edge of main area) */}
         <button
-          onClick={toggleSidebar}
+          onClick={handleToggleSidebar}
           aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           style={{
@@ -222,6 +257,7 @@ function App() {
             config={config}
             selectedTaskId={selectedTaskId}
             watcherRunning={watcherRunning}
+            showBacklog={isLarge}
             onTaskSelect={(taskId) => selectTask(taskId)}
             onNewTask={() => console.log('new task clicked')}
           />
@@ -254,8 +290,30 @@ function App() {
         </TaskDetailShell>
       </div>
 
-      {/* ── Conductor panel (conditionally shown) ──────────────────────────── */}
-      {conductorVisible && (
+      {/* ── Conductor panel ────────────────────────────────────────────────── */}
+      {/* On small screens (< 1366px) the conductor floats as an overlay so it
+          doesn't shrink the board. On medium/large it sits inline as a flex
+          sibling. */}
+      {isSmall ? (
+        conductorVisible && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 100,
+              display: 'flex',
+            }}
+          >
+            <Conductor
+              messages={conductorMessages}
+              isVisible={conductorVisible}
+              onSend={handleSendConductorMessage}
+            />
+          </div>
+        )
+      ) : (
         <Conductor
           messages={conductorMessages}
           isVisible={conductorVisible}
