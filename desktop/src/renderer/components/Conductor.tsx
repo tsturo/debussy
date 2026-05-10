@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ConductorMessage } from '../../shared/types'
 import { useAppStore } from '../store/app-store'
-import { ImagePreview, SentImageThumbnail } from './ImagePreview'
+import { ImagePreview } from './ImagePreview'
+import { useImageAttachments } from '../hooks/useImageAttachments'
+import { UserBubble, AssistantBubble, StreamingIndicator } from './ConductorMessages'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,184 +15,32 @@ interface ConductorProps {
   onSend: (message: string, imagePaths: string[], tempPaths: string[], previewUrls: string[]) => void
 }
 
-/**
- * An image attached (but not yet sent) to the current input.
- * `path`       — absolute FS path passed to --image flag
- * `previewUrl` — object URL used for display (revoked on send/remove)
- * `isTemp`     — true when the file was created by uploadImage (clipboard),
- *                false for real files (drag-and-drop / file-picker)
- */
-interface AttachedImage {
-  id: string
-  path: string
-  previewUrl: string
-  isTemp: boolean
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Split an AI message into text segments and command-block lines.
- * Lines beginning with "▸" are rendered as command blocks.
- */
-function parseMessageContent(content: string): Array<{ type: 'text' | 'cmd'; value: string }> {
-  const segments: Array<{ type: 'text' | 'cmd'; value: string }> = []
-  let textBuffer: string[] = []
-
-  for (const line of content.split('\n')) {
-    if (line.startsWith('▸ ')) {
-      if (textBuffer.length > 0) {
-        segments.push({ type: 'text', value: textBuffer.join('\n') })
-        textBuffer = []
-      }
-      segments.push({ type: 'cmd', value: line })
-    } else {
-      textBuffer.push(line)
-    }
-  }
-
-  if (textBuffer.length > 0) {
-    segments.push({ type: 'text', value: textBuffer.join('\n') })
-  }
-
-  return segments
-}
-
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-function CommandBlock({ text }: { text: string }) {
-  return (
-    <div
-      style={{
-        background: 'rgba(108, 92, 231, 0.08)',
-        borderRadius: 9,
-        padding: '4px 8px',
-        marginTop: 4,
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-        fontSize: 10,
-        color: 'var(--t-purple)',
-        whiteSpace: 'pre',
-      }}
-    >
-      {text}
-    </div>
-  )
-}
-
-function UserBubble({ message }: { message: ConductorMessage }) {
-  return (
-    <div
-      style={{
-        maxWidth: '85%',
-        alignSelf: 'flex-end',
-        background: 'rgba(108, 92, 231, 0.12)',
-        borderRadius: '14px 14px 4px 14px',
-        padding: '7px 10px',
-        fontSize: 11,
-        color: 'var(--t-text)',
-        lineHeight: 1.5,
-        wordBreak: 'break-word',
-      }}
-    >
-      {/* Image thumbnails sent with this message */}
-      {message.images && message.images.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: message.content ? 6 : 0 }}>
-          {message.images.map((url, i) => (
-            <SentImageThumbnail key={i} src={url} />
-          ))}
-        </div>
-      )}
-      {message.content}
-    </div>
-  )
-}
-
-function AssistantBubble({ message }: { message: ConductorMessage }) {
-  const segments = parseMessageContent(message.content)
-
-  return (
-    <div
-      style={{
-        maxWidth: '85%',
-        alignSelf: 'flex-start',
-        background: 'var(--t-bg)',
-        border: '1px solid var(--t-border)',
-        borderRadius: '14px 14px 14px 4px',
-        padding: '7px 10px',
-        fontSize: 11,
-        color: 'var(--t-text-2)',
-        lineHeight: 1.5,
-        wordBreak: 'break-word',
-      }}
-    >
-      {segments.map((seg, i) =>
-        seg.type === 'cmd' ? (
-          <CommandBlock key={i} text={seg.value} />
-        ) : (
-          <span key={i} style={{ whiteSpace: 'pre-wrap' }}>
-            {seg.value}
-          </span>
-        )
-      )}
-    </div>
-  )
-}
-
-/** Animated pulsing dots shown while the conductor is streaming a response. */
-function StreamingIndicator({ content }: { content: string }) {
-  return (
-    <div
-      style={{
-        maxWidth: '85%',
-        alignSelf: 'flex-start',
-        background: 'var(--t-bg)',
-        border: '1px solid var(--t-border)',
-        borderRadius: '14px 14px 14px 4px',
-        padding: '7px 10px',
-        fontSize: 11,
-        color: 'var(--t-text-2)',
-        lineHeight: 1.5,
-        wordBreak: 'break-word',
-      }}
-    >
-      {content ? (
-        <span style={{ whiteSpace: 'pre-wrap' }}>{content}</span>
-      ) : (
-        <span style={{ display: 'flex', gap: 3, alignItems: 'center', height: 16 }}>
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              style={{
-                width: 5,
-                height: 5,
-                borderRadius: '50%',
-                background: 'var(--t-text-3)',
-                display: 'inline-block',
-                animation: `conductor-dot 1.2s ease-in-out ${i * 0.2}s infinite`,
-              }}
-            />
-          ))}
-        </span>
-      )}
-    </div>
-  )
-}
-
 // ── Conductor ────────────────────────────────────────────────────────────────
 
 export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
   const [inputValue, setInputValue] = useState('')
   const [activeTab, setActiveTab] = useState<TabKey>('watcher')
   const [streamingContent, setStreamingContent] = useState('')
-  const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([])
-  const [isDragOver, setIsDragOver] = useState(false)
-  const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
 
   const isStreaming = useAppStore((s) => s.conductorStreaming)
   const setConductorStreaming = useAppStore((s) => s.setConductorStreaming)
   const addConductorMessage = useAppStore((s) => s.addConductorMessage)
   const clearConductorMessages = useAppStore((s) => s.clearConductorMessages)
+
+  const {
+    attachedImages,
+    isDragOver,
+    handleDrop,
+    handleDragOver,
+    handleDragLeave,
+    handleOpenFilePicker,
+    handleRemoveImage,
+    clearImages,
+    revokeAndClearImages,
+    getImagePayload,
+  } = useImageAttachments(inputRef)
 
   // ── IPC listeners ──────────────────────────────────────────────────────────
 
@@ -224,74 +74,22 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
 
-  // ── Paste handler ──────────────────────────────────────────────────────────
-
-  const handlePaste = useCallback(async (e: ClipboardEvent) => {
-    // Only intercept when our input is focused
-    if (document.activeElement !== inputRef.current) return
-
-    const items = Array.from(e.clipboardData?.items ?? [])
-    const imageItem = items.find((item) => item.type.startsWith('image/'))
-    if (!imageItem) return  // non-image paste — let default text handling proceed
-
-    e.preventDefault()
-
-    const file = imageItem.getAsFile()
-    if (!file) return
-
-    const mimeType = imageItem.type
-    const buffer = await file.arrayBuffer()
-
-    try {
-      const path = await window.debussy.conductor.uploadImage(buffer, mimeType)
-      const previewUrl = URL.createObjectURL(file)
-      setAttachedImages((prev) => [
-        ...prev,
-        { id: `img-${Date.now()}-${Math.random()}`, path, previewUrl, isTemp: true },
-      ])
-    } catch (err) {
-      console.error('[conductor] uploadImage failed:', err)
-    }
-  }, [])
-
-  useEffect(() => {
-    document.addEventListener('paste', handlePaste)
-    return () => document.removeEventListener('paste', handlePaste)
-  }, [handlePaste])
-
   if (!isVisible) return null
 
   // ── Core actions ───────────────────────────────────────────────────────────
-
-  function revokePreviewUrls(images: AttachedImage[]) {
-    for (const img of images) {
-      URL.revokeObjectURL(img.previewUrl)
-    }
-  }
 
   function handleSend() {
     const trimmed = inputValue.trim()
     if ((!trimmed && attachedImages.length === 0) || isStreaming) return
 
-    const imagePaths = attachedImages.map((img) => img.path)
-    const tempPaths = attachedImages.filter((img) => img.isTemp).map((img) => img.path)
-    const previewUrls = attachedImages.map((img) => img.previewUrl)
-
+    const { imagePaths, tempPaths, previewUrls } = getImagePayload()
     // Pass preview URLs to parent so they appear in the chat history bubble
     onSend(trimmed, imagePaths, tempPaths, previewUrls)
 
     // Keep object URLs alive — parent renders them; don't revoke here.
     setInputValue('')
     setStreamingContent('')
-    setAttachedImages([])
-  }
-
-  function handleRemoveImage(id: string) {
-    setAttachedImages((prev) => {
-      const img = prev.find((i) => i.id === id)
-      if (img) URL.revokeObjectURL(img.previewUrl)
-      return prev.filter((i) => i.id !== id)
-    })
+    clearImages()
   }
 
   function handleCancel() {
@@ -312,76 +110,8 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
     setStreamingContent('')
     setConductorStreaming(false)
     clearConductorMessages()
-    revokePreviewUrls(attachedImages)
-    setAttachedImages([])
+    revokeAndClearImages()
     await window.debussy.conductor.newSession()
-  }
-
-  // ── File picker ────────────────────────────────────────────────────────────
-
-  async function handleOpenFilePicker() {
-    try {
-      const paths = await window.debussy.conductor.openFileDialog()
-      const newImages: AttachedImage[] = paths.map((p) => ({
-        id: `img-${Date.now()}-${Math.random()}`,
-        path: p,
-        previewUrl: `file://${p}`,
-        isTemp: false,
-      }))
-      setAttachedImages((prev) => [...prev, ...newImages])
-    } catch (err) {
-      console.error('[conductor] openFileDialog failed:', err)
-    }
-  }
-
-  // ── Drag & drop ────────────────────────────────────────────────────────────
-
-  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
-    const hasFiles = Array.from(e.dataTransfer.types).includes('Files')
-    if (!hasFiles) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'copy'
-    setIsDragOver(true)
-  }
-
-  function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
-    // Only clear when leaving the panel itself (not a child element)
-    if (e.currentTarget.contains(e.relatedTarget as Node)) return
-    setIsDragOver(false)
-  }
-
-  async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    setIsDragOver(false)
-
-    const imageFiles = Array.from(e.dataTransfer.files).filter((f) =>
-      f.type.startsWith('image/')
-    )
-
-    const newImages: AttachedImage[] = []
-    for (const file of imageFiles) {
-      // In Electron the File object has a `path` property
-      const filePath = (file as File & { path: string }).path
-      if (!filePath) {
-        // Fallback: upload via IPC (e.g. when path is unavailable)
-        try {
-          const buffer = await file.arrayBuffer()
-          const path = await window.debussy.conductor.uploadImage(buffer, file.type)
-          const previewUrl = URL.createObjectURL(file)
-          newImages.push({ id: `img-${Date.now()}-${Math.random()}`, path, previewUrl, isTemp: true })
-        } catch (err) {
-          console.error('[conductor] uploadImage (drop fallback) failed:', err)
-        }
-      } else {
-        newImages.push({
-          id: `img-${Date.now()}-${Math.random()}`,
-          path: filePath,
-          previewUrl: `file://${filePath}`,
-          isTemp: false,
-        })
-      }
-    }
-    setAttachedImages((prev) => [...prev, ...newImages])
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
