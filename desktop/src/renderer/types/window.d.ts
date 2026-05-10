@@ -61,6 +61,9 @@ interface DebussyAPI {
     removeProject: (groupId: string, projectPath: string)               => Promise<{ success: boolean; error?: string }>
     setActive:     (groupId: string, projectPath: string)               => Promise<{ success: boolean; error?: string }>
   }
+  dialog: {
+    openDirectory: () => Promise<string | null>
+  }
 }
 
 declare global {

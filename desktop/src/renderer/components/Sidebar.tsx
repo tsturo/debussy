@@ -1,133 +1,37 @@
-export interface SidebarProject {
-  name: string
-  isActive: boolean
-  agentCount: number
-  status: 'active' | 'running' | 'idle'
-}
+import { useState, useRef, useEffect } from 'react'
+import type { WorkspaceGroupData } from '../store/app-store'
+import { WorkspaceDropdown } from './WorkspaceDropdown'
+import { GradientAvatar, ChevronDownIcon, GearIcon, PlusPurpleIcon } from './icons'
+
+export type { WorkspaceGroupData }
 
 export interface SidebarProps {
-  workspaceName: string
-  workspaceInitial: string
-  projects: SidebarProject[]
+  workspaceGroups: WorkspaceGroupData[]
+  activeGroupId: string | null
+  activeProjectPath: string | null
   collapsed: boolean
   onToggle?: () => void
-  onProjectSelect: (name: string) => void
+  onGroupSelect: (groupId: string) => void
+  onProjectSelect: (groupId: string, path: string) => void
+  onAddProject: (groupId: string) => void
+  onNewWorkspace: () => void
   onSettingsClick: () => void
-  onAddProject: () => void
 }
 
-// Status dot colors per project status (using CSS variables from globals.css)
-const STATUS_DOT_COLOR: Record<SidebarProject['status'], string> = {
-  active:  'var(--t-teal)',           // teal — active watcher
-  running: 'var(--t-warn)',           // amber — has agents
-  idle:    'var(--t-text-3)',         // gray at 40% (applied via opacity)
-}
-
-function GradientAvatar({ initial }: { initial: string }) {
-  return (
-    <div
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: 9,
-        background: 'var(--t-gradient)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        fontWeight: 700,
-        fontSize: 13,
-        color: 'white',
-        letterSpacing: '-0.01em',
-        userSelect: 'none',
-      }}
-    >
-      {initial}
-    </div>
-  )
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ color: 'var(--t-text-3)', flexShrink: 0 }}
-    >
-      <path
-        d="M2 4l4 4 4-4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function GearIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ color: 'var(--t-text-3)', flexShrink: 0 }}
-    >
-      <path
-        d="M7 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M11.33 7c0-.19-.01-.37-.04-.55l1.2-.93a.3.3 0 0 0 .07-.38l-1.13-1.96a.3.3 0 0 0-.36-.13l-1.41.57a4.1 4.1 0 0 0-.95-.55l-.21-1.5A.3.3 0 0 0 8.2 1H5.8a.3.3 0 0 0-.3.26l-.21 1.5c-.34.14-.66.32-.95.55L2.93 2.74a.3.3 0 0 0-.36.13L1.44 4.83a.3.3 0 0 0 .07.38l1.2.93A3.3 3.3 0 0 0 2.67 7c0 .19.01.37.04.55l-1.2.93a.3.3 0 0 0-.07.38l1.13 1.96c.08.14.24.2.36.13l1.41-.57c.29.23.61.41.95.55l.21 1.5c.04.15.17.26.3.26h2.4c.13 0 .26-.11.3-.26l.21-1.5c.34-.14.66-.32.95-.55l1.41.57c.12.07.28.01.36-.13l1.13-1.96a.3.3 0 0 0-.07-.38l-1.2-.93c.03-.18.04-.36.04-.55Z"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function PlusPurpleIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ color: 'var(--t-purple)', flexShrink: 0 }}
-    >
-      <path
-        d="M6 1v10M1 6h10"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
+// ── Project row ──────────────────────────────────────────────────────────────
 
 function ProjectRow({
-  project,
-  onSelect,
+  name,
+  isActive,
+  onClick,
 }: {
-  project: SidebarProject
-  onSelect: () => void
+  name: string
+  isActive: boolean
+  onClick: () => void
 }) {
-  const isIdle = project.status === 'idle'
-
   return (
     <button
-      onClick={onSelect}
+      onClick={onClick}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -137,10 +41,8 @@ function ProjectRow({
         borderRadius: 9,
         border: 'none',
         cursor: 'pointer',
-        background: project.isActive ? 'var(--t-surface)' : 'transparent',
-        boxShadow: project.isActive
-          ? '0 1px 3px rgba(0,0,0,0.08)'
-          : 'none',
+        background: isActive ? 'var(--t-surface)' : 'transparent',
+        boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
         textAlign: 'left',
         transition: 'background var(--t-dur-fast) var(--t-ease)',
       }}
@@ -152,8 +54,8 @@ function ProjectRow({
           height: 6,
           borderRadius: '50%',
           flexShrink: 0,
-          backgroundColor: STATUS_DOT_COLOR[project.status],
-          opacity: isIdle ? 0.4 : 1,
+          backgroundColor: isActive ? 'var(--t-teal)' : 'var(--t-text-3)',
+          opacity: isActive ? 1 : 0.4,
         }}
       />
 
@@ -162,48 +64,62 @@ function ProjectRow({
         style={{
           flex: 1,
           fontSize: 12,
-          fontWeight: project.isActive ? 500 : 400,
-          color: project.isActive ? 'var(--t-text)' : 'var(--t-text-3)',
+          fontWeight: isActive ? 500 : 400,
+          color: isActive ? 'var(--t-text)' : 'var(--t-text-3)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
         }}
       >
-        {project.name}
+        {name}
       </span>
-
-      {/* Agent count badge */}
-      {project.agentCount > 0 && (
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 600,
-            color: 'var(--t-purple)',
-            background: 'color-mix(in srgb, var(--t-purple) 12%, transparent)',
-            borderRadius: 100,
-            padding: '1px 6px',
-            flexShrink: 0,
-            lineHeight: '16px',
-          }}
-        >
-          {project.agentCount}
-        </span>
-      )}
     </button>
   )
 }
 
+// ── Sidebar ──────────────────────────────────────────────────────────────────
+
 export function Sidebar({
-  workspaceName,
-  workspaceInitial,
-  projects,
+  workspaceGroups,
+  activeGroupId,
+  activeProjectPath,
   collapsed,
   onToggle,
+  onGroupSelect,
   onProjectSelect,
-  onSettingsClick,
   onAddProject,
+  onNewWorkspace,
+  onSettingsClick,
 }: SidebarProps) {
   const width = collapsed ? 48 : 248
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  // Derive active group's projects
+  const activeGroup = workspaceGroups.find((g) => g.id === activeGroupId) ?? null
+  const projects = activeGroup?.projects ?? []
+
+  // Workspace display: show first group name or placeholder
+  const displayGroup = activeGroup ?? workspaceGroups[0] ?? null
+  const workspaceName = displayGroup?.name ?? 'Workspace'
+  const workspaceInitial = displayGroup?.iconLetter ?? 'W'
+
+  function handleWorkspaceClick() {
+    if (collapsed) {
+      onToggle?.()
+      return
+    }
+    if (triggerRef.current) {
+      setAnchorRect(triggerRef.current.getBoundingClientRect())
+    }
+    setDropdownOpen((open) => !open)
+  }
+
+  // Close dropdown when sidebar collapses
+  useEffect(() => {
+    if (collapsed) setDropdownOpen(false)
+  }, [collapsed])
 
   return (
     <div
@@ -221,23 +137,26 @@ export function Sidebar({
         boxSizing: 'border-box',
       }}
     >
-      {/* ── Workspace header ─────────────────────────────────────────── */}
+      {/* ── Workspace header ─────────────────────────────────────────────── */}
       <button
-        onClick={collapsed ? onToggle : undefined /* onWorkspaceClick — future */}
-        aria-label={collapsed ? 'Expand sidebar' : undefined}
-        title={collapsed ? 'Expand sidebar' : undefined}
+        ref={triggerRef}
+        onClick={handleWorkspaceClick}
+        aria-label={collapsed ? 'Expand sidebar' : 'Switch workspace'}
+        title={collapsed ? 'Expand sidebar' : 'Switch workspace'}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 10,
           padding: collapsed ? '10px 10px' : '10px 12px',
           border: 'none',
-          background: 'transparent',
-          cursor: collapsed ? 'pointer' : 'default',
+          background: dropdownOpen ? 'color-mix(in srgb, var(--t-surface) 60%, transparent)' : 'transparent',
+          cursor: 'pointer',
           flexShrink: 0,
           width: '100%',
           textAlign: 'left',
           overflow: 'hidden',
+          borderRadius: 0,
+          transition: 'background var(--t-dur-fast) var(--t-ease)',
         }}
       >
         <GradientAvatar initial={workspaceInitial} />
@@ -257,12 +176,30 @@ export function Sidebar({
             >
               {workspaceName}
             </span>
-            <ChevronDownIcon />
+            <ChevronDownIcon open={dropdownOpen} />
           </>
         )}
       </button>
 
-      {/* ── Project list (scrollable) ────────────────────────────────── */}
+      {/* ── Workspace switcher dropdown ──────────────────────────────────── */}
+      {dropdownOpen && !collapsed && (
+        <WorkspaceDropdown
+          groups={workspaceGroups}
+          activeGroupId={activeGroupId}
+          anchorRect={anchorRect}
+          onGroupSelect={(id) => {
+            onGroupSelect(id)
+            setDropdownOpen(false)
+          }}
+          onNewWorkspace={() => {
+            onNewWorkspace()
+            setDropdownOpen(false)
+          }}
+          onClose={() => setDropdownOpen(false)}
+        />
+      )}
+
+      {/* ── Project list (scrollable) ────────────────────────────────────── */}
       {!collapsed && (
         <div
           style={{
@@ -292,15 +229,16 @@ export function Sidebar({
           {/* Project rows */}
           {projects.map((project) => (
             <ProjectRow
-              key={project.name}
-              project={project}
-              onSelect={() => onProjectSelect(project.name)}
+              key={project.path}
+              name={project.name}
+              isActive={project.path === activeProjectPath}
+              onClick={() => onProjectSelect(activeGroupId ?? '', project.path)}
             />
           ))}
 
           {/* Add project link */}
           <button
-            onClick={onAddProject}
+            onClick={() => onAddProject(activeGroupId ?? '')}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -332,7 +270,7 @@ export function Sidebar({
       {/* Spacer in collapsed mode */}
       {collapsed && <div style={{ flex: 1 }} />}
 
-      {/* ── Footer ──────────────────────────────────────────────────── */}
+      {/* ── Footer ──────────────────────────────────────────────────────── */}
       {!collapsed && (
         <div
           style={{

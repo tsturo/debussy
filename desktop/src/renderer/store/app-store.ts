@@ -4,12 +4,29 @@ import type { Task, AgentInfo, DebussyConfig, ConductorMessage } from '../../sha
 export type Theme = 'system' | 'dark' | 'light'
 export type ConductorDefaultVisibility = 'always' | 'auto' | 'hidden'
 
+export interface WorkspaceProjectData {
+  path: string
+  name: string
+}
+
+export interface WorkspaceGroupData {
+  id: string
+  name: string
+  iconLetter: string
+  projects: WorkspaceProjectData[]
+}
+
 export interface AppState {
   // Data
   tasks: Task[]
   agents: Record<string, AgentInfo>  // keyed by taskId
   config: DebussyConfig | null
   watcherRunning: boolean
+
+  // Workspace
+  workspaceGroups: WorkspaceGroupData[]
+  activeGroupId: string | null
+  activeProjectPath: string | null
 
   // UI state
   selectedTaskId: string | null
@@ -24,6 +41,7 @@ export interface AppState {
 
   // Actions
   fetchAll: () => Promise<void>
+  fetchWorkspaces: () => Promise<void>
   selectTask: (id: string | null) => void
   toggleConductor: () => void
   toggleSidebar: () => void
@@ -36,6 +54,10 @@ export interface AppState {
   setConductorStreaming: (val: boolean) => void
   setTheme: (theme: Theme) => void
   setConductorDefaultVisibility: (v: ConductorDefaultVisibility) => void
+  setActiveGroup: (id: string) => Promise<void>
+  setActiveProject: (groupId: string, path: string) => Promise<void>
+  addProject: (groupId: string, path: string) => Promise<{ success: boolean; error?: string }>
+  addWorkspaceGroup: (name: string) => Promise<{ success: boolean; error?: string }>
 }
 
 const THEME_KEY = 'debussy-theme'
@@ -56,6 +78,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   agents: {},
   config: null,
   watcherRunning: false,
+
+  // Workspace state
+  workspaceGroups: [],
+  activeGroupId: null,
+  activeProjectPath: null,
 
   // Initial UI state
   selectedTaskId: null,
@@ -90,6 +117,75 @@ export const useAppStore = create<AppState>((set, get) => ({
       })
     } catch {
       // Don't crash — keep showing existing state
+    }
+  },
+
+  fetchWorkspaces: async () => {
+    try {
+      const data = await window.debussy.workspace.list()
+      set({
+        workspaceGroups: data.groups as WorkspaceGroupData[],
+        activeGroupId: data.activeGroupId,
+        activeProjectPath: data.activeProjectPath,
+      })
+    } catch {
+      // keep existing state on failure
+    }
+  },
+
+  setActiveGroup: async (id: string) => {
+    // Update local state immediately for a snappy UI
+    set({ activeGroupId: id })
+
+    // Persist to backend: switch to the first project of the selected group
+    const { workspaceGroups } = get()
+    const group = workspaceGroups.find((g) => g.id === id)
+    const firstProject = group?.projects[0]
+    if (firstProject) {
+      try {
+        await window.debussy.workspace.setActive(id, firstProject.path)
+        set({ activeProjectPath: firstProject.path })
+        await get().fetchAll()
+      } catch (err) {
+        console.error('[app-store] setActiveGroup persist failed:', err)
+      }
+    }
+  },
+
+  setActiveProject: async (groupId: string, path: string) => {
+    try {
+      await window.debussy.workspace.setActive(groupId, path)
+      set({ activeGroupId: groupId, activeProjectPath: path })
+      await get().fetchAll()
+    } catch (err) {
+      console.error('[app-store] setActiveProject failed:', err)
+    }
+  },
+
+  addProject: async (groupId: string, path: string) => {
+    try {
+      const result = await window.debussy.workspace.addProject(groupId, path)
+      if (result.success) {
+        await get().fetchWorkspaces()
+      }
+      return result
+    } catch (err) {
+      console.error('[app-store] addProject failed:', err)
+      return { success: false, error: String(err) }
+    }
+  },
+
+  addWorkspaceGroup: async (name: string) => {
+    try {
+      const iconLetter = name.charAt(0).toUpperCase()
+      const result = await window.debussy.workspace.addGroup(name, iconLetter)
+      if (result.success) {
+        await get().fetchWorkspaces()
+      }
+      return { success: result.success, error: result.error }
+    } catch (err) {
+      console.error('[app-store] addWorkspaceGroup failed:', err)
+      return { success: false, error: String(err) }
     }
   },
 

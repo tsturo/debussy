@@ -43,4 +43,7 @@ contextBridge.exposeInMainWorld('debussy', {
     removeProject: (groupId: string, projectPath: string)                     => ipcRenderer.invoke(IPC.WORKSPACE_REMOVE_PROJECT, groupId, projectPath),
     setActive:     (groupId: string, projectPath: string)                     => ipcRenderer.invoke(IPC.WORKSPACE_SET_ACTIVE, groupId, projectPath),
   },
+  dialog: {
+    openDirectory: () => ipcRenderer.invoke(IPC.DIALOG_OPEN_DIRECTORY),
+  },
 })

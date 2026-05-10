@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ConductorMessage, LogEntry, Stage } from '../shared/types'
+import { useWorkspaceHandlers } from './hooks/useWorkspaceHandlers'
 
 import { Sidebar } from './components/Sidebar'
 import { Board } from './components/Board'
@@ -14,8 +15,6 @@ import type { PaletteAction } from './components/CommandPalette'
 import { useAppStore } from './store/app-store'
 import { useBreakpoint } from './lib/use-media-query'
 
-// ── App ──────────────────────────────────────────────────────────────────────
-
 function App() {
   // ── Store selectors ────────────────────────────────────────────────────────
   const tasks = useAppStore((s) => s.tasks)
@@ -25,7 +24,12 @@ function App() {
   const selectedTaskId = useAppStore((s) => s.selectedTaskId)
   const conductorMessages = useAppStore((s) => s.conductorMessages)
 
+  const workspaceGroups = useAppStore((s) => s.workspaceGroups)
+  const activeGroupId = useAppStore((s) => s.activeGroupId)
+  const activeProjectPath = useAppStore((s) => s.activeProjectPath)
+
   const fetchAll = useAppStore((s) => s.fetchAll)
+  const fetchWorkspaces = useAppStore((s) => s.fetchWorkspaces)
   const selectTask = useAppStore((s) => s.selectTask)
   const advanceTask = useAppStore((s) => s.advanceTask)
   const blockTask = useAppStore((s) => s.blockTask)
@@ -36,6 +40,16 @@ function App() {
   const setConductorStreaming = useAppStore((s) => s.setConductorStreaming)
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
+  const setActiveGroup = useAppStore((s) => s.setActiveGroup)
+  const setActiveProject = useAppStore((s) => s.setActiveProject)
+
+  const [toast, setToast] = useState<string | null>(null)
+  const showToast = useCallback((msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2500)
+  }, [])
+
+  const { handleAddProject, handleNewWorkspace } = useWorkspaceHandlers(showToast)
 
   // ── Theme application ──────────────────────────────────────────────────────
 
@@ -96,24 +110,9 @@ function App() {
     setConductorOverride((prev) => !(prev ?? defaultConductorVisible))
   }, [defaultConductorVisible])
 
-  // ── Settings modal state ──────────────────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = useState(false)
-
-  // ── New task dialog state ─────────────────────────────────────────────────
   const [newTaskOpen, setNewTaskOpen] = useState(false)
-
-  // ── Toast state ───────────────────────────────────────────────────────────
-  const [toast, setToast] = useState<string | null>(null)
-
-  function showToast(message: string) {
-    setToast(message)
-    setTimeout(() => setToast(null), 2500)
-  }
-
-  // ── Command palette state ──────────────────────────────────────────────────
   const [paletteOpen, setPaletteOpen] = useState(false)
-
-  // ── Task log entries (fetched when selectedTaskId changes) ────────────────
   const [taskLogEntries, setTaskLogEntries] = useState<LogEntry[]>([])
 
   useEffect(() => {
@@ -127,6 +126,11 @@ function App() {
       setTaskLogEntries([])
     })
   }, [selectedTaskId])
+
+  // ── Workspace initial load ─────────────────────────────────────────────────
+  useEffect(() => {
+    fetchWorkspaces()
+  }, [fetchWorkspaces])
 
   // ── Polling ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -307,14 +311,16 @@ function App() {
     >
       {/* ── Sidebar ────────────────────────────────────────────────────────── */}
       <Sidebar
-        workspaceName="debussy"
-        workspaceInitial="D"
-        projects={[]}
+        workspaceGroups={workspaceGroups}
+        activeGroupId={activeGroupId}
+        activeProjectPath={activeProjectPath}
         collapsed={sidebarCollapsed}
         onToggle={handleToggleSidebar}
-        onProjectSelect={(name) => console.log('project selected:', name)}
+        onGroupSelect={setActiveGroup}
+        onProjectSelect={setActiveProject}
+        onAddProject={handleAddProject}
+        onNewWorkspace={handleNewWorkspace}
         onSettingsClick={() => setSettingsOpen(true)}
-        onAddProject={() => console.log('add project clicked')}
       />
 
       {/* ── Main area ─────────────────────────────────────────────────────── */}

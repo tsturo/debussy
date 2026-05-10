@@ -1,4 +1,4 @@
-import { ipcMain, app, BrowserWindow } from 'electron'
+import { ipcMain, app, BrowserWindow, dialog } from 'electron'
 import { join, basename } from 'path'
 import { randomUUID } from 'crypto'
 import * as fs from 'fs'
@@ -333,6 +333,19 @@ export function registerIPC(): void {
     switchProject(projectPath)
 
     return { success: true }
+  })
+
+  // ── Dialog handlers ───────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.DIALOG_OPEN_DIRECTORY, async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
+    if (!win) return null
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Select Project Folder',
+      properties: ['openDirectory'],
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
   })
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
