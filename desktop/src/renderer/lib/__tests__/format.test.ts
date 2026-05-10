@@ -6,6 +6,22 @@ describe('formatElapsed', () => {
     vi.useRealTimers()
   })
 
+  it('returns "just now" when just started', () => {
+    vi.useFakeTimers()
+    const now = Date.now()
+    vi.setSystemTime(now)
+    const startedAt = Math.floor(now / 1000) // exactly now
+    expect(formatElapsed(startedAt)).toBe('just now')
+  })
+
+  it('returns "just now" for < 60 seconds', () => {
+    vi.useFakeTimers()
+    const now = Date.now()
+    vi.setSystemTime(now)
+    const startedAt = Math.floor((now - 45 * 1000) / 1000) // 45 seconds ago
+    expect(formatElapsed(startedAt)).toBe('just now')
+  })
+
   it('returns minutes-only for < 1 hour', () => {
     vi.useFakeTimers()
     const now = Date.now()
@@ -14,12 +30,20 @@ describe('formatElapsed', () => {
     expect(formatElapsed(startedAt)).toBe('3m')
   })
 
-  it('returns "0m" when just started', () => {
+  it('returns "59m" for 59 minutes', () => {
     vi.useFakeTimers()
     const now = Date.now()
     vi.setSystemTime(now)
-    const startedAt = Math.floor(now / 1000) // exactly now
-    expect(formatElapsed(startedAt)).toBe('0m')
+    const startedAt = Math.floor((now - 59 * 60 * 1000) / 1000)
+    expect(formatElapsed(startedAt)).toBe('59m')
+  })
+
+  it('returns "1h" for exactly 60 minutes', () => {
+    vi.useFakeTimers()
+    const now = Date.now()
+    vi.setSystemTime(now)
+    const startedAt = Math.floor((now - 60 * 60 * 1000) / 1000)
+    expect(formatElapsed(startedAt)).toBe('1h')
   })
 
   it('returns hours and minutes', () => {
@@ -46,19 +70,11 @@ describe('formatElapsed', () => {
     expect(formatElapsed(startedAt)).toBe('10h 30m')
   })
 
-  it('returns "59m" for 59 minutes', () => {
+  it('returns days for >= 24 hours', () => {
     vi.useFakeTimers()
     const now = Date.now()
     vi.setSystemTime(now)
-    const startedAt = Math.floor((now - 59 * 60 * 1000) / 1000)
-    expect(formatElapsed(startedAt)).toBe('59m')
-  })
-
-  it('returns "1h" for exactly 60 minutes', () => {
-    vi.useFakeTimers()
-    const now = Date.now()
-    vi.setSystemTime(now)
-    const startedAt = Math.floor((now - 60 * 60 * 1000) / 1000)
-    expect(formatElapsed(startedAt)).toBe('1h')
+    const startedAt = Math.floor((now - 3 * 24 * 60 * 60 * 1000) / 1000) // 3 days ago
+    expect(formatElapsed(startedAt)).toBe('3d')
   })
 })
