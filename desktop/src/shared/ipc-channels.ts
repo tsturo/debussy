@@ -5,6 +5,8 @@ export const IPC = {
   TASKS_LIST:      'tasks:list',
   TASK_GET:        'tasks:get',
   TASK_ADVANCE:    'tasks:advance',
+  TASK_ADVANCE_TO: 'tasks:advance-to',
+  TASK_RELEASE:    'tasks:release',
   TASK_BLOCK:      'tasks:block',
   TASK_COMMENT:    'tasks:comment',
   TASK_CREATE:     'tasks:create',

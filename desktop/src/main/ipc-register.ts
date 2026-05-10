@@ -163,8 +163,18 @@ export function registerIPC(): void {
 
   // ── Write-action handlers ──────────────────────────────────────────────────
 
-  ipcMain.handle(IPC.TASK_ADVANCE, (_event, id: string) =>
-    runTakt(['advance', id])
+  ipcMain.handle(IPC.TASK_ADVANCE, (_event, id: string, toStage?: string) => {
+    const args = ['advance', id]
+    if (toStage) args.push('--to', toStage)
+    return runTakt(args)
+  })
+
+  ipcMain.handle(IPC.TASK_RELEASE, (_event, id: string) =>
+    runTakt(['release', id])
+  )
+
+  ipcMain.handle(IPC.TASK_ADVANCE_TO, (_event, id: string, toStage: string) =>
+    runTakt(['advance', id, '--to', toStage])
   )
 
   ipcMain.handle(IPC.TASK_BLOCK, (_event, id: string) =>

@@ -5,8 +5,10 @@ contextBridge.exposeInMainWorld('debussy', {
   tasks: {
     list:    ()                        => ipcRenderer.invoke(IPC.TASKS_LIST),
     get:     (id: string)              => ipcRenderer.invoke(IPC.TASK_GET, id),
-    advance: (id: string)              => ipcRenderer.invoke(IPC.TASK_ADVANCE, id),
-    block:   (id: string)              => ipcRenderer.invoke(IPC.TASK_BLOCK, id),
+    advance:   (id: string)                      => ipcRenderer.invoke(IPC.TASK_ADVANCE, id),
+    advanceTo: (id: string, toStage: string)     => ipcRenderer.invoke(IPC.TASK_ADVANCE_TO, id, toStage),
+    release:   (id: string)                      => ipcRenderer.invoke(IPC.TASK_RELEASE, id),
+    block:     (id: string)                      => ipcRenderer.invoke(IPC.TASK_BLOCK, id),
     comment: (id: string, msg: string) => ipcRenderer.invoke(IPC.TASK_COMMENT, id, msg),
     create:  (title: string, desc: string) => ipcRenderer.invoke(IPC.TASK_CREATE, title, desc),
   },
