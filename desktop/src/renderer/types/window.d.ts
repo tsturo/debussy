@@ -68,6 +68,17 @@ interface DebussyAPI {
   dialog: {
     openDirectory: () => Promise<string | null>
   }
+  app: {
+    info: () => Promise<{
+      appVersion: string
+      electronVersion: string
+      nodeVersion: string
+      chromeVersion: string
+    }>
+  }
+  shell: {
+    openExternal: (url: string) => Promise<{ success: boolean; error?: string }>
+  }
 }
 
 declare global {

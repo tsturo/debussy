@@ -30,6 +30,8 @@ export const IPC = {
   WORKSPACE_RENAME_GROUP:   'workspace:rename-group',
   WORKSPACE_SET_ACTIVE:     'workspace:set-active',
   DIALOG_OPEN_DIRECTORY:    'dialog:open-directory',
+  APP_INFO:                 'app:info',
+  SHELL_OPEN_EXTERNAL:      'shell:open-external',
 } as const
 
 export type IpcChannel = typeof IPC[keyof typeof IPC]
