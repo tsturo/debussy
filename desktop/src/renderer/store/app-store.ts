@@ -51,6 +51,7 @@ export interface AppState {
   startWatcher: () => Promise<{ alreadyRunning?: boolean }>
   stopWatcher: () => Promise<void>
   addConductorMessage: (msg: ConductorMessage) => void
+  clearConductorMessages: () => void
   setConductorStreaming: (val: boolean) => void
   setTheme: (theme: Theme) => void
   setConductorDefaultVisibility: (v: ConductorDefaultVisibility) => void
@@ -242,6 +243,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addConductorMessage: (msg) =>
     set((s) => ({ conductorMessages: [...s.conductorMessages, msg] })),
+
+  clearConductorMessages: () => set({ conductorMessages: [] }),
 
   setConductorStreaming: (val) => set({ conductorStreaming: val }),
 

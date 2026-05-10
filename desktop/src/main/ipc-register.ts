@@ -192,6 +192,11 @@ export function registerIPC(): void {
     conductorBridge.cancelCurrent()
   })
 
+  ipcMain.handle(IPC.CONDUCTOR_NEW_SESSION, () => {
+    conductorBridge.newSession(getProjectPath())
+    return { success: true }
+  })
+
   // ── Watcher control handlers ───────────────────────────────────────────────
 
   ipcMain.handle(IPC.WATCHER_START, () => {

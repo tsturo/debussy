@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from 'child_process'
-import { readFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 import { BrowserWindow } from 'electron'
 import { IPC } from '../shared/ipc-channels'
 
@@ -8,6 +9,7 @@ const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
 export class ConductorBridge {
   private currentProcess: ChildProcess | null = null
+  private sessionId: string | null = null
 
   /**
    * Spawn a claude CLI process with the conductor system prompt and stream
@@ -24,8 +26,9 @@ export class ConductorBridge {
       return
     }
 
+    const sessionId = this.getOrCreateSessionId(cwd)
     const model = this.readModel(cwd)
-    const args = ['--print', '--system-prompt', systemPrompt, '--model', model, message]
+    const args = ['--print', '--session-id', sessionId, '--system-prompt', systemPrompt, '--model', model, message]
 
     let child: ChildProcess
     try {
@@ -65,6 +68,16 @@ export class ConductorBridge {
     })
   }
 
+  /**
+   * Generate a fresh session ID, persist it to config, and clear the
+   * in-memory cache so the next sendMessage call picks it up.
+   */
+  newSession(cwd: string): void {
+    const newId = randomUUID()
+    this.sessionId = newId
+    this.persistSessionId(cwd, newId)
+  }
+
   /** Kill the running process, if any. */
   cancelCurrent(): void {
     if (this.currentProcess) {
@@ -74,6 +87,44 @@ export class ConductorBridge {
   }
 
   // ── Private helpers ──────────────────────────────────────────────────────────
+
+  /**
+   * Return the in-memory session ID, loading from config on first call.
+   * If no ID exists in config, a new UUID is generated and saved.
+   */
+  private getOrCreateSessionId(cwd: string): string {
+    if (this.sessionId) return this.sessionId
+
+    // Try to read from persisted config
+    try {
+      const config = JSON.parse(readFileSync(join(cwd, '.debussy', 'config.json'), 'utf-8'))
+      if (typeof config?.conductor_session_id === 'string' && config.conductor_session_id) {
+        this.sessionId = config.conductor_session_id
+        return this.sessionId
+      }
+    } catch {
+      // Config missing or unreadable — fall through to generate
+    }
+
+    // First launch: generate, persist, and cache
+    const id = randomUUID()
+    this.persistSessionId(cwd, id)
+    this.sessionId = id
+    return id
+  }
+
+  /** Write conductor_session_id into .debussy/config.json. */
+  private persistSessionId(cwd: string, id: string): void {
+    const configPath = join(cwd, '.debussy', 'config.json')
+    let config: Record<string, unknown> = {}
+    try {
+      config = JSON.parse(readFileSync(configPath, 'utf-8'))
+    } catch {
+      // File missing or malformed — start from empty object
+    }
+    config['conductor_session_id'] = id
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8')
+  }
 
   private readSystemPrompt(cwd: string): string | null {
     try {
