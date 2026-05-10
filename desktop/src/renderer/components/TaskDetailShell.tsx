@@ -2,6 +2,14 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import type { Task, Stage } from '../../shared/types'
 import { STAGE_COLORS } from '../lib/stage-colors'
 
+/** Compact stage labels used in the status strip. */
+const STRIP_STAGES: Array<[Stage, string]> = [
+  ['development', 'dev'],
+  ['reviewing', 'review'],
+  ['merging', 'merge'],
+  ['done', 'done'],
+]
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface TaskDetailShellProps {
@@ -10,6 +18,7 @@ export interface TaskDetailShellProps {
   watcherRunning: boolean
   agentCount: number
   lastEvent: string       // e.g. "DBS-3 → reviewing"
+  stageCounts: Partial<Record<Stage, number>>
   onClose: () => void
   onAdvance: () => void
   onBlock: () => void
@@ -39,9 +48,15 @@ interface CollapsedStripProps {
   watcherRunning: boolean
   agentCount: number
   lastEvent: string
+  stageCounts: Partial<Record<Stage, number>>
 }
 
-function CollapsedStrip({ watcherRunning, agentCount, lastEvent }: CollapsedStripProps) {
+function CollapsedStrip({ watcherRunning, agentCount, lastEvent, stageCounts }: CollapsedStripProps) {
+  const stageCountStr = STRIP_STAGES
+    .filter(([stage]) => (stageCounts[stage] ?? 0) > 0)
+    .map(([stage, label]) => `${stageCounts[stage]} ${label}`)
+    .join(' · ')
+
   return (
     <div
       style={{
@@ -72,7 +87,7 @@ function CollapsedStrip({ watcherRunning, agentCount, lastEvent }: CollapsedStri
         </span>
       </div>
 
-      {/* Center: agent count + last event */}
+      {/* Center: stage counts + agent count + last event */}
       <div
         style={{
           flex: 1,
@@ -85,7 +100,7 @@ function CollapsedStrip({ watcherRunning, agentCount, lastEvent }: CollapsedStri
           padding: '0 12px',
         }}
       >
-        {agentCount} agent{agentCount !== 1 ? 's' : ''}
+        {stageCountStr || `${agentCount} agent${agentCount !== 1 ? 's' : ''}`}
         {lastEvent ? ` · last: ${lastEvent}` : ''}
       </div>
 
@@ -122,6 +137,7 @@ export function TaskDetailShell({
   watcherRunning,
   agentCount,
   lastEvent,
+  stageCounts,
   onClose,
   onAdvance,
   onBlock,
@@ -194,6 +210,7 @@ export function TaskDetailShell({
         watcherRunning={watcherRunning}
         agentCount={agentCount}
         lastEvent={lastEvent}
+        stageCounts={stageCounts}
       />
     )
   }

@@ -189,6 +189,14 @@ function App() {
 
   const agentCount = Object.keys(agents).length
 
+  const stageCounts = useMemo(() => {
+    const counts: Partial<Record<Stage, number>> = {}
+    for (const task of tasks) {
+      counts[task.stage] = (counts[task.stage] ?? 0) + 1
+    }
+    return counts
+  }, [tasks])
+
   const selectedTask = selectedTaskId
     ? tasks.find((t) => t.id === selectedTaskId) ?? null
     : null
@@ -400,6 +408,7 @@ function App() {
           watcherRunning={watcherRunning}
           agentCount={agentCount}
           lastEvent={lastEvent}
+          stageCounts={stageCounts}
           onClose={() => selectTask(null)}
           onAdvance={() => selectedTaskId && advanceTask(selectedTaskId)}
           onBlock={() => selectedTaskId && blockTask(selectedTaskId)}
