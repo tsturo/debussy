@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('debussy', {
   },
   config: {
     get: () => ipcRenderer.invoke(IPC.CONFIG_GET),
+    set: (key: string, value: unknown) => ipcRenderer.invoke(IPC.CONFIG_SET, key, value),
   },
   watcher: {
     status: () => ipcRenderer.invoke(IPC.WATCHER_STATUS),

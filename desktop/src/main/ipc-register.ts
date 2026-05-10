@@ -245,9 +245,29 @@ export function registerIPC(): void {
     }
   })
 
-  // ── Stubbed handlers (future tasks) ───────────────────────────────────────
+  // ── Config write handler ───────────────────────────────────────────────────
 
-  ipcMain.handle(IPC.CONFIG_SET, () => ({ success: true }))
+  ipcMain.handle(IPC.CONFIG_SET, (_event, key: string, value: unknown) => {
+    const configPath = join(getProjectPath(), '.debussy', 'config.json')
+    try {
+      let current: Record<string, unknown> = {}
+      try {
+        current = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      } catch {
+        // Start fresh if file missing or unreadable
+      }
+      if (value === null || value === undefined) {
+        delete current[key]
+      } else {
+        current[key] = value
+      }
+      fs.mkdirSync(join(getProjectPath(), '.debussy'), { recursive: true })
+      fs.writeFileSync(configPath, JSON.stringify(current, null, 2) + '\n', 'utf-8')
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: String(err) }
+    }
+  })
 
   // ── Workspace handlers ─────────────────────────────────────────────────────
 
