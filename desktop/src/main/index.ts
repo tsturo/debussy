@@ -1,5 +1,6 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
+import { registerIPC } from './ipc-register'
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
@@ -33,6 +34,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  registerIPC()
   createWindow()
 
   app.on('activate', () => {
