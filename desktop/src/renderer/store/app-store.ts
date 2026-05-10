@@ -45,7 +45,8 @@ export interface AppState {
   selectTask: (id: string | null) => void
   toggleConductor: () => void
   toggleSidebar: () => void
-  advanceTask: (id: string) => Promise<void>
+  advanceTask: (id: string, toStage?: string) => Promise<void>
+  releaseTask: (id: string) => Promise<void>
   blockTask: (id: string) => Promise<void>
   commentOnTask: (id: string, msg: string) => Promise<void>
   startWatcher: () => Promise<{ alreadyRunning?: boolean }>
@@ -236,11 +237,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleConductor: () => set((s) => ({ conductorVisible: !s.conductorVisible })),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
-  advanceTask: async (id) => {
+  advanceTask: async (id, toStage?) => {
     try {
-      await window.debussy.tasks.advance(id)
+      await window.debussy.tasks.advance(id, toStage)
     } catch (err) {
       console.error('[app-store] advanceTask failed:', err)
+    }
+    await get().fetchAll()
+  },
+
+  releaseTask: async (id) => {
+    try {
+      await window.debussy.tasks.release(id)
+    } catch (err) {
+      console.error('[app-store] releaseTask failed:', err)
     }
     await get().fetchAll()
   },

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDraggable } from '@dnd-kit/core'
 import type { Task, Stage } from '../../shared/types'
 import { STAGE_COLORS } from '../lib/stage-colors'
 import { formatElapsed } from '../lib/format'
@@ -9,21 +10,41 @@ export interface KanbanCardProps {
   agent: { name: string; stage: Stage; startedAt?: number } | null
   isSelected: boolean
   onClick: () => void
+  /** Whether this card can be dragged (false for done-stage cards). */
+  draggable?: boolean
 }
 
-export function KanbanCard({ task, agent, isSelected, onClick }: KanbanCardProps) {
+export function KanbanCard({ task, agent, isSelected, onClick, draggable = true }: KanbanCardProps) {
   const [isHovered, setIsHovered] = useState(false)
+
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: task.id,
+    disabled: !draggable,
+    data: {
+      taskId: task.id,
+      taskTitle: task.title,
+      fromStage: task.stage,
+      isBlocked: task.status === 'blocked',
+    },
+  })
 
   const stageColor = STAGE_COLORS[task.stage].color
 
   // Compose box-shadow: hover elevation + selection ring
   const shadows: string[] = []
-  if (isHovered) shadows.push('var(--t-shadow-card-hover)')
+  if (isDragging) {
+    shadows.push('0 8px 24px rgba(0,0,0,0.5)')
+  } else if (isHovered) {
+    shadows.push('var(--t-shadow-card-hover)')
+  }
   if (isSelected) shadows.push(`0 0 0 1px ${stageColor}66`)
   const boxShadow = shadows.length > 0 ? shadows.join(', ') : 'none'
 
   return (
     <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -35,15 +56,17 @@ export function KanbanCard({ task, agent, isSelected, onClick }: KanbanCardProps
         borderRadius: 'var(--t-radius-md)',
         padding: '8px',
         borderLeft: `${isSelected ? 3 : 2}px solid ${stageColor}`,
-        cursor: 'pointer',
-        transform: isHovered ? 'translateY(-1px)' : 'none',
+        cursor: draggable ? (isDragging ? 'grabbing' : 'grab') : 'default',
+        transform: isDragging ? 'scale(1.02)' : isHovered ? 'translateY(-1px)' : 'none',
         boxShadow,
-        transition: 'transform 150ms var(--t-ease), box-shadow 150ms var(--t-ease)',
+        opacity: isDragging ? 0.45 : 1,
+        transition: isDragging ? 'none' : 'transform 150ms var(--t-ease), box-shadow 150ms var(--t-ease)',
         display: 'flex',
         alignItems: 'center',
         gap: '6px',
         userSelect: 'none',
         minHeight: '36px',
+        touchAction: 'none',
       }}
     >
       {/* ID · title on one line */}
