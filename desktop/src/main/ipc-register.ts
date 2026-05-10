@@ -101,8 +101,11 @@ export function registerIPC(): void {
           const length = stat.size - position
           const buffer = Buffer.alloc(length)
           const fd = fs.openSync(logPath, 'r')
-          fs.readSync(fd, buffer, 0, length, position)
-          fs.closeSync(fd)
+          try {
+            fs.readSync(fd, buffer, 0, length, position)
+          } finally {
+            fs.closeSync(fd)
+          }
           position = stat.size
 
           const sender = BrowserWindow.getAllWindows().find(
