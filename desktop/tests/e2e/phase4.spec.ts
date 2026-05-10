@@ -103,28 +103,25 @@ test.describe('Phase 4: New task dialog, conductor chat, watcher status', () => 
     const statusText = agentBar.locator('span', { hasText: /^(watching|stopped)$/ })
     await expect(statusText).toBeVisible()
 
-    // Determine the current state and verify the CSS color is correct
+    // Determine the current state
     const textContent = await statusText.textContent()
     const isWatching = textContent?.trim() === 'watching'
 
-    const computedColor = await statusText.evaluate((el) =>
-      getComputedStyle(el).color,
-    )
+    // Resolve the expected CSS variable color by creating a temporary element
+    // with that var applied — getComputedStyle resolves CSS vars to rgb() values
+    const expectedColor = await page.evaluate((watching) => {
+      const cssVar = watching ? '--t-teal' : '--t-text-3'
+      const tmp = document.createElement('span')
+      tmp.style.color = `var(${cssVar})`
+      document.body.appendChild(tmp)
+      const resolved = getComputedStyle(tmp).color
+      document.body.removeChild(tmp)
+      return resolved
+    }, isWatching)
 
-    if (isWatching) {
-      // Teal color — CSS var(--t-teal) resolves to a non-grey colour
-      // We cannot read the exact hex without evaluating CSS vars, but we can
-      // assert it is not the default black/white (which would signal a broken theme)
-      expect(computedColor).toMatch(/^rgb/)
-    } else {
-      // Stopped — muted text-3 colour (also an rgb value, just lighter/greyer)
-      expect(computedColor).toMatch(/^rgb/)
-    }
+    const computedColor = await statusText.evaluate((el) => getComputedStyle(el).color)
+    expect(computedColor).toBe(expectedColor)
 
-    // The status dot element must also be present (sibling of the span)
-    const statusDot = agentBar.locator('div').filter({
-      // The dot is a 6×6 rounded div adjacent to the status text button
-    })
     // Verify via the button that wraps both dot and span
     const statusButton = agentBar.locator('button').filter({ hasText: /^(watching|stopped)$/ })
     await expect(statusButton).toBeVisible()
