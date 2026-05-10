@@ -55,7 +55,7 @@ test.describe('App interactions', () => {
 
   test('task selection shows detail panel', async () => {
     // Click the first visible task card on the board
-    const firstCard = page.locator('[role="button"]').first()
+    const firstCard = page.locator('[data-task-id]').first()
     await expect(firstCard).toBeVisible({ timeout: 3000 })
     await firstCard.click()
     // Verify the task detail panel expanded (Advance + Block buttons appear)

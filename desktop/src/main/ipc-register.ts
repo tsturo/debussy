@@ -67,12 +67,16 @@ function getDb(): Database.Database | null {
 
 export function registerIPC(): void {
   // ── Workspace initialisation ───────────────────────────────────────────────
-  // Load persisted workspace on startup; if there's an active project path use it.
+  // Load persisted workspace on startup; validate the path before using it.
+  // If the persisted project path no longer exists (e.g. a deleted worktree),
+  // fall back to process.cwd() so the app loads the correct database.
   {
     const data = workspaceStore.loadWorkspaces()
-    if (data.activeProjectPath) {
-      activeProjectPath = data.activeProjectPath
+    const persistedPath = data.activeProjectPath
+    if (persistedPath && fs.existsSync(join(persistedPath, '.takt'))) {
+      activeProjectPath = persistedPath
     }
+    // If the persisted path has no .takt directory, keep activeProjectPath = process.cwd()
   }
 
 
