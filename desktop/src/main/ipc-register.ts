@@ -295,11 +295,25 @@ export function registerIPC(): void {
     }
 
     // Clear active pointers if the removed project was active
-    if (data.activeProjectPath === projectPath) {
+    const wasActive = data.activeProjectPath === projectPath
+    if (wasActive) {
       data.activeProjectPath = group.projects[0]?.path ?? null
     }
 
     workspaceStore.saveWorkspaces(data)
+
+    // Sync in-memory state if the removed project was the active one
+    if (wasActive) {
+      const newPath = data.activeProjectPath
+      if (newPath) {
+        switchProject(newPath)
+      } else {
+        dbReader.closeDatabase(db)
+        db = null
+        activeProjectPath = process.cwd()
+      }
+    }
+
     return { success: true }
   })
 
