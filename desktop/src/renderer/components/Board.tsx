@@ -117,8 +117,8 @@ export function Board({
             flex: 1,
             display: 'flex',
             flexDirection: 'row',
-            gap: '10px',
-            padding: '14px',
+            gap: '8px',
+            padding: '10px',
             overflowX: 'auto',
             overflowY: 'hidden',
           }}
@@ -134,6 +134,8 @@ export function Board({
               style={
                 stage === 'backlog'
                   ? undefined
+                  : stage === 'done'
+                  ? { flex: 0.7, minWidth: '120px', display: 'flex' }
                   : { flex: 1, minWidth: '140px', display: 'flex' }
               }
             >
