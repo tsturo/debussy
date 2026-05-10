@@ -15,6 +15,7 @@ export interface AgentBarProps {
   agents: AgentBarAgent[]
   watcherRunning: boolean
   onAgentClick: (taskId: string) => void
+  onWatcherToggle: () => Promise<void>
 }
 
 const MAX_VISIBLE = 8
@@ -87,7 +88,7 @@ function AgentAvatar({
   )
 }
 
-export function AgentBar({ agents, watcherRunning, onAgentClick }: AgentBarProps) {
+export function AgentBar({ agents, watcherRunning, onAgentClick, onWatcherToggle }: AgentBarProps) {
   const visible = agents.slice(0, MAX_VISIBLE)
   const overflow = agents.length - MAX_VISIBLE
 
@@ -144,8 +145,26 @@ export function AgentBar({ agents, watcherRunning, onAgentClick }: AgentBarProps
           )}
         </div>
 
-        {/* Right: watcher status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* Right: watcher status (clickable toggle) */}
+        <button
+          onClick={() => {
+            const confirmed = watcherRunning
+              ? window.confirm('Stop watcher? This will kill all running agents.')
+              : window.confirm('Start watcher?')
+            if (confirmed) onWatcherToggle()
+          }}
+          title={watcherRunning ? 'Click to stop watcher' : 'Click to start watcher'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '4px 8px',
+            borderRadius: 'var(--t-radius-sm)',
+          }}
+        >
           <div
             style={{
               width: 6,
@@ -163,7 +182,7 @@ export function AgentBar({ agents, watcherRunning, onAgentClick }: AgentBarProps
           >
             {watcherRunning ? 'watching' : 'stopped'}
           </span>
-        </div>
+        </button>
       </div>
     </>
   )

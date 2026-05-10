@@ -1,7 +1,7 @@
 import { ipcMain, app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import * as fs from 'fs'
-import { spawnSync } from 'child_process'
+import { spawn, spawnSync } from 'child_process'
 import { IPC } from '../shared/ipc-channels'
 import type { DebussyConfig, WatcherState } from '../shared/types'
 import * as dbReader from './db-reader'
@@ -170,11 +170,57 @@ export function registerIPC(): void {
     conductorBridge.cancelCurrent()
   })
 
+  // ── Watcher control handlers ───────────────────────────────────────────────
+
+  ipcMain.handle(IPC.WATCHER_START, () => {
+    const lockPath = join(getProjectPath(), '.debussy', 'watcher.lock')
+    // Check if already running
+    if (fs.existsSync(lockPath)) {
+      try {
+        const pid = parseInt(fs.readFileSync(lockPath, 'utf-8').trim(), 10)
+        if (!isNaN(pid)) {
+          try {
+            process.kill(pid, 0) // existence check only
+            return { success: true, alreadyRunning: true }
+          } catch {
+            // PID in lock file is stale — fall through to start
+          }
+        }
+      } catch {
+        // Lock file unreadable — fall through to start
+      }
+    }
+    try {
+      const child = spawn('debussy', ['watch'], {
+        cwd:      getProjectPath(),
+        detached: true,
+        stdio:    'ignore',
+      })
+      child.unref()
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: String(err) }
+    }
+  })
+
+  ipcMain.handle(IPC.WATCHER_STOP, () => {
+    const lockPath = join(getProjectPath(), '.debussy', 'watcher.lock')
+    if (!fs.existsSync(lockPath)) {
+      return { success: false, error: 'Watcher is not running' }
+    }
+    try {
+      const pid = parseInt(fs.readFileSync(lockPath, 'utf-8').trim(), 10)
+      if (isNaN(pid)) return { success: false, error: 'Invalid PID in lock file' }
+      process.kill(pid, 'SIGTERM')
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: String(err) }
+    }
+  })
+
   // ── Stubbed handlers (future tasks) ───────────────────────────────────────
 
-  ipcMain.handle(IPC.CONFIG_SET,    () => ({ success: true }))
-  ipcMain.handle(IPC.WATCHER_START, () => ({ success: true }))
-  ipcMain.handle(IPC.WATCHER_STOP,  () => ({ success: true }))
+  ipcMain.handle(IPC.CONFIG_SET, () => ({ success: true }))
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
