@@ -10,6 +10,7 @@ export interface SidebarProps {
   workspaceInitial: string
   projects: SidebarProject[]
   collapsed: boolean
+  onToggle?: () => void
   onProjectSelect: (name: string) => void
   onSettingsClick: () => void
   onAddProject: () => void
@@ -197,6 +198,7 @@ export function Sidebar({
   workspaceInitial,
   projects,
   collapsed,
+  onToggle,
   onProjectSelect,
   onSettingsClick,
   onAddProject,
@@ -221,7 +223,9 @@ export function Sidebar({
     >
       {/* ── Workspace header ─────────────────────────────────────────── */}
       <button
-        onClick={collapsed ? undefined : undefined /* onWorkspaceClick — future */}
+        onClick={collapsed ? onToggle : undefined /* onWorkspaceClick — future */}
+        aria-label={collapsed ? 'Expand sidebar' : undefined}
+        title={collapsed ? 'Expand sidebar' : undefined}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -229,7 +233,7 @@ export function Sidebar({
           padding: collapsed ? '10px 10px' : '10px 12px',
           border: 'none',
           background: 'transparent',
-          cursor: 'default',
+          cursor: collapsed ? 'pointer' : 'default',
           flexShrink: 0,
           width: '100%',
           textAlign: 'left',

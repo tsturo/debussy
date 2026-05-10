@@ -285,6 +285,7 @@ function App() {
         workspaceInitial="D"
         projects={[]}
         collapsed={sidebarCollapsed}
+        onToggle={handleToggleSidebar}
         onProjectSelect={(name) => console.log('project selected:', name)}
         onSettingsClick={() => setSettingsOpen(true)}
         onAddProject={() => console.log('add project clicked')}
