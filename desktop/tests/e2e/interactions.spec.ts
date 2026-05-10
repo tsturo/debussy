@@ -127,4 +127,36 @@ test.describe('App interactions', () => {
       timeout: 2000,
     })
   })
+
+  test('only active theme card is selected (aria-pressed)', async () => {
+    // Re-open settings
+    await page.keyboard.press('Meta+,')
+    const settings = page.getByRole('dialog', { name: 'Settings' })
+    await expect(settings).toBeVisible({ timeout: 2000 })
+
+    const themeCards = page.locator('button[aria-pressed]').filter({ hasText: /^(System|Dark|Light)$/ })
+
+    // Click Dark card
+    const darkCard = themeCards.filter({ hasText: 'Dark' })
+    await darkCard.click()
+
+    // Only Dark card should be pressed
+    await expect(darkCard).toHaveAttribute('aria-pressed', 'true')
+    await expect(themeCards.filter({ hasText: 'System' })).toHaveAttribute('aria-pressed', 'false')
+    await expect(themeCards.filter({ hasText: 'Light' })).toHaveAttribute('aria-pressed', 'false')
+
+    // Click Light card
+    const lightCard = themeCards.filter({ hasText: 'Light' })
+    await lightCard.click()
+
+    // Only Light card should be pressed; Dark and System should not be
+    await expect(lightCard).toHaveAttribute('aria-pressed', 'true')
+    await expect(darkCard).toHaveAttribute('aria-pressed', 'false')
+    await expect(themeCards.filter({ hasText: 'System' })).toHaveAttribute('aria-pressed', 'false')
+
+    await page.screenshot({ path: `${SCREENSHOT_DIR}/08-theme-selection-state.png`, fullPage: true })
+
+    // Close settings
+    await page.keyboard.press('Escape')
+  })
 })

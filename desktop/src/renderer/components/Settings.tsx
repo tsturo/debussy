@@ -99,7 +99,7 @@ function ThemeCard({
         style={{
           fontSize: 12,
           fontWeight: isActive ? 600 : 400,
-          color: isActive ? 'var(--t-text)' : 'var(--t-text-2)',
+          color: 'var(--t-text)',
           textAlign: 'center',
           width: '100%',
         }}
