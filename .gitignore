@@ -34,3 +34,5 @@ __pycache__/
 venv/
 *.egg-info/
 build/
+# Electron build assets (icons etc.) are tracked source files, not build outputs
+!desktop/build/
