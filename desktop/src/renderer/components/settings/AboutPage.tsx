@@ -72,7 +72,7 @@ export function AboutPage() {
             lineHeight: 1.2,
           }}
         >
-          Debussy Desktop
+          Debussy
         </div>
         <div style={{ fontSize: 12, color: 'var(--t-text-3)' }}>
           Pipeline orchestration for AI coding agents
