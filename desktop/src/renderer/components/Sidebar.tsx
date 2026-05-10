@@ -274,6 +274,7 @@ export function Sidebar({
         >
           {/* Section label */}
           <div
+            data-testid="projects-section"
             style={{
               fontSize: 9,
               fontWeight: 600,

@@ -50,6 +50,7 @@ export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = f
       {...(isDragOverlay ? {} : listeners)}
       {...(isDragOverlay ? {} : attributes)}
       role="button"
+      data-task-id={task.id}
       tabIndex={isDone ? -1 : 0}
       onClick={onClick}
       onKeyDown={(e) => e.key === 'Enter' && onClick()}

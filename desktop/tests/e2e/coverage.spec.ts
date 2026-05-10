@@ -36,18 +36,18 @@ test.describe('Coverage: with real task database', () => {
 
     // Click to expand — the "Projects" section label should appear
     await expandBtn.click()
-    await expect(page.getByText('Projects', { exact: true })).toBeVisible({ timeout: 2000 })
+    await expect(page.locator('[data-testid="projects-section"]')).toBeVisible({ timeout: 2000 })
     await page.screenshot({ path: `${SCREENSHOT_DIR}/08-sidebar-expanded.png`, fullPage: true })
 
     // Click to collapse — project list should disappear
     const collapseBtn = page.getByRole('button', { name: 'Collapse sidebar' })
     await collapseBtn.click()
-    await expect(page.getByText('Projects', { exact: true })).not.toBeVisible({ timeout: 2000 })
+    await expect(page.locator('[data-testid="projects-section"]')).not.toBeVisible({ timeout: 2000 })
   })
 
   test('task card stage colors have a colored left border', async () => {
     // At least one task card exists given the real database
-    const firstCard = page.locator('[role="button"]').first()
+    const firstCard = page.locator('[data-task-id]').first()
     await expect(firstCard).toBeVisible({ timeout: 3000 })
 
     // KanbanCard sets borderLeft inline style: "<n>px solid <color>".
@@ -60,7 +60,7 @@ test.describe('Coverage: with real task database', () => {
   })
 
   test('task detail body shows description section and comment input', async () => {
-    const firstCard = page.locator('[role="button"]').first()
+    const firstCard = page.locator('[data-task-id]').first()
     await expect(firstCard).toBeVisible({ timeout: 3000 })
     await firstCard.click()
 
