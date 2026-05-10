@@ -108,7 +108,7 @@ function DescriptionColumn({ task, comments }: DescriptionColumnProps) {
       {/* Description text */}
       <div
         style={{
-          fontSize: 11,
+          fontSize: 13,
           color: 'var(--t-text-2)',
           lineHeight: 1.6,
           whiteSpace: 'pre-wrap',
@@ -135,7 +135,7 @@ function DescriptionColumn({ task, comments }: DescriptionColumnProps) {
               {/* Author + timestamp */}
               <div
                 style={{
-                  fontSize: 10,
+                  fontSize: 11,
                   color: 'var(--t-text-3)',
                   marginBottom: 4,
                   display: 'flex',
@@ -149,9 +149,9 @@ function DescriptionColumn({ task, comments }: DescriptionColumnProps) {
               {/* Comment body */}
               <div
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   color: 'var(--t-text-2)',
-                  lineHeight: 1.5,
+                  lineHeight: 1.6,
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
                 }}
@@ -242,7 +242,7 @@ export function TaskDetailBody({ task, logEntries, agentName, onComment }: TaskD
             background: 'var(--t-bg)',
             border: '1px solid var(--t-border)',
             borderRadius: 9,
-            fontSize: 11,
+            fontSize: 13,
             color: 'var(--t-text)',
             padding: '5px 10px',
             outline: 'none',

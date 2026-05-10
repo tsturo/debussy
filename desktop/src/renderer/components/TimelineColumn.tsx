@@ -52,7 +52,7 @@ export function SectionLabel({ children }: SectionLabelProps) {
   return (
     <div
       style={{
-        fontSize: 9,
+        fontSize: 10,
         fontWeight: 600,
         letterSpacing: '0.10em',
         textTransform: 'uppercase',
@@ -195,8 +195,8 @@ export function TimelineColumn({ timelineEntries, agentName }: TimelineColumnPro
           <div
             style={{
               fontFamily: '"SF Mono", "Fira Mono", "Menlo", monospace',
-              fontSize: 10,
-              lineHeight: 1.9,
+              fontSize: 12,
+              lineHeight: 1.8,
               display: 'flex',
               flexDirection: 'column',
             }}
@@ -235,7 +235,7 @@ export function TimelineColumn({ timelineEntries, agentName }: TimelineColumnPro
                         color: 'var(--t-text-3)',
                         opacity: 0.6,
                         flexShrink: 0,
-                        fontSize: 9,
+                        fontSize: 11,
                       }}
                     >
                       {formatTime(entry.timestamp)}
