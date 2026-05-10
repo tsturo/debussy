@@ -11,6 +11,7 @@ export interface BoardProps {
   config: DebussyConfig | null
   selectedTaskId: string | null
   watcherRunning: boolean
+  showBacklog?: boolean
   onTaskSelect: (taskId: string) => void
   onNewTask: () => void
 }
@@ -24,6 +25,7 @@ export function Board({
   config,
   selectedTaskId,
   watcherRunning,
+  showBacklog = true,
   onTaskSelect,
   onNewTask,
 }: BoardProps) {
@@ -71,6 +73,7 @@ export function Board({
     <>
       <style>{`
         .board-backlog-col { display: flex; flex: 1; min-width: 140px; }
+        .board-backlog-col--hidden { display: none !important; }
         @media (max-width: 1024px) {
           .board-backlog-col { display: none !important; }
         }
@@ -120,7 +123,11 @@ export function Board({
           {visibleStages.map((stage) => (
             <div
               key={stage}
-              className={stage === 'backlog' ? 'board-backlog-col' : undefined}
+              className={
+              stage === 'backlog'
+                ? `board-backlog-col${showBacklog ? '' : ' board-backlog-col--hidden'}`
+                : undefined
+            }
               style={
                 stage === 'backlog'
                   ? undefined
