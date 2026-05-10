@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useAppStore } from '../store/app-store'
 import type { Theme, ConductorDefaultVisibility } from '../store/app-store'
+import { ThemeSwatch } from './ThemeSwatch'
 
 export interface SettingsProps {
   isOpen: boolean
@@ -45,103 +46,19 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
-// ── Theme preview swatches ────────────────────────────────────────────────────
+// ── Appearance page options ───────────────────────────────────────────────────
 
-function ThemeSwatch({ theme }: { theme: Theme }) {
-  if (theme === 'dark') {
-    return (
-      <div
-        aria-hidden="true"
-        style={{
-          width: '100%',
-          height: 52,
-          borderRadius: 6,
-          background: '#0a0f1a',
-          border: '1px solid rgba(232,237,243,0.08)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          padding: 6,
-          boxSizing: 'border-box',
-        }}
-      >
-        <div style={{ height: 6, width: '60%', borderRadius: 3, background: '#131829' }} />
-        <div style={{ height: 4, width: '80%', borderRadius: 3, background: 'rgba(108,92,231,0.4)' }} />
-        <div style={{ height: 4, width: '45%', borderRadius: 3, background: 'rgba(232,237,243,0.12)' }} />
-      </div>
-    )
-  }
+const THEME_OPTIONS: { value: Theme; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' },
+]
 
-  if (theme === 'light') {
-    return (
-      <div
-        aria-hidden="true"
-        style={{
-          width: '100%',
-          height: 52,
-          borderRadius: 6,
-          background: '#ffffff',
-          border: '1px solid #e8e8f0',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          padding: 6,
-          boxSizing: 'border-box',
-        }}
-      >
-        <div style={{ height: 6, width: '60%', borderRadius: 3, background: '#f7f7fb' }} />
-        <div style={{ height: 4, width: '80%', borderRadius: 3, background: 'rgba(108,92,231,0.35)' }} />
-        <div style={{ height: 4, width: '45%', borderRadius: 3, background: '#e8e8f0' }} />
-      </div>
-    )
-  }
-
-  // System: split half-half
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        width: '100%',
-        height: 52,
-        borderRadius: 6,
-        border: '1px solid #e8e8f0',
-        overflow: 'hidden',
-        display: 'flex',
-      }}
-    >
-      <div
-        style={{
-          flex: 1,
-          background: '#ffffff',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          padding: 6,
-          boxSizing: 'border-box',
-        }}
-      >
-        <div style={{ height: 6, width: '100%', borderRadius: 3, background: '#f7f7fb' }} />
-        <div style={{ height: 4, width: '100%', borderRadius: 3, background: 'rgba(108,92,231,0.3)' }} />
-      </div>
-      <div
-        style={{
-          flex: 1,
-          background: '#0a0f1a',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          padding: 6,
-          boxSizing: 'border-box',
-        }}
-      >
-        <div style={{ height: 6, width: '100%', borderRadius: 3, background: '#131829' }} />
-        <div style={{ height: 4, width: '100%', borderRadius: 3, background: 'rgba(108,92,231,0.4)' }} />
-      </div>
-    </div>
-  )
-}
+const CONDUCTOR_OPTIONS: { value: ConductorDefaultVisibility; label: string }[] = [
+  { value: 'always', label: 'Always visible' },
+  { value: 'auto', label: 'Auto' },
+  { value: 'hidden', label: 'Hidden' },
+]
 
 // ── Theme card ────────────────────────────────────────────────────────────────
 
@@ -200,18 +117,6 @@ function AppearancePage() {
   const conductorDefaultVisibility = useAppStore((s) => s.conductorDefaultVisibility)
   const setTheme = useAppStore((s) => s.setTheme)
   const setConductorDefaultVisibility = useAppStore((s) => s.setConductorDefaultVisibility)
-
-  const THEME_OPTIONS: { value: Theme; label: string }[] = [
-    { value: 'system', label: 'System' },
-    { value: 'dark', label: 'Dark' },
-    { value: 'light', label: 'Light' },
-  ]
-
-  const CONDUCTOR_OPTIONS: { value: ConductorDefaultVisibility; label: string }[] = [
-    { value: 'always', label: 'Always visible' },
-    { value: 'auto', label: 'Auto' },
-    { value: 'hidden', label: 'Hidden' },
-  ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
