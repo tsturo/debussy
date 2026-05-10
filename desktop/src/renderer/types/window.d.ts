@@ -26,6 +26,8 @@ interface DebussyAPI {
   }
   watcher: {
     status: () => Promise<{ running: boolean }>
+    start:  () => Promise<{ success: boolean; alreadyRunning?: boolean }>
+    stop:   () => Promise<{ success: boolean }>
   }
   conductor: {
     send:            (message: string)                    => Promise<{ success: boolean }>

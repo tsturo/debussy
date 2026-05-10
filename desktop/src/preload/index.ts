@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('debussy', {
   },
   watcher: {
     status: () => ipcRenderer.invoke(IPC.WATCHER_STATUS),
+    start:  () => ipcRenderer.invoke(IPC.WATCHER_START),
+    stop:   () => ipcRenderer.invoke(IPC.WATCHER_STOP),
   },
   conductor: {
     send:            (message: string)                          => ipcRenderer.invoke(IPC.CONDUCTOR_SEND, message),

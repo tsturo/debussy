@@ -14,6 +14,7 @@ export interface BoardProps {
   showBacklog?: boolean
   onTaskSelect: (taskId: string) => void
   onNewTask: () => void
+  onWatcherToggle: () => Promise<void>
 }
 
 /** Stages that are hidden when empty (not always shown as columns). */
@@ -28,6 +29,7 @@ export function Board({
   showBacklog = true,
   onTaskSelect,
   onNewTask,
+  onWatcherToggle,
 }: BoardProps) {
   /** Group tasks by stage into a map for O(1) lookup per column. */
   const tasksByStage = useMemo(() => {
@@ -106,6 +108,7 @@ export function Board({
           }))}
           watcherRunning={watcherRunning}
           onAgentClick={onTaskSelect}
+          onWatcherToggle={onWatcherToggle}
         />
 
         {/* Columns area: horizontal scroll, fixed padding/gap */}

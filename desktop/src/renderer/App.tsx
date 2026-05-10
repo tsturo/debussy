@@ -30,6 +30,8 @@ function App() {
   const advanceTask = useAppStore((s) => s.advanceTask)
   const blockTask = useAppStore((s) => s.blockTask)
   const commentOnTask = useAppStore((s) => s.commentOnTask)
+  const startWatcher = useAppStore((s) => s.startWatcher)
+  const stopWatcher = useAppStore((s) => s.stopWatcher)
   const addConductorMessage = useAppStore((s) => s.addConductorMessage)
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
@@ -267,6 +269,16 @@ function App() {
     },
   ], [advanceTask, handleToggleConductor, handleToggleSidebar, setTheme, setPaletteOpen])
 
+  // ── Watcher toggle handler ─────────────────────────────────────────────────
+
+  const handleWatcherToggle = useCallback(async () => {
+    if (watcherRunning) {
+      await stopWatcher()
+    } else {
+      await startWatcher()
+    }
+  }, [watcherRunning, startWatcher, stopWatcher])
+
   // ── Conductor send handler ─────────────────────────────────────────────────
 
   function handleSendConductorMessage(message: string) {
@@ -359,6 +371,7 @@ function App() {
             showBacklog={isLarge}
             onTaskSelect={(taskId) => selectTask(taskId)}
             onNewTask={() => setNewTaskOpen(true)}
+            onWatcherToggle={handleWatcherToggle}
           />
         </div>
 

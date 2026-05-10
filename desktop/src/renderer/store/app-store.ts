@@ -29,6 +29,8 @@ export interface AppState {
   advanceTask: (id: string) => Promise<void>
   blockTask: (id: string) => Promise<void>
   commentOnTask: (id: string, msg: string) => Promise<void>
+  startWatcher: () => Promise<{ alreadyRunning?: boolean }>
+  stopWatcher: () => Promise<void>
   addConductorMessage: (msg: ConductorMessage) => void
   setTheme: (theme: Theme) => void
   setConductorDefaultVisibility: (v: ConductorDefaultVisibility) => void
@@ -115,6 +117,26 @@ export const useAppStore = create<AppState>((set, get) => ({
       await window.debussy.tasks.comment(id, msg)
     } catch (err) {
       console.error('[app-store] commentOnTask failed:', err)
+    }
+    await get().fetchAll()
+  },
+
+  startWatcher: async () => {
+    try {
+      const result = await window.debussy.watcher.start()
+      await get().fetchAll()
+      return { alreadyRunning: result.alreadyRunning }
+    } catch (err) {
+      console.error('[app-store] startWatcher failed:', err)
+      return {}
+    }
+  },
+
+  stopWatcher: async () => {
+    try {
+      await window.debussy.watcher.stop()
+    } catch (err) {
+      console.error('[app-store] stopWatcher failed:', err)
     }
     await get().fetchAll()
   },
