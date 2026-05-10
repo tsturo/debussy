@@ -28,7 +28,8 @@ contextBridge.exposeInMainWorld('debussy', {
     stop:   () => ipcRenderer.invoke(IPC.WATCHER_STOP),
   },
   conductor: {
-    send:            (message: string)                          => ipcRenderer.invoke(IPC.CONDUCTOR_SEND, message),
+    send:            (text: string, images?: string[], tempPaths?: string[]) =>
+                       ipcRenderer.invoke(IPC.CONDUCTOR_SEND, text, images, tempPaths),
     cancel:          ()                                         => ipcRenderer.send(IPC.CONDUCTOR_CANCEL),
     newSession:      ()                                         => ipcRenderer.invoke(IPC.CONDUCTOR_NEW_SESSION),
     onChunk:         (callback: (chunk: string) => void)        => ipcRenderer.on(IPC.CONDUCTOR_RESPONSE_CHUNK, (_event, chunk) => callback(chunk)),
@@ -37,6 +38,10 @@ contextBridge.exposeInMainWorld('debussy', {
       ipcRenderer.removeAllListeners(IPC.CONDUCTOR_RESPONSE_CHUNK)
       ipcRenderer.removeAllListeners(IPC.CONDUCTOR_RESPONSE_DONE)
     },
+    uploadImage:     (buffer: ArrayBuffer, mimeType: string)   =>
+                       ipcRenderer.invoke(IPC.CONDUCTOR_UPLOAD_IMAGE, new Uint8Array(buffer), mimeType),
+    openFileDialog:  ()                                        =>
+                       ipcRenderer.invoke(IPC.CONDUCTOR_OPEN_FILE_DIALOG) as Promise<string[]>,
   },
   workspace: {
     list:          ()                                                         => ipcRenderer.invoke(IPC.WORKSPACE_LIST),

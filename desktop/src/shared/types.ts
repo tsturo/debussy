@@ -112,6 +112,8 @@ export interface ConductorMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: number
+  /** Preview URLs (object URLs) for images attached to user messages */
+  images?: string[]
 }
 
 export interface WorkspaceGroup {

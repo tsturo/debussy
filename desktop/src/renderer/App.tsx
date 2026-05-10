@@ -300,16 +300,26 @@ function App() {
 
   // ── Conductor send handler ─────────────────────────────────────────────────
 
-  async function handleSendConductorMessage(message: string) {
+  async function handleSendConductorMessage(
+    message: string,
+    imagePaths: string[],
+    tempPaths: string[],
+    previewUrls: string[],
+  ) {
     addConductorMessage({
       id: `cm-user-${Date.now()}`,
       role: 'user',
       content: message,
       timestamp: Date.now(),
+      images: previewUrls.length > 0 ? previewUrls : undefined,
     })
     setConductorStreaming(true)
     try {
-      await window.debussy.conductor.send(message)
+      await window.debussy.conductor.send(
+        message,
+        imagePaths.length > 0 ? imagePaths : undefined,
+        tempPaths.length > 0 ? tempPaths : undefined,
+      )
     } catch (err) {
       console.error('[conductor] send failed:', err)
       setConductorStreaming(false)

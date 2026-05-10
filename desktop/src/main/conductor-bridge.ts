@@ -1,5 +1,5 @@
 import { spawn, ChildProcess } from 'child_process'
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { BrowserWindow } from 'electron'
@@ -14,8 +14,17 @@ export class ConductorBridge {
   /**
    * Spawn a claude CLI process with the conductor system prompt and stream
    * its output to the renderer via IPC events.
+   *
+   * @param payload.text    The user's text message.
+   * @param payload.images  Optional array of absolute image file paths; each
+   *                        is forwarded to Claude via --image flags.
+   * @param payload.tempPaths  Paths of temp files to delete after the process
+   *                           exits (i.e. images uploaded from the clipboard).
    */
-  sendMessage(message: string, cwd: string): void {
+  sendMessage(
+    payload: { text: string; images?: string[]; tempPaths?: string[] },
+    cwd: string,
+  ): void {
     this.cancelCurrent()
 
     const systemPrompt = this.readSystemPrompt(cwd)
@@ -28,7 +37,16 @@ export class ConductorBridge {
 
     const sessionId = this.getOrCreateSessionId(cwd)
     const model = this.readModel(cwd)
-    const args = ['--print', '--session-id', sessionId, '--system-prompt', systemPrompt, '--model', model, message]
+
+    const imageFlags = (payload.images ?? []).flatMap((p) => ['--image', p])
+    const args = [
+      '--print',
+      '--session-id', sessionId,
+      '--system-prompt', systemPrompt,
+      '--model', model,
+      ...imageFlags,
+      payload.text,
+    ]
 
     let child: ChildProcess
     try {
@@ -41,6 +59,7 @@ export class ConductorBridge {
     }
 
     this.currentProcess = child
+    const tempPaths = payload.tempPaths ?? []
 
     child.stdout?.on('data', (chunk: Buffer) => {
       this.broadcast(IPC.CONDUCTOR_RESPONSE_CHUNK, chunk.toString())
@@ -52,6 +71,7 @@ export class ConductorBridge {
         : `Error: ${err.message}`
       this.broadcast(IPC.CONDUCTOR_RESPONSE_CHUNK, msg)
       this.broadcast(IPC.CONDUCTOR_RESPONSE_DONE, null)
+      this.cleanupTempFiles(tempPaths)
       if (this.currentProcess === child) {
         this.currentProcess = null
       }
@@ -62,6 +82,7 @@ export class ConductorBridge {
         // Normal exit — signal done
         this.broadcast(IPC.CONDUCTOR_RESPONSE_DONE, null)
       }
+      this.cleanupTempFiles(tempPaths)
       if (this.currentProcess === child) {
         this.currentProcess = null
       }
@@ -140,6 +161,12 @@ export class ConductorBridge {
       return config?.role_models?.conductor ?? DEFAULT_MODEL
     } catch {
       return DEFAULT_MODEL
+    }
+  }
+
+  private cleanupTempFiles(paths: string[]): void {
+    for (const p of paths) {
+      try { unlinkSync(p) } catch { /* ignore — file may already be gone */ }
     }
   }
 
