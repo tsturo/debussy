@@ -12,7 +12,7 @@ export interface KanbanColumnProps {
 
 /** Column opacity by stage — done and backlog are visually de-emphasized. */
 function columnOpacity(stage: Stage): number {
-  if (stage === 'done') return 0.4
+  if (stage === 'done') return 0.6
   if (stage === 'backlog') return 0.25
   return 1
 }
@@ -36,13 +36,13 @@ export function KanbanColumn({
         opacity: columnOpacity(stage),
       }}
     >
-      {/* Column header */}
+      {/* Column header: label + count on one line */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          paddingBottom: '6px',
+          paddingBottom: '4px',
         }}
       >
         <span
@@ -73,7 +73,7 @@ export function KanbanColumn({
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '6px',
+          gap: '4px',
           overflowY: 'auto',
           flex: 1,
         }}

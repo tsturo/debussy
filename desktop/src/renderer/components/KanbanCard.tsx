@@ -22,8 +22,6 @@ export function KanbanCard({ task, agent, isSelected, onClick }: KanbanCardProps
   if (isSelected) shadows.push(`0 0 0 1px ${stageColor}66`)
   const boxShadow = shadows.length > 0 ? shadows.join(', ') : 'none'
 
-  const showBottomRow = task.status === 'blocked' || agent !== null
-
   return (
     <div
       role="button"
@@ -35,105 +33,120 @@ export function KanbanCard({ task, agent, isSelected, onClick }: KanbanCardProps
       style={{
         backgroundColor: 'var(--t-card-bg)',
         borderRadius: 'var(--t-radius-md)',
-        padding: '10px 12px',
+        padding: '8px',
         borderLeft: `${isSelected ? 3 : 2}px solid ${stageColor}`,
         cursor: 'pointer',
         transform: isHovered ? 'translateY(-1px)' : 'none',
         boxShadow,
         transition: 'transform 150ms var(--t-ease), box-shadow 150ms var(--t-ease)',
         display: 'flex',
-        flexDirection: 'column',
-        gap: '4px',
+        alignItems: 'center',
+        gap: '6px',
         userSelect: 'none',
+        minHeight: '36px',
       }}
     >
-      {/* Top row: task ID + rejection badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span style={{
-          fontSize: '10px',
-          fontFamily: '"SF Mono", Menlo, Monaco, Consolas, monospace',
-          color: 'var(--t-text-3)',
-          lineHeight: 1,
-        }}>
+      {/* ID · title on one line */}
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: '4px',
+          minWidth: 0,
+          overflow: 'hidden',
+        }}
+      >
+        <span
+          style={{
+            fontSize: '10px',
+            fontFamily: '"SF Mono", Menlo, Monaco, Consolas, monospace',
+            color: 'var(--t-text-3)',
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
           {task.id}
         </span>
+        <span style={{ fontSize: '10px', color: 'var(--t-text-3)', lineHeight: 1, flexShrink: 0 }}>
+          ·
+        </span>
+        <span
+          style={{
+            fontSize: '12px',
+            fontWeight: 500,
+            color: 'var(--t-text)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            lineHeight: 1.3,
+          }}
+        >
+          {task.title}
+        </span>
+      </div>
 
-        {task.rejection_count > 0 && (
-          <span
-            title={`Rejected ${task.rejection_count} time${task.rejection_count !== 1 ? 's' : ''}`}
+      {/* Rejection count badge */}
+      {task.rejection_count > 0 && (
+        <span
+          title={`Rejected ${task.rejection_count} time${task.rejection_count !== 1 ? 's' : ''}`}
+          style={{
+            width: '14px',
+            height: '14px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(217,112,112,0.15)',
+            color: '#d97070',
+            fontSize: '8px',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            lineHeight: 1,
+          }}
+        >
+          {task.rejection_count}
+        </span>
+      )}
+
+      {/* Blocked indicator */}
+      {task.status === 'blocked' && (
+        <span
+          style={{ fontSize: '10px', color: 'var(--t-error)', lineHeight: 1, flexShrink: 0 }}
+        >
+          ⊘
+        </span>
+      )}
+
+      {/* Agent avatar + elapsed time (right-aligned, inline) */}
+      {task.status !== 'blocked' && agent !== null && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          <div
+            aria-hidden="true"
             style={{
-              width: '16px',
-              height: '16px',
+              width: '14px',
+              height: '14px',
               borderRadius: '50%',
-              backgroundColor: 'rgba(217,112,112,0.15)',
-              color: '#d97070',
-              fontSize: '8px',
-              fontWeight: 700,
+              backgroundColor: `${stageColor}22`,
+              border: `1.5px solid ${stageColor}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              fontSize: '7px',
+              fontWeight: 700,
+              color: stageColor,
               flexShrink: 0,
               lineHeight: 1,
             }}
           >
-            {task.rejection_count}
-          </span>
-        )}
-      </div>
-
-      {/* Title: 2-line clamp */}
-      <p style={{
-        fontSize: '12px',
-        fontWeight: 500,
-        color: 'var(--t-text)',
-        margin: 0,
-        display: '-webkit-box',
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: 'vertical',
-        overflow: 'hidden',
-        lineHeight: 1.4,
-      }}>
-        {task.title}
-      </p>
-
-      {/* Bottom row: blocked indicator OR agent avatar + elapsed time */}
-      {showBottomRow && (
-        task.status === 'blocked' ? (
-          <div style={{ fontSize: '10px', color: 'var(--t-error)', lineHeight: 1 }}>
-            ⊘ blocked
+            {agent.name.charAt(0).toUpperCase()}
           </div>
-        ) : agent && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            {/* Mini avatar with stage-colored ring */}
-            <div
-              aria-hidden="true"
-              style={{
-                width: '16px',
-                height: '16px',
-                borderRadius: '50%',
-                backgroundColor: `${stageColor}22`,
-                border: `1.5px solid ${stageColor}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '8px',
-                fontWeight: 700,
-                color: stageColor,
-                flexShrink: 0,
-                lineHeight: 1,
-              }}
-            >
-              {agent.name.charAt(0).toUpperCase()}
-            </div>
-
-            {/* Elapsed time */}
-            {agent.startedAt !== undefined && (
-              <span style={{ fontSize: '10px', color: 'var(--t-text-3)', lineHeight: 1 }}>
-                {formatElapsed(agent.startedAt)}
-              </span>
-            )}
-          </div>
-        )
+          {agent.startedAt !== undefined && (
+            <span style={{ fontSize: '10px', color: 'var(--t-text-3)', lineHeight: 1 }}>
+              {formatElapsed(agent.startedAt)}
+            </span>
+          )}
+        </div>
       )}
     </div>
   )
