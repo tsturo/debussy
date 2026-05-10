@@ -15,8 +15,11 @@ interface DebussyAPI {
     create:  (title: string, desc: string) => Promise<{ success: boolean }>
   }
   agents: {
-    list: ()              => Promise<WatcherState>
-    log:  (name: string)  => Promise<string>
+    list:              ()                                                           => Promise<WatcherState>
+    startLog:          (agentName: string)                                          => void
+    stopLog:           (agentName: string)                                          => void
+    onLogLine:         (callback: (data: { agent: string; line: string }) => void)  => void
+    removeLogListener: ()                                                           => void
   }
   config: {
     get: () => Promise<DebussyConfig>

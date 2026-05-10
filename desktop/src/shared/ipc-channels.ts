@@ -10,6 +10,7 @@ export const IPC = {
   TASK_CREATE:     'tasks:create',
   AGENTS_LIST:     'agents:list',
   AGENT_LOG:       'agents:log',
+  AGENT_LOG_STOP:  'agents:log:stop',
   CONFIG_GET:      'config:get',
   CONFIG_SET:      'config:set',
   WATCHER_START:   'watcher:start',

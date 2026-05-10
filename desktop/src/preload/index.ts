@@ -11,8 +11,12 @@ contextBridge.exposeInMainWorld('debussy', {
     create:  (title: string, desc: string) => ipcRenderer.invoke(IPC.TASK_CREATE, title, desc),
   },
   agents: {
-    list: ()              => ipcRenderer.invoke(IPC.AGENTS_LIST),
-    log:  (name: string)  => ipcRenderer.invoke(IPC.AGENT_LOG, name),
+    list:              ()                                                    => ipcRenderer.invoke(IPC.AGENTS_LIST),
+    startLog:          (agentName: string)                                   => ipcRenderer.send(IPC.AGENT_LOG, agentName),
+    stopLog:           (agentName: string)                                   => ipcRenderer.send(IPC.AGENT_LOG_STOP, agentName),
+    onLogLine:         (callback: (data: { agent: string; line: string }) => void) =>
+                         ipcRenderer.on('agent-log:line', (_event, data) => callback(data)),
+    removeLogListener: ()                                                    => ipcRenderer.removeAllListeners('agent-log:line'),
   },
   config: {
     get: () => ipcRenderer.invoke(IPC.CONFIG_GET),

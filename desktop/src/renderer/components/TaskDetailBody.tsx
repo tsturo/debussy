@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import type { Task, LogEntry } from '../../shared/types'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -6,6 +6,7 @@ import type { Task, LogEntry } from '../../shared/types'
 export interface TaskDetailBodyProps {
   task: Task
   logEntries: LogEntry[]
+  agentName: string | null
   onComment: (message: string) => void
 }
 
@@ -224,12 +225,50 @@ function DescriptionColumn({ task, comments }: DescriptionColumnProps) {
 
 // ── Right column: Timeline ────────────────────────────────────────────────────
 
+const MAX_LOG_LINES = 500
+
 interface TimelineColumnProps {
   timelineEntries: LogEntry[]
+  agentName: string | null
 }
 
-function TimelineColumn({ timelineEntries }: TimelineColumnProps) {
+function TimelineColumn({ timelineEntries, agentName }: TimelineColumnProps) {
   const [showAgentOutput, setShowAgentOutput] = useState(false)
+  const [logLines, setLogLines] = useState<string[]>([])
+  const logEndRef = useRef<HTMLDivElement>(null)
+
+  // Append incoming log line, capping the buffer at MAX_LOG_LINES.
+  const handleLogLine = useCallback(
+    (data: { agent: string; line: string }) => {
+      if (data.agent !== agentName) return
+      setLogLines(prev => {
+        const next = [...prev, data.line]
+        return next.length > MAX_LOG_LINES ? next.slice(next.length - MAX_LOG_LINES) : next
+      })
+    },
+    [agentName],
+  )
+
+  // Start/stop streaming when the Agent Output tab is toggled or agentName changes.
+  useEffect(() => {
+    if (!showAgentOutput || !agentName) return
+
+    setLogLines([])
+    window.debussy.agents.onLogLine(handleLogLine)
+    window.debussy.agents.startLog(agentName)
+
+    return () => {
+      window.debussy.agents.stopLog(agentName)
+      window.debussy.agents.removeLogListener()
+    }
+  }, [showAgentOutput, agentName, handleLogLine])
+
+  // Auto-scroll to bottom whenever new lines arrive.
+  useEffect(() => {
+    if (showAgentOutput) {
+      logEndRef.current?.scrollIntoView({ behavior: 'auto' })
+    }
+  }, [logLines, showAgentOutput])
 
   return (
     <div
@@ -280,17 +319,35 @@ function TimelineColumn({ timelineEntries }: TimelineColumnProps) {
       {/* Content area */}
       <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         {showAgentOutput ? (
-          // Agent output placeholder
+          // Agent output
           <div
             style={{
               fontFamily: '"SF Mono", "Fira Mono", "Menlo", monospace',
-              fontSize: 10,
-              lineHeight: 1.9,
-              color: 'var(--t-text-3)',
-              fontStyle: 'italic',
+              fontSize: 11,
+              lineHeight: 1.7,
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
-            Agent output streaming not yet connected
+            {!agentName ? (
+              <span style={{ color: 'var(--t-text-3)', fontStyle: 'italic', fontSize: 10 }}>
+                No agent currently active for this task
+              </span>
+            ) : logLines.length === 0 ? (
+              <span style={{ color: 'var(--t-text-3)', fontStyle: 'italic', fontSize: 10 }}>
+                Waiting for output…
+              </span>
+            ) : (
+              logLines.map((line, i) => (
+                <span
+                  key={i}
+                  style={{ color: 'var(--t-text-2)', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}
+                >
+                  {line}
+                </span>
+              ))
+            )}
+            <div ref={logEndRef} />
           </div>
         ) : (
           // Timeline log
@@ -371,7 +428,7 @@ function TimelineColumn({ timelineEntries }: TimelineColumnProps) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function TaskDetailBody({ task, logEntries, onComment }: TaskDetailBodyProps) {
+export function TaskDetailBody({ task, logEntries, agentName, onComment }: TaskDetailBodyProps) {
   const [commentInput, setCommentInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -419,7 +476,7 @@ export function TaskDetailBody({ task, logEntries, onComment }: TaskDetailBodyPr
         />
 
         {/* Right: Timeline */}
-        <TimelineColumn timelineEntries={timelineEntries} />
+        <TimelineColumn timelineEntries={timelineEntries} agentName={agentName} />
       </div>
 
       {/* Comment input row */}

@@ -293,6 +293,7 @@ function App() {
             <TaskDetailBody
               task={selectedTask}
               logEntries={taskLogEntries}
+              agentName={selectedAgent?.agent ?? null}
               onComment={(message) =>
                 selectedTaskId && commentOnTask(selectedTaskId, message)
               }
