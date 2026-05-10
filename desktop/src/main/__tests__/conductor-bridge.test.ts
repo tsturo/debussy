@@ -26,6 +26,8 @@ vi.mock('child_process', () => ({
 
 vi.mock('fs', () => ({
   readFileSync: vi.fn(),
+  writeFileSync: vi.fn(),
+  unlinkSync: vi.fn(),
 }))
 
 // ── Imports after mocks ───────────────────────────────────────────────────────
@@ -73,11 +75,11 @@ describe('ConductorBridge', () => {
     spawnMock.mockReturnValue(proc as unknown as ChildProcess)
     const bridge = new ConductorBridge()
 
-    bridge.sendMessage('hello world', '/project')
+    bridge.sendMessage({ text: 'hello world' }, '/project')
 
     expect(spawnMock).toHaveBeenCalledWith(
       'claude',
-      ['--print', '--system-prompt', 'system prompt content', '--model', 'claude-test-model', 'hello world'],
+      ['--print', '--session-id', expect.any(String), '--system-prompt', 'system prompt content', '--model', 'claude-test-model', 'hello world'],
       expect.objectContaining({ cwd: '/project' }),
     )
   })
