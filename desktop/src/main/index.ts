@@ -2,7 +2,9 @@ import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { registerIPC } from './ipc-register'
 
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
+// Use the renderer URL set by electron-vite dev server when available;
+// fall back to loading the built renderer file (covers both E2E tests and packaged apps).
+const isDev = !!process.env['ELECTRON_RENDERER_URL']
 
 function createWindow(): void {
   const win = new BrowserWindow({
