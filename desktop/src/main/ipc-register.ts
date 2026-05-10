@@ -1,5 +1,6 @@
 import { ipcMain, app, BrowserWindow } from 'electron'
-import { join } from 'path'
+import { join, basename } from 'path'
+import { randomUUID } from 'crypto'
 import * as fs from 'fs'
 import { spawn, spawnSync } from 'child_process'
 import { IPC } from '../shared/ipc-channels'
@@ -7,6 +8,7 @@ import type { DebussyConfig, WatcherState } from '../shared/types'
 import * as dbReader from './db-reader'
 import { LogStreamer } from './log-streamer'
 import { ConductorBridge } from './conductor-bridge'
+import * as workspaceStore from './workspace-store'
 import type Database from 'better-sqlite3'
 
 const DEFAULT_CONFIG: DebussyConfig = {
@@ -32,8 +34,18 @@ let db: Database.Database | null = null
 const logStreamer = new LogStreamer()
 const conductorBridge = new ConductorBridge()
 
+/** Active project path — set on startup from workspace store and on project switch. */
+let activeProjectPath: string = process.cwd()
+
 function getProjectPath(): string {
-  return process.cwd()
+  return activeProjectPath
+}
+
+/** Close current DB and re-open from the given project path. */
+function switchProject(projectPath: string): void {
+  dbReader.closeDatabase(db)
+  db = null
+  activeProjectPath = projectPath
 }
 
 /**
@@ -53,6 +65,16 @@ function getDb(): Database.Database | null {
 // ── IPC registration ──────────────────────────────────────────────────────────
 
 export function registerIPC(): void {
+  // ── Workspace initialisation ───────────────────────────────────────────────
+  // Load persisted workspace on startup; if there's an active project path use it.
+  {
+    const data = workspaceStore.loadWorkspaces()
+    if (data.activeProjectPath) {
+      activeProjectPath = data.activeProjectPath
+    }
+  }
+
+
   // ── Read-only handlers ─────────────────────────────────────────────────────
 
   ipcMain.handle(IPC.TASKS_LIST, () => {
@@ -221,6 +243,97 @@ export function registerIPC(): void {
   // ── Stubbed handlers (future tasks) ───────────────────────────────────────
 
   ipcMain.handle(IPC.CONFIG_SET, () => ({ success: true }))
+
+  // ── Workspace handlers ─────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.WORKSPACE_LIST, () => {
+    return workspaceStore.loadWorkspaces()
+  })
+
+  ipcMain.handle(IPC.WORKSPACE_ADD_GROUP, (_event, name: string, iconLetter: string) => {
+    const data = workspaceStore.loadWorkspaces()
+    const group: workspaceStore.WorkspaceGroup = {
+      id: randomUUID(),
+      name,
+      iconLetter: iconLetter ?? name.charAt(0).toUpperCase(),
+      projects: [],
+    }
+    data.groups.push(group)
+    workspaceStore.saveWorkspaces(data)
+    return { success: true, group }
+  })
+
+  ipcMain.handle(IPC.WORKSPACE_ADD_PROJECT, (_event, groupId: string, projectPath: string) => {
+    // Validate the path has a .takt/ or .git directory
+    const hasTakt = fs.existsSync(join(projectPath, '.takt'))
+    const hasGit  = fs.existsSync(join(projectPath, '.git'))
+    if (!hasTakt && !hasGit) {
+      return { success: false, error: 'Path must contain .takt/ or .git directory' }
+    }
+
+    const data = workspaceStore.loadWorkspaces()
+    const group = data.groups.find((g) => g.id === groupId)
+    if (!group) return { success: false, error: `Group not found: ${groupId}` }
+
+    const alreadyAdded = group.projects.some((p) => p.path === projectPath)
+    if (alreadyAdded) return { success: false, error: 'Project already in group' }
+
+    group.projects.push({ path: projectPath, name: basename(projectPath) })
+    workspaceStore.saveWorkspaces(data)
+    return { success: true }
+  })
+
+  ipcMain.handle(IPC.WORKSPACE_REMOVE_PROJECT, (_event, groupId: string, projectPath: string) => {
+    const data = workspaceStore.loadWorkspaces()
+    const group = data.groups.find((g) => g.id === groupId)
+    if (!group) return { success: false, error: `Group not found: ${groupId}` }
+
+    const before = group.projects.length
+    group.projects = group.projects.filter((p) => p.path !== projectPath)
+    if (group.projects.length === before) {
+      return { success: false, error: 'Project not found in group' }
+    }
+
+    // Clear active pointers if the removed project was active
+    const wasActive = data.activeProjectPath === projectPath
+    if (wasActive) {
+      data.activeProjectPath = group.projects[0]?.path ?? null
+    }
+
+    workspaceStore.saveWorkspaces(data)
+
+    // Sync in-memory state if the removed project was the active one
+    if (wasActive) {
+      const newPath = data.activeProjectPath
+      if (newPath) {
+        switchProject(newPath)
+      } else {
+        dbReader.closeDatabase(db)
+        db = null
+        activeProjectPath = process.cwd()
+      }
+    }
+
+    return { success: true }
+  })
+
+  ipcMain.handle(IPC.WORKSPACE_SET_ACTIVE, (_event, groupId: string, projectPath: string) => {
+    const data = workspaceStore.loadWorkspaces()
+    const group = data.groups.find((g) => g.id === groupId)
+    if (!group) return { success: false, error: `Group not found: ${groupId}` }
+
+    const project = group.projects.find((p) => p.path === projectPath)
+    if (!project) return { success: false, error: 'Project not found in group' }
+
+    data.activeGroupId    = groupId
+    data.activeProjectPath = projectPath
+    workspaceStore.saveWorkspaces(data)
+
+    // Re-open SQLite for the new project path
+    switchProject(projectPath)
+
+    return { success: true }
+  })
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
