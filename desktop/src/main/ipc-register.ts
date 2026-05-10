@@ -5,6 +5,7 @@ import { spawnSync } from 'child_process'
 import { IPC } from '../shared/ipc-channels'
 import type { DebussyConfig, WatcherState } from '../shared/types'
 import * as dbReader from './db-reader'
+import { LogStreamer } from './log-streamer'
 import type Database from 'better-sqlite3'
 
 const DEFAULT_CONFIG: DebussyConfig = {
@@ -27,9 +28,7 @@ const DEFAULT_CONFIG: DebussyConfig = {
 // ── Module state ──────────────────────────────────────────────────────────────
 
 let db: Database.Database | null = null
-
-/** Active log watchers keyed by agent name. Value is the cleanup function. */
-const logWatchers = new Map<string, () => void>()
+const logStreamer = new LogStreamer()
 
 function getProjectPath(): string {
   return process.cwd()
@@ -79,8 +78,6 @@ export function registerIPC(): void {
   })
 
   ipcMain.on(IPC.AGENT_LOG, (event, name: string) => {
-    stopLogWatcher(name)
-
     const statePath = join(getProjectPath(), '.debussy', 'watcher_state.json')
     try {
       const state: WatcherState = JSON.parse(fs.readFileSync(statePath, 'utf-8'))
@@ -88,51 +85,28 @@ export function registerIPC(): void {
       if (!entry) return
 
       const logPath = join(getProjectPath(), entry.log)
-      if (!fs.existsSync(logPath)) return
-
       const webContentsId = event.sender.id
-      let position = fs.statSync(logPath).size
-
-      function sendNewLines(): void {
-        try {
-          const stat = fs.statSync(logPath)
-          if (stat.size <= position) return
-
-          const length = stat.size - position
-          const buffer = Buffer.alloc(length)
-          const fd = fs.openSync(logPath, 'r')
-          try {
-            fs.readSync(fd, buffer, 0, length, position)
-          } finally {
-            fs.closeSync(fd)
-          }
-          position = stat.size
-
-          const sender = BrowserWindow.getAllWindows().find(
-            (w) => w.webContents.id === webContentsId,
-          )
-          if (!sender) return
-
-          const lines = buffer.toString('utf-8').split('\n')
-          for (const line of lines) {
-            if (line.length > 0) {
-              sender.webContents.send('agent-log:line', { agent: name, line })
-            }
-          }
-        } catch {
-          // log file may have been rotated or removed — ignore
-        }
-      }
-
-      const watcher = fs.watch(logPath, sendNewLines)
-      logWatchers.set(name, () => watcher.close())
+      logStreamer.startTailing(logPath, (line) => {
+        const win = BrowserWindow.getAllWindows().find(
+          (w) => w.webContents.id === webContentsId,
+        )
+        win?.webContents.send(IPC.AGENT_LOG_LINE, { agent: name, line })
+      })
     } catch {
       // state file missing or malformed — no-op
     }
   })
 
   ipcMain.on(IPC.AGENT_LOG_STOP, (_event, name: string) => {
-    stopLogWatcher(name)
+    const statePath = join(getProjectPath(), '.debussy', 'watcher_state.json')
+    try {
+      const state: WatcherState = JSON.parse(fs.readFileSync(statePath, 'utf-8'))
+      const entry = Object.values(state).find((a) => a.agent === name)
+      if (!entry) return
+      logStreamer.stopTailing(join(getProjectPath(), entry.log))
+    } catch {
+      // nothing to stop
+    }
   })
 
   ipcMain.handle(IPC.CONFIG_GET, (): DebussyConfig => {
@@ -194,25 +168,13 @@ export function registerIPC(): void {
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   app.on('will-quit', () => {
+    logStreamer.stopAll()
     dbReader.closeDatabase(db)
     db = null
-    for (const cleanup of logWatchers.values()) {
-      cleanup()
-    }
-    logWatchers.clear()
   })
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Stop and remove the active watcher for the given agent name, if any. */
-function stopLogWatcher(name: string): void {
-  const cleanup = logWatchers.get(name)
-  if (cleanup) {
-    cleanup()
-    logWatchers.delete(name)
-  }
-}
 
 /**
  * Run a takt sub-command with the given positional arguments.

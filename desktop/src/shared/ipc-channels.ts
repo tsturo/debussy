@@ -18,6 +18,7 @@ export const IPC = {
   WATCHER_STATUS:  'watcher:status',
   CONDUCTOR_SEND:  'conductor:send',
   CONDUCTOR_STREAM: 'conductor:stream',
+  AGENT_LOG_LINE:  'agent-log:line',
 } as const
 
 export type IpcChannel = typeof IPC[keyof typeof IPC]
