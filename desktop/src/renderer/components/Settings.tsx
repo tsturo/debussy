@@ -3,6 +3,7 @@ import { useAppStore } from '../store/app-store'
 import type { Theme, ConductorDefaultVisibility } from '../store/app-store'
 import { ThemeSwatch } from './ThemeSwatch'
 import { GitSettings } from './settings/GitSettings'
+import { AboutPage } from './settings/AboutPage'
 
 export interface SettingsProps {
   isOpen: boolean
@@ -42,7 +43,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     groupLabel: 'Advanced',
     items: [
-      { label: 'About', id: 'about', disabled: true },
+      { label: 'About', id: 'about', disabled: false },
     ],
   },
 ]
@@ -185,8 +186,22 @@ function AppearancePage() {
 
 // ── Settings modal ────────────────────────────────────────────────────────────
 
+type PageId = 'appearance' | 'git' | 'about'
+
+const PAGE_LABELS: Record<PageId, string> = {
+  appearance: 'Appearance',
+  git: 'Git & Branches',
+  about: 'About',
+}
+
+function SettingsPageContent({ pageId }: { pageId: PageId }) {
+  if (pageId === 'git') return <GitSettings />
+  if (pageId === 'about') return <AboutPage />
+  return <AppearancePage />
+}
+
 export function Settings({ isOpen, onClose }: SettingsProps) {
-  const [activePage, setActivePage] = useState('appearance')
+  const [activePage, setActivePage] = useState<PageId>('appearance')
 
   // Close on Escape
   useEffect(() => {
@@ -284,7 +299,9 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     <button
                       key={item.id}
                       disabled={item.disabled}
-                      onClick={() => { if (!item.disabled) setActivePage(item.id) }}
+                      onClick={() => {
+                        if (!item.disabled) setActivePage(item.id as PageId)
+                      }}
                       aria-current={isActive ? 'page' : undefined}
                       style={{
                         display: 'block',
@@ -341,7 +358,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   color: 'var(--t-text)',
                 }}
               >
-                {activePage === 'git' ? 'Git & Branches' : 'Appearance'}
+                {PAGE_LABELS[activePage]}
               </span>
 
               {/* Close button */}
@@ -388,7 +405,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 padding: '20px',
               }}
             >
-              {activePage === 'git' ? <GitSettings /> : <AppearancePage />}
+              <SettingsPageContent pageId={activePage} />
             </div>
           </div>
         </div>

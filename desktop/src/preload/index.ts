@@ -48,4 +48,10 @@ contextBridge.exposeInMainWorld('debussy', {
   dialog: {
     openDirectory: () => ipcRenderer.invoke(IPC.DIALOG_OPEN_DIRECTORY),
   },
+  app: {
+    info: () => ipcRenderer.invoke(IPC.APP_INFO),
+  },
+  shell: {
+    openExternal: (url: string) => ipcRenderer.invoke(IPC.SHELL_OPEN_EXTERNAL, url),
+  },
 })

@@ -1,4 +1,4 @@
-import { ipcMain, app, BrowserWindow, dialog } from 'electron'
+import { ipcMain, app, BrowserWindow, dialog, shell } from 'electron'
 import { join, basename } from 'path'
 import { randomUUID } from 'crypto'
 import * as fs from 'fs'
@@ -357,6 +357,26 @@ export function registerIPC(): void {
     // Re-open SQLite for the new project path
     switchProject(projectPath)
 
+    return { success: true }
+  })
+
+  // ── App info handler ──────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.APP_INFO, () => ({
+    appVersion:      app.getVersion(),
+    electronVersion: process.versions.electron,
+    nodeVersion:     process.versions.node,
+    chromeVersion:   process.versions.chrome,
+  }))
+
+  // ── Shell open external ────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.SHELL_OPEN_EXTERNAL, (_event, url: string) => {
+    // Only allow http/https URLs
+    if (!url.startsWith('https://') && !url.startsWith('http://')) {
+      return { success: false, error: 'Only http/https URLs are allowed' }
+    }
+    shell.openExternal(url)
     return { success: true }
   })
 
