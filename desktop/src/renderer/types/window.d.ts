@@ -41,6 +41,7 @@ interface DebussyAPI {
   }
   config: {
     get: () => Promise<DebussyConfig>
+    set: (key: string, value: string | number | boolean | null) => Promise<{ success: boolean; error?: string }>
   }
   watcher: {
     status: () => Promise<{ running: boolean }>

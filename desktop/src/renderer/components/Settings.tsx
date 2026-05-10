@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/app-store'
 import type { Theme, ConductorDefaultVisibility } from '../store/app-store'
 import { ThemeSwatch } from './ThemeSwatch'
+import { GitSettings } from './settings/GitSettings'
 
 export interface SettingsProps {
   isOpen: boolean
@@ -35,7 +36,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Agents', id: 'agents', disabled: true },
       { label: 'Watcher', id: 'watcher', disabled: true },
-      { label: 'Git & Branches', id: 'git', disabled: true },
+      { label: 'Git & Branches', id: 'git', disabled: false },
     ],
   },
   {
@@ -185,6 +186,8 @@ function AppearancePage() {
 // ── Settings modal ────────────────────────────────────────────────────────────
 
 export function Settings({ isOpen, onClose }: SettingsProps) {
+  const [activePage, setActivePage] = useState('appearance')
+
   // Close on Escape
   useEffect(() => {
     if (!isOpen) return
@@ -276,11 +279,12 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
                 {/* Nav items */}
                 {group.items.map((item) => {
-                  const isActive = item.id === 'appearance'
+                  const isActive = item.id === activePage
                   return (
                     <button
                       key={item.id}
                       disabled={item.disabled}
+                      onClick={() => { if (!item.disabled) setActivePage(item.id) }}
                       aria-current={isActive ? 'page' : undefined}
                       style={{
                         display: 'block',
@@ -337,7 +341,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   color: 'var(--t-text)',
                 }}
               >
-                Appearance
+                {activePage === 'git' ? 'Git & Branches' : 'Appearance'}
               </span>
 
               {/* Close button */}
@@ -384,7 +388,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 padding: '20px',
               }}
             >
-              <AppearancePage />
+              {activePage === 'git' ? <GitSettings /> : <AppearancePage />}
             </div>
           </div>
         </div>
