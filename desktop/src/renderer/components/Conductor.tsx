@@ -164,6 +164,7 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
   const isStreaming = useAppStore((s) => s.conductorStreaming)
   const setConductorStreaming = useAppStore((s) => s.setConductorStreaming)
   const addConductorMessage = useAppStore((s) => s.addConductorMessage)
+  const clearConductorMessages = useAppStore((s) => s.clearConductorMessages)
 
   // ── IPC listeners ──────────────────────────────────────────────────────────
 
@@ -220,6 +221,14 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
     }
   }
 
+  async function handleNewSession() {
+    window.debussy.conductor.cancel()
+    setStreamingContent('')
+    setConductorStreaming(false)
+    clearConductorMessages()
+    await window.debussy.conductor.newSession()
+  }
+
   return (
     <div
       style={{
@@ -255,42 +264,91 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
           Conductor
         </span>
 
-        {/* Segmented toggle */}
-        <div
-          style={{
-            display: 'flex',
-            background: 'var(--t-surface)',
-            border: '1px solid var(--t-border)',
-            borderRadius: 11,
-            overflow: 'hidden',
-          }}
-        >
-          {(['watcher', 'agents'] as TabKey[]).map((tab, idx) => {
-            const isActive = activeTab === tab
-            const label = tab === 'watcher' ? 'Watcher' : 'Agents'
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  background: isActive ? 'var(--t-bg)' : 'transparent',
-                  border: 'none',
-                  borderRadius:
-                    idx === 0 ? '9px 0 0 9px' : '0 9px 9px 0',
-                  padding: '4px 9px',
-                  fontSize: 9,
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive ? 'var(--t-text)' : 'var(--t-text-3)',
-                  cursor: 'pointer',
-                  transition: 'background var(--t-dur-fast), color var(--t-dur-fast)',
-                  lineHeight: 1.4,
-                  fontFamily: 'inherit',
-                }}
-              >
-                {label}
-              </button>
-            )
-          })}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* New Session button */}
+          <button
+            onClick={handleNewSession}
+            aria-label="New session"
+            title="New Session"
+            style={{
+              width: 26,
+              height: 26,
+              flexShrink: 0,
+              background: 'transparent',
+              border: '1px solid var(--t-border)',
+              borderRadius: 8,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--t-text-3)',
+              transition: 'color var(--t-dur-fast), border-color var(--t-dur-fast)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--t-text)'
+              e.currentTarget.style.borderColor = 'var(--t-text-3)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--t-text-3)'
+              e.currentTarget.style.borderColor = 'var(--t-border)'
+            }}
+          >
+            {/* Compose / new-chat icon */}
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path
+                d="M6 1H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6"
+                stroke="currentColor"
+                strokeWidth="1.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M9 1l2 2-4 4H5V5l4-4z"
+                stroke="currentColor"
+                strokeWidth="1.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+
+          {/* Segmented toggle */}
+          <div
+            style={{
+              display: 'flex',
+              background: 'var(--t-surface)',
+              border: '1px solid var(--t-border)',
+              borderRadius: 11,
+              overflow: 'hidden',
+            }}
+          >
+            {(['watcher', 'agents'] as TabKey[]).map((tab, idx) => {
+              const isActive = activeTab === tab
+              const label = tab === 'watcher' ? 'Watcher' : 'Agents'
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    background: isActive ? 'var(--t-bg)' : 'transparent',
+                    border: 'none',
+                    borderRadius:
+                      idx === 0 ? '9px 0 0 9px' : '0 9px 9px 0',
+                    padding: '4px 9px',
+                    fontSize: 9,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? 'var(--t-text)' : 'var(--t-text-3)',
+                    cursor: 'pointer',
+                    transition: 'background var(--t-dur-fast), color var(--t-dur-fast)',
+                    lineHeight: 1.4,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 

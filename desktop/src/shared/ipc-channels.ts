@@ -18,6 +18,7 @@ export const IPC = {
   WATCHER_STATUS:  'watcher:status',
   CONDUCTOR_SEND:           'conductor:send',
   CONDUCTOR_CANCEL:         'conductor:cancel',
+  CONDUCTOR_NEW_SESSION:    'conductor:new-session',
   CONDUCTOR_RESPONSE_CHUNK: 'conductor:response-chunk',
   CONDUCTOR_RESPONSE_DONE:  'conductor:response-done',
   AGENT_LOG_LINE:           'agent-log:line',
