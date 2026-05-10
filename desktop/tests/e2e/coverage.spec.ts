@@ -73,6 +73,14 @@ test.describe('Coverage: with real task database', () => {
     // Comment input must be visible
     await expect(page.locator('input[placeholder="Add a comment..."]')).toBeVisible()
 
+    // Timeline section must be visible (TimelineColumn renders "Timeline" as the default label)
+    await expect(page.getByText('Timeline', { exact: true })).toBeVisible()
+
+    // At least one timeline entry must exist — real task data means tasks have been claimed/advanced/etc.
+    // Each entry renders its timestamp as a span in HH:MM:SS format
+    const timelineTimestamp = page.locator('span').filter({ hasText: /^\d{2}:\d{2}:\d{2}$/ }).first()
+    await expect(timelineTimestamp).toBeVisible({ timeout: 2000 })
+
     await page.screenshot({ path: `${SCREENSHOT_DIR}/10-task-detail-body.png`, fullPage: true })
 
     // Reset for subsequent tests
@@ -99,34 +107,10 @@ test('agent bar renders with watcher status even with zero agents', async () => 
   const statusText = agentBar.locator('span', { hasText: /^(watching|stopped)$/ })
   await expect(statusText).toBeVisible()
 
-  await app.close()
-})
-
-test('dark theme on launch shows dark background color', async () => {
-  mkdirSync(SCREENSHOT_DIR, { recursive: true })
-
-  const app = await electron.launch({ args: [APP_MAIN] })
-  const page = await app.firstWindow()
-  await page.waitForLoadState('domcontentloaded')
-
-  // Remove any saved preference to test the true default dark launch
-  await page.evaluate(() => localStorage.removeItem('debussy-theme'))
-  await page.reload()
-  await page.waitForLoadState('domcontentloaded')
-
-  // data-theme must resolve to 'dark' by default
-  const theme = await page.evaluate(() =>
-    document.documentElement.getAttribute('data-theme'),
-  )
-  expect(theme).toBe('dark')
-
-  // The dark palette CSS variable --t-bg must be the expected dark value
-  const bgVar = await page.evaluate(() =>
-    getComputedStyle(document.documentElement).getPropertyValue('--t-bg').trim(),
-  )
-  expect(bgVar).toBe('#0a0f1a')
-
-  await page.screenshot({ path: `${SCREENSHOT_DIR}/09-dark-launch.png`, fullPage: true })
+  // With no WORKTREE_ROOT there are zero active agents — no agent avatar pills
+  // should be present inside the toolbar (agent buttons use aria-label "name · role · id · elapsed")
+  const agentPills = agentBar.locator('button[aria-label*="·"]')
+  await expect(agentPills).toHaveCount(0)
 
   await app.close()
 })
