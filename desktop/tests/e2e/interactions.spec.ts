@@ -37,6 +37,22 @@ test.describe('App interactions', () => {
     await page.screenshot({ path: `${SCREENSHOT_DIR}/02-board.png`, fullPage: true })
   })
 
+  test('agent bar is always visible with watcher status', async () => {
+    // AgentBar should render as a 48px toolbar regardless of agent count
+    const agentBar = page.locator('[role="toolbar"][aria-label="Active agents"]')
+    await expect(agentBar).toBeVisible()
+
+    // Watcher status indicator must be present (either "watching" or "stopped")
+    const watcherText = agentBar.locator('span', { hasText: /^(watching|stopped)$/ })
+    await expect(watcherText).toBeVisible()
+
+    // The status dot must be present — locate by its sibling span text
+    const statusSection = agentBar.locator('div').last()
+    await expect(statusSection).toBeVisible()
+
+    await page.screenshot({ path: `${SCREENSHOT_DIR}/02a-agent-bar.png`, fullPage: true })
+  })
+
   test('task selection shows detail panel', async () => {
     // Click the first visible task card on the board
     const firstCard = page.locator('[role="button"]').first()
