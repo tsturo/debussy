@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { ConductorMessage } from '../shared/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { ConductorMessage, LogEntry, Stage } from '../shared/types'
 
 import { Sidebar } from './components/Sidebar'
 import { Board } from './components/Board'
@@ -7,34 +7,51 @@ import { Conductor } from './components/Conductor'
 import { TaskDetailShell } from './components/TaskDetailShell'
 import { TaskDetailBody } from './components/TaskDetailBody'
 
-import {
-  MOCK_TASKS,
-  MOCK_AGENTS,
-  MOCK_CONDUCTOR_MESSAGES,
-  MOCK_LOG_ENTRIES_BY_TASK,
-  MOCK_CONFIG,
-} from './lib/mock-data'
-
-// ── Mock projects for the sidebar ───────────────────────────────────────────
-
-const MOCK_PROJECTS = [
-  { name: 'auth-system', isActive: true, agentCount: 4, status: 'active' as const },
-  { name: 'api-gateway', isActive: false, agentCount: 1, status: 'running' as const },
-  { name: 'frontend-v2', isActive: false, agentCount: 0, status: 'idle' as const },
-]
+import { useAppStore } from './store/app-store'
 
 // ── App ──────────────────────────────────────────────────────────────────────
 
 function App() {
-  // ── Core UI state ──────────────────────────────────────────────────────────
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
-  const [conductorVisible, setConductorVisible] = useState(true)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  // ── Store selectors ────────────────────────────────────────────────────────
+  const tasks = useAppStore((s) => s.tasks)
+  const agents = useAppStore((s) => s.agents)
+  const config = useAppStore((s) => s.config)
+  const watcherRunning = useAppStore((s) => s.watcherRunning)
+  const selectedTaskId = useAppStore((s) => s.selectedTaskId)
+  const conductorVisible = useAppStore((s) => s.conductorVisible)
+  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed)
+  const conductorMessages = useAppStore((s) => s.conductorMessages)
 
-  // ── Conductor messages (mock echo on send) ─────────────────────────────────
-  const [conductorMessages, setConductorMessages] = useState<ConductorMessage[]>(
-    MOCK_CONDUCTOR_MESSAGES,
-  )
+  const fetchAll = useAppStore((s) => s.fetchAll)
+  const selectTask = useAppStore((s) => s.selectTask)
+  const toggleConductor = useAppStore((s) => s.toggleConductor)
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar)
+  const advanceTask = useAppStore((s) => s.advanceTask)
+  const blockTask = useAppStore((s) => s.blockTask)
+  const commentOnTask = useAppStore((s) => s.commentOnTask)
+  const addConductorMessage = useAppStore((s) => s.addConductorMessage)
+
+  // ── Task log entries (fetched when selectedTaskId changes) ────────────────
+  const [taskLogEntries, setTaskLogEntries] = useState<LogEntry[]>([])
+
+  useEffect(() => {
+    if (!selectedTaskId) {
+      setTaskLogEntries([])
+      return
+    }
+    window.debussy.tasks.get(selectedTaskId).then((result) => {
+      setTaskLogEntries(result?.log ?? [])
+    }).catch(() => {
+      setTaskLogEntries([])
+    })
+  }, [selectedTaskId])
+
+  // ── Polling ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetchAll()
+    const interval = setInterval(fetchAll, 5000)
+    return () => clearInterval(interval)
+  }, [fetchAll])
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -43,14 +60,14 @@ function App() {
 
       // Escape → close TaskDetail
       if (e.key === 'Escape') {
-        setSelectedTaskId(null)
+        selectTask(null)
         return
       }
 
       // Cmd/Ctrl+\ → toggle Conductor panel
       if (meta && e.key === '\\') {
         e.preventDefault()
-        setConductorVisible((v) => !v)
+        toggleConductor()
         return
       }
 
@@ -63,40 +80,39 @@ function App() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [selectTask, toggleConductor])
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
+  const agentCount = Object.keys(agents).length
+
   const selectedTask = selectedTaskId
-    ? MOCK_TASKS.find((t) => t.id === selectedTaskId) ?? null
+    ? tasks.find((t) => t.id === selectedTaskId) ?? null
     : null
 
-  const selectedAgent = selectedTaskId
-    ? MOCK_AGENTS.find((a) => a.taskId === selectedTaskId) ?? null
-    : null
+  const selectedAgent = selectedTaskId ? (agents[selectedTaskId] ?? null) : null
 
-  const selectedLogEntries = selectedTaskId
-    ? (MOCK_LOG_ENTRIES_BY_TASK[selectedTaskId] ?? [])
-    : []
+  // Transform WatcherState (Record<taskId, AgentInfo>) → flat array for Board.
+  // Use the task's stage so the column placement matches the kanban board.
+  const agentList = useMemo(() => {
+    const taskStageMap = new Map(tasks.map((t) => [t.id, t.stage]))
+    return Object.entries(agents).map(([taskId, info]) => ({
+      taskId,
+      name: info.agent,
+      role: info.role,
+      stage: (taskStageMap.get(taskId) ?? 'development') as Stage,
+      startedAt: info.started_at * 1000,  // convert Unix seconds → ms
+    }))
+  }, [agents, tasks])
 
   const lastEvent = (() => {
-    // Find the most recent transition across all log entries
-    let latest: { timestamp: string; message: string } | null = null
-    for (const entries of Object.values(MOCK_LOG_ENTRIES_BY_TASK)) {
-      for (const e of entries) {
-        if (e.type === 'transition') {
-          if (!latest || e.timestamp > latest.timestamp) {
-            latest = e
-          }
-        }
-      }
-    }
-    if (!latest) return ''
-    // Shorten: extract task id and strip the verbose prefix
-    return latest.message.replace('advanced ', '').replace('released — ', '')
+    if (agentList.length === 0) return ''
+    const sorted = [...agentList].sort((a, b) => b.startedAt - a.startedAt)
+    const latest = sorted[0]
+    return `${latest.name} working on ${latest.taskId}`
   })()
 
-  // ── Interaction handlers ───────────────────────────────────────────────────
+  // ── Conductor send handler ─────────────────────────────────────────────────
 
   function handleSendConductorMessage(message: string) {
     const userMsg: ConductorMessage = {
@@ -105,13 +121,15 @@ function App() {
       content: message,
       timestamp: Date.now(),
     }
+    addConductorMessage(userMsg)
+    // Echo for dev/test feedback — real conductor integration comes later
     const echoMsg: ConductorMessage = {
       id: `cm-echo-${Date.now()}`,
       role: 'assistant',
-      content: `(mock echo) You said: "${message}"`,
+      content: `(echo) You said: "${message}"`,
       timestamp: Date.now() + 500,
     }
-    setConductorMessages((prev) => [...prev, userMsg, echoMsg])
+    addConductorMessage(echoMsg)
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -125,7 +143,7 @@ function App() {
       <Sidebar
         workspaceName="debussy"
         workspaceInitial="D"
-        projects={MOCK_PROJECTS}
+        projects={[]}
         collapsed={sidebarCollapsed}
         onProjectSelect={(name) => console.log('project selected:', name)}
         onSettingsClick={() => console.log('settings clicked')}
@@ -139,7 +157,7 @@ function App() {
       >
         {/* Toggle sidebar button (thin strip on left edge of main area) */}
         <button
-          onClick={() => setSidebarCollapsed((v) => !v)}
+          onClick={toggleSidebar}
           aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           style={{
@@ -177,12 +195,12 @@ function App() {
         {/* Board fills all available vertical space above the detail panel */}
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <Board
-            tasks={MOCK_TASKS}
-            agents={MOCK_AGENTS}
-            config={MOCK_CONFIG}
+            tasks={tasks}
+            agents={agentList}
+            config={config}
             selectedTaskId={selectedTaskId}
-            watcherRunning={true}
-            onTaskSelect={(taskId) => setSelectedTaskId(taskId)}
+            watcherRunning={watcherRunning}
+            onTaskSelect={(taskId) => selectTask(taskId)}
             onNewTask={() => console.log('new task clicked')}
           />
         </div>
@@ -191,22 +209,24 @@ function App() {
         <TaskDetailShell
           task={selectedTask}
           agent={
-            selectedAgent
-              ? { name: selectedAgent.name, stage: selectedAgent.stage }
+            selectedAgent && selectedTask
+              ? { name: selectedAgent.agent, stage: selectedTask.stage }
               : null
           }
-          watcherRunning={true}
-          agentCount={MOCK_AGENTS.length}
+          watcherRunning={watcherRunning}
+          agentCount={agentCount}
           lastEvent={lastEvent}
-          onClose={() => setSelectedTaskId(null)}
-          onAdvance={() => console.log('advance', selectedTaskId)}
-          onBlock={() => console.log('block', selectedTaskId)}
+          onClose={() => selectTask(null)}
+          onAdvance={() => selectedTaskId && advanceTask(selectedTaskId)}
+          onBlock={() => selectedTaskId && blockTask(selectedTaskId)}
         >
           {selectedTask && (
             <TaskDetailBody
               task={selectedTask}
-              logEntries={selectedLogEntries}
-              onComment={(message) => console.log('comment', selectedTaskId, message)}
+              logEntries={taskLogEntries}
+              onComment={(message) =>
+                selectedTaskId && commentOnTask(selectedTaskId, message)
+              }
             />
           )}
         </TaskDetailShell>
