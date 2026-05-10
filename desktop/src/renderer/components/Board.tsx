@@ -2,17 +2,19 @@ import { useMemo, useState, useCallback } from 'react'
 import {
   DndContext,
   DragOverlay,
-  pointerWithin,
-  type DragStartEvent,
-  type DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
 } from '@dnd-kit/core'
+import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import type { Task, Stage, AgentRole, DebussyConfig } from '../../shared/types'
 import { Header } from './Header'
 import { AgentBar } from './AgentBar'
-import { KanbanColumn, type ActiveDragData } from './KanbanColumn'
+import { KanbanColumn } from './KanbanColumn'
+import { KanbanCard } from './KanbanCard'
 import { DragConfirmDialog } from './DragConfirmDialog'
-import { STAGE_ORDER, STAGE_COLORS } from '../lib/stage-colors'
-import { useAppStore } from '../store/app-store'
+import { STAGE_ORDER } from '../lib/stage-colors'
+import { isValidMove } from '../lib/move-validation'
 
 export interface BoardProps {
   tasks: Task[]
@@ -24,18 +26,16 @@ export interface BoardProps {
   onTaskSelect: (taskId: string) => void
   onNewTask: () => void
   onWatcherToggle: () => Promise<void>
-}
-
-interface PendingMove {
-  taskId: string
-  taskTitle: string
-  fromStage: Stage
-  toStage: Stage
-  isBlocked: boolean
+  onTaskMove: (task: Task, toStage: Stage) => Promise<void>
 }
 
 /** Stages that are hidden when empty (not always shown as columns). */
 const HIDDEN_WHEN_EMPTY: Stage[] = ['security_review', 'acceptance']
+
+interface PendingMove {
+  task: Task
+  toStage: Stage
+}
 
 export function Board({
   tasks,
@@ -47,15 +47,8 @@ export function Board({
   onTaskSelect,
   onNewTask,
   onWatcherToggle,
+  onTaskMove,
 }: BoardProps) {
-  const advanceTask  = useAppStore((s) => s.advanceTask)
-  const releaseTask  = useAppStore((s) => s.releaseTask)
-  const fetchAll     = useAppStore((s) => s.fetchAll)
-
-  const [activeDragData, setActiveDragData] = useState<ActiveDragData | null>(null)
-  const [activeDragTitle, setActiveDragTitle] = useState<string>('')
-  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
-
   /** Group tasks by stage into a map for O(1) lookup per column. */
   const tasksByStage = useMemo(() => {
     const map = new Map<Stage, Task[]>()
@@ -91,87 +84,73 @@ export function Board({
     [tasksByStage]
   )
 
+  // ── Drag state ──────────────────────────────────────────────────────────────
+
+  const [activeTask, setActiveTask] = useState<Task | null>(null)
+  const [overStage, setOverStage] = useState<Stage | null>(null)
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 6 },
+    })
+  )
+
+  const taskById = useMemo(() => {
+    const map = new Map<string, Task>()
+    for (const t of tasks) map.set(t.id, t)
+    return map
+  }, [tasks])
+
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const task = taskById.get(String(event.active.id))
+      if (task) setActiveTask(task)
+    },
+    [taskById]
+  )
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const over = event.over
+    setOverStage(over ? (String(over.id) as Stage) : null)
+  }, [])
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setOverStage(null)
+      const task = activeTask
+      setActiveTask(null)
+
+      if (!task || !event.over) return
+
+      const toStage = String(event.over.id) as Stage
+      if (!isValidMove(task.stage, task.status, toStage)) return
+
+      setPendingMove({ task, toStage })
+    },
+    [activeTask]
+  )
+
+  const handleDragCancel = useCallback(() => {
+    setActiveTask(null)
+    setOverStage(null)
+  }, [])
+
+  const handleConfirmMove = useCallback(async () => {
+    if (!pendingMove) return
+    const { task, toStage } = pendingMove
+    setPendingMove(null)
+    await onTaskMove(task, toStage)
+  }, [pendingMove, onTaskMove])
+
+  const handleCancelMove = useCallback(() => {
+    setPendingMove(null)
+  }, [])
+
   const agentCount = agents.length
   const maxAgents = config?.max_total_agents ?? 8
   const blockedCount = tasks.filter((t) => t.status === 'blocked').length
   const projectName = config?.base_branch ?? 'debussy'
-
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const data = event.active.data.current as {
-      taskId: string
-      taskTitle: string
-      fromStage: Stage
-      isBlocked: boolean
-    }
-    setActiveDragData({
-      taskId: data.taskId,
-      fromStage: data.fromStage,
-      isBlocked: data.isBlocked,
-    })
-    setActiveDragTitle(data.taskTitle)
-  }, [])
-
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const drag = activeDragData
-    setActiveDragData(null)
-    setActiveDragTitle('')
-
-    if (!event.over || !drag) return
-
-    const toStage = event.over.data.current?.targetStage as Stage | undefined
-    if (!toStage) return
-
-    // Validate the move
-    const { fromStage, isBlocked, taskId } = drag
-    if (toStage === fromStage) return
-    if (fromStage === 'done') return
-
-    const isValidMove =
-      (fromStage === 'backlog' && toStage === 'development') ||
-      (isBlocked && toStage === 'development') ||
-      (toStage === 'backlog' && fromStage !== 'done' && fromStage !== 'backlog')
-
-    if (!isValidMove) return
-
-    // Find the task for its title
-    const task = tasks.find((t) => t.id === taskId)
-    if (!task) return
-
-    setPendingMove({
-      taskId,
-      taskTitle: task.title,
-      fromStage,
-      toStage,
-      isBlocked,
-    })
-  }, [activeDragData, tasks])
-
-  const handleConfirm = useCallback(async () => {
-    if (!pendingMove) return
-    const { taskId, fromStage, toStage, isBlocked } = pendingMove
-    setPendingMove(null)
-
-    if (toStage === 'development') {
-      if (isBlocked) {
-        // Release the block first, then advance to development if not already there
-        await releaseTask(taskId)
-        if (fromStage !== 'development') {
-          await advanceTask(taskId, 'development')
-        }
-      } else {
-        // Backlog → Development
-        await advanceTask(taskId)
-      }
-    } else if (toStage === 'backlog') {
-      await advanceTask(taskId, 'backlog')
-    }
-
-    await fetchAll()
-  }, [pendingMove, advanceTask, releaseTask, fetchAll])
-
-  const handleCancel = useCallback(() => {
-    setPendingMove(null)
-  }, [])
 
   return (
     <>
@@ -183,42 +162,44 @@ export function Board({
         }
       `}</style>
 
-      <DndContext
-        collisionDetection={pointerWithin}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          overflow: 'hidden',
+        }}
       >
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            overflow: 'hidden',
-          }}
+        <Header
+          projectName={projectName}
+          agentCount={agentCount}
+          maxAgents={maxAgents}
+          blockedCount={blockedCount}
+          onSearchClick={() => {}}
+          onNewTaskClick={onNewTask}
+        />
+
+        <AgentBar
+          agents={agents.map((a) => ({
+            taskId: a.taskId,
+            name: a.name,
+            role: a.role,
+            stage: a.stage,
+            startedAt: a.startedAt,
+          }))}
+          watcherRunning={watcherRunning}
+          onAgentClick={onTaskSelect}
+          onWatcherToggle={onWatcherToggle}
+        />
+
+        {/* Columns area wrapped in DndContext */}
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
         >
-          <Header
-            projectName={projectName}
-            agentCount={agentCount}
-            maxAgents={maxAgents}
-            blockedCount={blockedCount}
-            onSearchClick={() => {}}
-            onNewTaskClick={onNewTask}
-          />
-
-          <AgentBar
-            agents={agents.map((a) => ({
-              taskId: a.taskId,
-              name: a.name,
-              role: a.role,
-              stage: a.stage,
-              startedAt: a.startedAt,
-            }))}
-            watcherRunning={watcherRunning}
-            onAgentClick={onTaskSelect}
-            onWatcherToggle={onWatcherToggle}
-          />
-
-          {/* Columns area: horizontal scroll, fixed padding/gap */}
           <div
             style={{
               flex: 1,
@@ -230,91 +211,66 @@ export function Board({
               overflowY: 'hidden',
             }}
           >
-            {visibleStages.map((stage) => (
-              <div
-                key={stage}
-                className={
-                  stage === 'backlog'
-                    ? `board-backlog-col${showBacklog ? '' : ' board-backlog-col--hidden'}`
-                    : undefined
-                }
-                style={
-                  stage === 'backlog'
-                    ? undefined
-                    : stage === 'done'
-                    ? { flex: 0.7, minWidth: '120px', display: 'flex' }
-                    : { flex: 1, minWidth: '140px', display: 'flex' }
-                }
-              >
-                <KanbanColumn
-                  stage={stage}
-                  tasks={tasksByStage.get(stage) ?? []}
-                  agents={agentsMap}
-                  selectedTaskId={selectedTaskId}
-                  onCardClick={onTaskSelect}
-                  activeDragData={activeDragData}
-                />
-              </div>
-            ))}
+            {visibleStages.map((stage) => {
+              const dragOver = overStage === stage && activeTask !== null
+              const validTarget =
+                activeTask !== null &&
+                isValidMove(activeTask.stage, activeTask.status, stage)
+
+              return (
+                <div
+                  key={stage}
+                  className={
+                    stage === 'backlog'
+                      ? `board-backlog-col${showBacklog ? '' : ' board-backlog-col--hidden'}`
+                      : undefined
+                  }
+                  style={
+                    stage === 'backlog'
+                      ? undefined
+                      : stage === 'done'
+                      ? { flex: 0.7, minWidth: '120px', display: 'flex' }
+                      : { flex: 1, minWidth: '140px', display: 'flex' }
+                  }
+                >
+                  <KanbanColumn
+                    stage={stage}
+                    tasks={tasksByStage.get(stage) ?? []}
+                    agents={agentsMap}
+                    selectedTaskId={selectedTaskId}
+                    onCardClick={onTaskSelect}
+                    isValidDropTarget={validTarget}
+                    isDragOver={dragOver}
+                  />
+                </div>
+              )
+            })}
           </div>
-        </div>
 
-        {/* Drag ghost overlay */}
-        <DragOverlay>
-          {activeDragData ? (
-            <div
-              style={{
-                backgroundColor: 'var(--t-card-bg)',
-                borderRadius: 'var(--t-radius-md)',
-                padding: '10px 12px',
-                borderLeft: `2px solid ${STAGE_COLORS[activeDragData.fromStage].color}`,
-                boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-                transform: 'scale(1.02)',
-                opacity: 0.92,
-                minWidth: '140px',
-                maxWidth: '220px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                userSelect: 'none',
-                pointerEvents: 'none',
-              }}
-            >
-              <span style={{
-                fontSize: '10px',
-                fontFamily: '"SF Mono", Menlo, Monaco, Consolas, monospace',
-                color: 'var(--t-text-3)',
-                lineHeight: 1,
-              }}>
-                {activeDragData.taskId}
-              </span>
-              <p style={{
-                fontSize: '12px',
-                fontWeight: 500,
-                color: 'var(--t-text)',
-                margin: 0,
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                lineHeight: 1.4,
-              }}>
-                {activeDragTitle}
-              </p>
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+          {/* Drag overlay: elevated clone of the dragged card */}
+          <DragOverlay dropAnimation={null}>
+            {activeTask ? (
+              <KanbanCard
+                task={activeTask}
+                agent={agentsMap.get(activeTask.id) ? { name: agentsMap.get(activeTask.id)!.name, stage: agentsMap.get(activeTask.id)!.stage } : null}
+                isSelected={false}
+                onClick={() => {}}
+                isDragOverlay
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
 
-      {/* Confirmation dialog — rendered outside DndContext to avoid pointer event conflicts */}
+      {/* Confirmation dialog — rendered outside DndContext so it layers on top */}
       {pendingMove && (
         <DragConfirmDialog
-          taskId={pendingMove.taskId}
-          taskTitle={pendingMove.taskTitle}
-          fromStage={pendingMove.fromStage}
+          taskId={pendingMove.task.id}
+          taskTitle={pendingMove.task.title}
+          fromStage={pendingMove.task.stage}
           toStage={pendingMove.toStage}
-          onConfirm={handleConfirm}
-          onCancel={handleCancel}
+          onConfirm={handleConfirmMove}
+          onCancel={handleCancelMove}
         />
       )}
     </>

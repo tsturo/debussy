@@ -45,8 +45,8 @@ export interface AppState {
   selectTask: (id: string | null) => void
   toggleConductor: () => void
   toggleSidebar: () => void
-  advanceTask: (id: string, toStage?: string) => Promise<void>
-  releaseTask: (id: string) => Promise<void>
+  advanceTask: (id: string) => Promise<void>
+  moveTask: (id: string, fromStage: import('../../shared/types').Stage, toStage: import('../../shared/types').Stage, isBlocked: boolean) => Promise<void>
   blockTask: (id: string) => Promise<void>
   commentOnTask: (id: string, msg: string) => Promise<void>
   startWatcher: () => Promise<{ alreadyRunning?: boolean }>
@@ -237,20 +237,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleConductor: () => set((s) => ({ conductorVisible: !s.conductorVisible })),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
-  advanceTask: async (id, toStage?) => {
+  advanceTask: async (id) => {
     try {
-      await window.debussy.tasks.advance(id, toStage)
+      await window.debussy.tasks.advance(id)
     } catch (err) {
       console.error('[app-store] advanceTask failed:', err)
     }
     await get().fetchAll()
   },
 
-  releaseTask: async (id) => {
+  moveTask: async (id, _fromStage, toStage, isBlocked) => {
     try {
-      await window.debussy.tasks.release(id)
+      if (isBlocked && toStage === 'development') {
+        // Unblock first, then move to development
+        await window.debussy.tasks.release(id)
+      }
+      await window.debussy.tasks.advanceTo(id, toStage)
     } catch (err) {
-      console.error('[app-store] releaseTask failed:', err)
+      console.error('[app-store] moveTask failed:', err)
     }
     await get().fetchAll()
   },

@@ -10,43 +10,47 @@ export interface KanbanCardProps {
   agent: { name: string; stage: Stage; startedAt?: number } | null
   isSelected: boolean
   onClick: () => void
-  /** Whether this card can be dragged (false for done-stage cards). */
-  draggable?: boolean
+  /** When true, the card renders as a static overlay clone (no drag/events). */
+  isDragOverlay?: boolean
 }
 
-export function KanbanCard({ task, agent, isSelected, onClick, draggable = true }: KanbanCardProps) {
+export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = false }: KanbanCardProps) {
   const [isHovered, setIsHovered] = useState(false)
+
+  const isDone = task.stage === 'done'
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task.id,
-    disabled: !draggable,
-    data: {
-      taskId: task.id,
-      taskTitle: task.title,
-      fromStage: task.stage,
-      isBlocked: task.status === 'blocked',
-    },
+    data: { taskId: task.id, fromStage: task.stage, status: task.status },
+    disabled: isDone || isDragOverlay,
   })
 
   const stageColor = STAGE_COLORS[task.stage].color
 
-  // Compose box-shadow: hover elevation + selection ring
+  // Compose box-shadow: hover elevation + selection ring + drag elevation
   const shadows: string[] = []
-  if (isDragging) {
-    shadows.push('0 8px 24px rgba(0,0,0,0.5)')
-  } else if (isHovered) {
-    shadows.push('var(--t-shadow-card-hover)')
+  if (isDragOverlay) {
+    shadows.push('0 8px 24px rgba(0,0,0,0.35)', `0 0 0 1px ${stageColor}66`)
+  } else {
+    if (isHovered && !isDragging) shadows.push('var(--t-shadow-card-hover)')
+    if (isSelected) shadows.push(`0 0 0 1px ${stageColor}66`)
   }
-  if (isSelected) shadows.push(`0 0 0 1px ${stageColor}66`)
   const boxShadow = shadows.length > 0 ? shadows.join(', ') : 'none'
+
+  const transform =
+    isDragOverlay
+      ? 'scale(1.02)'
+      : isHovered && !isDragging
+      ? 'translateY(-1px)'
+      : 'none'
 
   return (
     <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
+      ref={isDragOverlay ? undefined : setNodeRef}
+      {...(isDragOverlay ? {} : listeners)}
+      {...(isDragOverlay ? {} : attributes)}
       role="button"
-      tabIndex={0}
+      tabIndex={isDone ? -1 : 0}
       onClick={onClick}
       onKeyDown={(e) => e.key === 'Enter' && onClick()}
       onMouseEnter={() => setIsHovered(true)}
@@ -56,17 +60,19 @@ export function KanbanCard({ task, agent, isSelected, onClick, draggable = true 
         borderRadius: 'var(--t-radius-md)',
         padding: '8px',
         borderLeft: `${isSelected ? 3 : 2}px solid ${stageColor}`,
-        cursor: draggable ? (isDragging ? 'grabbing' : 'grab') : 'default',
-        transform: isDragging ? 'scale(1.02)' : isHovered ? 'translateY(-1px)' : 'none',
+        cursor: isDone ? 'default' : isDragging ? 'grabbing' : 'grab',
+        transform,
         boxShadow,
-        opacity: isDragging ? 0.45 : 1,
-        transition: isDragging ? 'none' : 'transform 150ms var(--t-ease), box-shadow 150ms var(--t-ease)',
+        transition: isDragOverlay
+          ? 'none'
+          : 'transform 150ms var(--t-ease), box-shadow 150ms var(--t-ease)',
         display: 'flex',
         alignItems: 'center',
         gap: '6px',
         userSelect: 'none',
         minHeight: '36px',
-        touchAction: 'none',
+        // Fade the card in its original slot while being dragged
+        opacity: isDragging ? 0.4 : 1,
       }}
     >
       {/* ID · title on one line */}

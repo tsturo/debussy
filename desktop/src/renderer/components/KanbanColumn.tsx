@@ -3,20 +3,16 @@ import type { Task, Stage } from '../../shared/types'
 import { STAGE_COLORS } from '../lib/stage-colors'
 import { KanbanCard } from './KanbanCard'
 
-export interface ActiveDragData {
-  taskId: string
-  fromStage: Stage
-  isBlocked: boolean
-}
-
 export interface KanbanColumnProps {
   stage: Stage
   tasks: Task[]
   agents: Map<string, { name: string; stage: Stage }>
   selectedTaskId: string | null
   onCardClick: (taskId: string) => void
-  /** Drag state from the active drag — null when nothing is being dragged. */
-  activeDragData: ActiveDragData | null
+  /** Whether an active drag can validly be dropped here */
+  isValidDropTarget?: boolean
+  /** Whether an active drag is currently hovering this column */
+  isDragOver?: boolean
 }
 
 /** Column opacity by stage — done and backlog are visually de-emphasized. */
@@ -26,50 +22,28 @@ function columnOpacity(stage: Stage): number {
   return 1
 }
 
-/**
- * Returns true if a card being dragged from `fromStage` (with blocked status)
- * can validly be dropped onto `targetStage`.
- *
- * Valid moves:
- * - backlog → development
- * - blocked (any stage) → development
- * - any non-done, non-backlog stage → backlog
- */
-function isValidDropTarget(targetStage: Stage, drag: ActiveDragData): boolean {
-  const { fromStage, isBlocked } = drag
-  if (targetStage === fromStage) return false
-  if (fromStage === 'done') return false
-
-  if (fromStage === 'backlog' && targetStage === 'development') return true
-  if (isBlocked && targetStage === 'development') return true
-  if (targetStage === 'backlog' && fromStage !== 'done' && fromStage !== 'backlog') return true
-
-  return false
-}
-
 export function KanbanColumn({
   stage,
   tasks,
   agents,
   selectedTaskId,
   onCardClick,
-  activeDragData,
+  isValidDropTarget = false,
+  isDragOver = false,
 }: KanbanColumnProps) {
   const { color, label } = STAGE_COLORS[stage]
 
-  const { setNodeRef, isOver } = useDroppable({
-    id: `col-${stage}`,
-    data: { targetStage: stage },
-  })
+  const { setNodeRef } = useDroppable({ id: stage })
 
-  const isValid = activeDragData !== null && isValidDropTarget(stage, activeDragData)
-  const isInvalid = activeDragData !== null && isOver && !isValid
+  // Border highlight when a drag is active over this column
+  const dropBorderColor = isDragOver
+    ? isValidDropTarget
+      ? 'var(--t-accent, #6c5ce7)'
+      : 'rgba(217,112,112,0.5)'
+    : 'transparent'
 
-  // Highlight border: purple tint when valid target is hovered, red tint when invalid
-  const dropBorderColor = isOver && isValid
-    ? '#6c5ce733'
-    : isInvalid
-    ? 'rgba(217,112,112,0.25)'
+  const dropBg = isDragOver && isValidDropTarget
+    ? 'rgba(108,92,231,0.05)'
     : 'transparent'
 
   return (
@@ -82,10 +56,10 @@ export function KanbanColumn({
         flexDirection: 'column',
         opacity: columnOpacity(stage),
         borderRadius: 'var(--t-radius-md)',
-        border: `1.5px solid ${dropBorderColor}`,
+        border: `1px solid ${dropBorderColor}`,
+        background: dropBg,
+        transition: 'border-color 100ms ease, background 100ms ease',
         padding: '2px',
-        transition: 'border-color 150ms ease',
-        boxSizing: 'border-box',
       }}
     >
       {/* Column header: label + count on one line */}
@@ -128,7 +102,6 @@ export function KanbanColumn({
           gap: '4px',
           overflowY: 'auto',
           flex: 1,
-          minHeight: '60px',
         }}
       >
         {tasks.map((task) => {
@@ -144,10 +117,42 @@ export function KanbanColumn({
               agent={agent}
               isSelected={task.id === selectedTaskId}
               onClick={() => onCardClick(task.id)}
-              draggable={task.stage !== 'done'}
             />
           )
         })}
+
+        {/* Drop placeholder: shown at bottom of valid target column during drag */}
+        {isDragOver && isValidDropTarget && (
+          <div
+            aria-hidden="true"
+            style={{
+              height: '36px',
+              borderRadius: 'var(--t-radius-md)',
+              border: '1px dashed var(--t-accent, #6c5ce7)',
+              opacity: 0.5,
+              flexShrink: 0,
+            }}
+          />
+        )}
+
+        {/* Tooltip for invalid drop target */}
+        {isDragOver && !isValidDropTarget && (
+          <div
+            aria-hidden="true"
+            style={{
+              padding: '4px 8px',
+              borderRadius: 'var(--t-radius-sm)',
+              background: 'rgba(217,112,112,0.12)',
+              border: '1px solid rgba(217,112,112,0.3)',
+              fontSize: '10px',
+              color: '#d97070',
+              textAlign: 'center',
+              flexShrink: 0,
+            }}
+          >
+            Pipeline controls this transition
+          </div>
+        )}
       </div>
     </div>
   )

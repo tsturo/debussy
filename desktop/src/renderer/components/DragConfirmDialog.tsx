@@ -1,15 +1,19 @@
 import type { Stage } from '../../shared/types'
-import { STAGE_COLORS } from '../lib/stage-colors'
+import { STAGE_LABELS } from '../lib/move-validation'
 
 export interface DragConfirmDialogProps {
   taskId: string
   taskTitle: string
   fromStage: Stage
   toStage: Stage
-  onConfirm: () => Promise<void>
+  onConfirm: () => void
   onCancel: () => void
 }
 
+/**
+ * Confirmation dialog shown before executing a board drag-and-drop move.
+ * Always shown — moves are never auto-applied on drop.
+ */
 export function DragConfirmDialog({
   taskId,
   taskTitle,
@@ -18,101 +22,90 @@ export function DragConfirmDialog({
   onConfirm,
   onCancel,
 }: DragConfirmDialogProps) {
-  const fromLabel = STAGE_COLORS[fromStage].label
-  const toLabel = STAGE_COLORS[toStage].label
-  const toColor = STAGE_COLORS[toStage].color
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Move ${taskId} to ${toLabel}`}
-      onClick={onCancel}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0,0,0,0.55)',
-        zIndex: 9999,
-      }}
-    >
+    <>
+      {/* Backdrop */}
       <div
-        onClick={(e) => e.stopPropagation()}
+        onClick={onCancel}
         style={{
-          backgroundColor: 'var(--t-card-bg)',
-          borderRadius: 'var(--t-radius-md)',
+          position: 'fixed',
+          inset: 0,
+          zIndex: 200,
+          background: 'rgba(0,0,0,0.45)',
+        }}
+      />
+
+      {/* Dialog */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Confirm task move"
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 201,
+          background: 'var(--t-surface)',
+          border: '1px solid var(--t-border)',
+          borderRadius: 'var(--t-radius-lg)',
           padding: '20px 24px',
-          minWidth: '300px',
-          maxWidth: '380px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          border: `1px solid ${toColor}33`,
+          minWidth: '320px',
+          maxWidth: '420px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.32)',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span
-            style={{
-              fontSize: '11px',
-              fontFamily: '"SF Mono", Menlo, Monaco, Consolas, monospace',
-              color: 'var(--t-text-3)',
-            }}
-          >
-            {taskId}
-          </span>
-          <p
-            style={{
-              fontSize: '13px',
-              fontWeight: 600,
-              color: 'var(--t-text)',
-              margin: 0,
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              lineHeight: 1.4,
-            }}
-          >
-            {taskTitle}
-          </p>
+        {/* Title */}
+        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--t-text)' }}>
+          Move task?
         </div>
 
-        {/* Transition row */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 12px',
-            backgroundColor: 'rgba(255,255,255,0.04)',
-            borderRadius: 'var(--t-radius-sm)',
-          }}
-        >
-          <span
+        {/* Body */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div
             style={{
-              fontSize: '11px',
-              fontWeight: 600,
-              color: STAGE_COLORS[fromStage].color,
-              letterSpacing: '0.04em',
+              fontSize: '12px',
+              color: 'var(--t-text-2)',
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: '4px',
+              flexWrap: 'wrap',
             }}
           >
-            {fromLabel}
-          </span>
-          <span style={{ color: 'var(--t-text-3)', fontSize: '12px' }}>→</span>
-          <span
+            <span
+              style={{
+                fontFamily: '"SF Mono", Menlo, Monaco, Consolas, monospace',
+                color: 'var(--t-text-3)',
+                fontSize: '11px',
+              }}
+            >
+              {taskId}
+            </span>
+            <span style={{ fontWeight: 500, color: 'var(--t-text)', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {taskTitle}
+            </span>
+          </div>
+
+          <div
             style={{
-              fontSize: '11px',
-              fontWeight: 600,
-              color: toColor,
-              letterSpacing: '0.04em',
+              fontSize: '12px',
+              color: 'var(--t-text-3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
-            {toLabel}
-          </span>
+            <span style={{ padding: '2px 6px', background: 'var(--t-bg)', borderRadius: 4, fontSize: '11px' }}>
+              {STAGE_LABELS[fromStage]}
+            </span>
+            <span aria-hidden="true">→</span>
+            <span style={{ padding: '2px 6px', background: 'var(--t-bg)', borderRadius: 4, fontSize: '11px', color: 'var(--t-accent)' }}>
+              {STAGE_LABELS[toStage]}
+            </span>
+          </div>
         </div>
 
         {/* Buttons */}
@@ -120,12 +113,11 @@ export function DragConfirmDialog({
           <button
             onClick={onCancel}
             style={{
-              padding: '7px 14px',
+              padding: '6px 14px',
               fontSize: '12px',
-              fontWeight: 500,
               borderRadius: 'var(--t-radius-sm)',
               border: '1px solid var(--t-border)',
-              backgroundColor: 'transparent',
+              background: 'transparent',
               color: 'var(--t-text-2)',
               cursor: 'pointer',
             }}
@@ -133,15 +125,16 @@ export function DragConfirmDialog({
             Cancel
           </button>
           <button
-            onClick={async () => { await onConfirm() }}
+            autoFocus
+            onClick={onConfirm}
             style={{
-              padding: '7px 14px',
+              padding: '6px 14px',
               fontSize: '12px',
               fontWeight: 600,
               borderRadius: 'var(--t-radius-sm)',
-              border: `1px solid ${toColor}`,
-              backgroundColor: `${toColor}22`,
-              color: toColor,
+              border: 'none',
+              background: 'var(--t-accent)',
+              color: '#fff',
               cursor: 'pointer',
             }}
           >
@@ -149,6 +142,6 @@ export function DragConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </>
   )
 }

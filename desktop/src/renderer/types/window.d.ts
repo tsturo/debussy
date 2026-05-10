@@ -25,13 +25,14 @@ interface WorkspaceData {
 
 interface DebussyAPI {
   tasks: {
-    list:    ()                            => Promise<Task[]>
-    get:     (id: string)                  => Promise<TaskDetail | null>
-    advance: (id: string, toStage?: string) => Promise<{ success: boolean }>
-    release: (id: string)                  => Promise<{ success: boolean }>
-    block:   (id: string)                  => Promise<{ success: boolean }>
-    comment: (id: string, msg: string)     => Promise<{ success: boolean }>
-    create:  (title: string, desc: string) => Promise<{ success: boolean }>
+    list:      ()                                  => Promise<Task[]>
+    get:       (id: string)                        => Promise<TaskDetail | null>
+    advance:   (id: string)                        => Promise<{ success: boolean }>
+    advanceTo: (id: string, toStage: string)       => Promise<{ success: boolean }>
+    release:   (id: string)                        => Promise<{ success: boolean }>
+    block:     (id: string)                        => Promise<{ success: boolean }>
+    comment:   (id: string, msg: string)           => Promise<{ success: boolean }>
+    create:    (title: string, desc: string)       => Promise<{ success: boolean }>
   }
   agents: {
     list:              ()                                                           => Promise<WatcherState>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ConductorMessage, LogEntry, Stage } from '../shared/types'
+import type { ConductorMessage, LogEntry, Stage, Task } from '../shared/types'
 import { useWorkspaceHandlers } from './hooks/useWorkspaceHandlers'
 
 import { Sidebar } from './components/Sidebar'
@@ -32,6 +32,7 @@ function App() {
   const fetchWorkspaces = useAppStore((s) => s.fetchWorkspaces)
   const selectTask = useAppStore((s) => s.selectTask)
   const advanceTask = useAppStore((s) => s.advanceTask)
+  const moveTask = useAppStore((s) => s.moveTask)
   const blockTask = useAppStore((s) => s.blockTask)
   const commentOnTask = useAppStore((s) => s.commentOnTask)
   const startWatcher = useAppStore((s) => s.startWatcher)
@@ -288,6 +289,15 @@ function App() {
     },
   ], [advanceTask, handleToggleConductor, handleToggleSidebar, setTheme, setPaletteOpen])
 
+  // ── Task move handler (drag & drop) ───────────────────────────────────────
+
+  const handleTaskMove = useCallback(
+    async (task: Task, toStage: Stage) => {
+      await moveTask(task.id, task.stage, toStage, task.status === 'blocked')
+    },
+    [moveTask]
+  )
+
   // ── Watcher toggle handler ─────────────────────────────────────────────────
 
   const handleWatcherToggle = useCallback(async () => {
@@ -394,6 +404,7 @@ function App() {
             onTaskSelect={(taskId) => selectTask(taskId)}
             onNewTask={() => setNewTaskOpen(true)}
             onWatcherToggle={handleWatcherToggle}
+            onTaskMove={handleTaskMove}
           />
         </div>
 
