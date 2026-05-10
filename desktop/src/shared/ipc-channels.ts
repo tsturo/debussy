@@ -16,9 +16,11 @@ export const IPC = {
   WATCHER_START:   'watcher:start',
   WATCHER_STOP:    'watcher:stop',
   WATCHER_STATUS:  'watcher:status',
-  CONDUCTOR_SEND:  'conductor:send',
-  CONDUCTOR_STREAM: 'conductor:stream',
-  AGENT_LOG_LINE:  'agent-log:line',
+  CONDUCTOR_SEND:           'conductor:send',
+  CONDUCTOR_CANCEL:         'conductor:cancel',
+  CONDUCTOR_RESPONSE_CHUNK: 'conductor:response-chunk',
+  CONDUCTOR_RESPONSE_DONE:  'conductor:response-done',
+  AGENT_LOG_LINE:           'agent-log:line',
 } as const
 
 export type IpcChannel = typeof IPC[keyof typeof IPC]

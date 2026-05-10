@@ -24,4 +24,14 @@ contextBridge.exposeInMainWorld('debussy', {
   watcher: {
     status: () => ipcRenderer.invoke(IPC.WATCHER_STATUS),
   },
+  conductor: {
+    send:            (message: string)                          => ipcRenderer.invoke(IPC.CONDUCTOR_SEND, message),
+    cancel:          ()                                         => ipcRenderer.send(IPC.CONDUCTOR_CANCEL),
+    onChunk:         (callback: (chunk: string) => void)        => ipcRenderer.on(IPC.CONDUCTOR_RESPONSE_CHUNK, (_event, chunk) => callback(chunk)),
+    onDone:          (callback: () => void)                     => ipcRenderer.on(IPC.CONDUCTOR_RESPONSE_DONE, () => callback()),
+    removeListeners: ()                                         => {
+      ipcRenderer.removeAllListeners(IPC.CONDUCTOR_RESPONSE_CHUNK)
+      ipcRenderer.removeAllListeners(IPC.CONDUCTOR_RESPONSE_DONE)
+    },
+  },
 })

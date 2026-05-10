@@ -6,6 +6,7 @@ import { IPC } from '../shared/ipc-channels'
 import type { DebussyConfig, WatcherState } from '../shared/types'
 import * as dbReader from './db-reader'
 import { LogStreamer } from './log-streamer'
+import { ConductorBridge } from './conductor-bridge'
 import type Database from 'better-sqlite3'
 
 const DEFAULT_CONFIG: DebussyConfig = {
@@ -29,6 +30,7 @@ const DEFAULT_CONFIG: DebussyConfig = {
 
 let db: Database.Database | null = null
 const logStreamer = new LogStreamer()
+const conductorBridge = new ConductorBridge()
 
 function getProjectPath(): string {
   return process.cwd()
@@ -157,17 +159,27 @@ export function registerIPC(): void {
     return { ...result, id }
   })
 
+  // ── Conductor IPC ──────────────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.CONDUCTOR_SEND, (_event, message: string) => {
+    conductorBridge.sendMessage(message, getProjectPath())
+    return { success: true }
+  })
+
+  ipcMain.on(IPC.CONDUCTOR_CANCEL, () => {
+    conductorBridge.cancelCurrent()
+  })
+
   // ── Stubbed handlers (future tasks) ───────────────────────────────────────
 
-  ipcMain.handle(IPC.CONFIG_SET,       () => ({ success: true }))
-  ipcMain.handle(IPC.WATCHER_START,    () => ({ success: true }))
-  ipcMain.handle(IPC.WATCHER_STOP,     () => ({ success: true }))
-  ipcMain.handle(IPC.CONDUCTOR_SEND,   () => ({ success: true }))
-  ipcMain.handle(IPC.CONDUCTOR_STREAM, () => ({ success: true }))
+  ipcMain.handle(IPC.CONFIG_SET,    () => ({ success: true }))
+  ipcMain.handle(IPC.WATCHER_START, () => ({ success: true }))
+  ipcMain.handle(IPC.WATCHER_STOP,  () => ({ success: true }))
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   app.on('will-quit', () => {
+    conductorBridge.cancelCurrent()
     logStreamer.stopAll()
     dbReader.closeDatabase(db)
     db = null

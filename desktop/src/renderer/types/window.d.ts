@@ -27,6 +27,13 @@ interface DebussyAPI {
   watcher: {
     status: () => Promise<{ running: boolean }>
   }
+  conductor: {
+    send:            (message: string)                    => Promise<{ success: boolean }>
+    cancel:          ()                                   => void
+    onChunk:         (callback: (chunk: string) => void)  => void
+    onDone:          (callback: () => void)               => void
+    removeListeners: ()                                   => void
+  }
 }
 
 declare global {
