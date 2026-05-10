@@ -1,5 +1,6 @@
 {
-  "name": "debussy-desktop",
+  "name": "debussy",
+  "productName": "Debussy",
   "version": "0.1.0",
   "description": "Debussy Desktop UI — Electron app for orchestrating multi-agent pipelines",
   "main": "out/main/index.js",

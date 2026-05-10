@@ -18,6 +18,7 @@ function createWindow(): void {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    title: 'Debussy',
     show: false,
     icon: resolveIcon(),
     webPreferences: {
@@ -45,6 +46,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  app.setName('Debussy')
   registerIPC()
 
   // Set macOS dock icon explicitly (dev mode doesn't pick it up from the bundle).
