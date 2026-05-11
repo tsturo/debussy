@@ -249,7 +249,9 @@ export function registerIPC(): void {
 
   ipcMain.handle(IPC.CONDUCTOR_GET_SESSION_ID, () => {
     const sessionId = conductorBridge.getSessionId(getProjectPath())
-    return { sessionId }
+    if (!sessionId) return { sessionId: null, contextSummary: null, historySummary: null }
+    const { contextSummary, historySummary } = conductorBridge.getResumeContext(getProjectPath())
+    return { sessionId, contextSummary, historySummary }
   })
 
   // ── Watcher control handlers ───────────────────────────────────────────────

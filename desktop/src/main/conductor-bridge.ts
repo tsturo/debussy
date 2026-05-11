@@ -120,6 +120,33 @@ export class ConductorBridge {
   }
 
   /**
+   * Read .debussy/conductor-context.md and .debussy/conductor-history.md and
+   * extract one-line summaries from each.  Returns nulls for files that are
+   * missing, unreadable, or contain no parseable content.
+   */
+  getResumeContext(cwd: string): { contextSummary: string | null; historySummary: string | null } {
+    const contextPath = join(cwd, '.debussy', 'conductor-context.md')
+    const historyPath = join(cwd, '.debussy', 'conductor-history.md')
+
+    let contextSummary: string | null = null
+    let historySummary: string | null = null
+
+    try {
+      if (existsSync(contextPath)) {
+        contextSummary = this.extractContextSummary(readFileSync(contextPath, 'utf-8'))
+      }
+    } catch { /* unreadable — skip */ }
+
+    try {
+      if (existsSync(historyPath)) {
+        historySummary = this.extractHistorySummary(readFileSync(historyPath, 'utf-8'))
+      }
+    } catch { /* unreadable — skip */ }
+
+    return { contextSummary, historySummary }
+  }
+
+  /**
    * Return the persisted session ID, or null if none has been created yet.
    * Does NOT generate a new UUID as a side effect (unlike getOrCreateSessionId).
    */
@@ -183,6 +210,66 @@ export class ConductorBridge {
     }
     config['conductor_session_id'] = id
     writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8')
+  }
+
+  /**
+   * Extract a short summary from conductor-context.md.
+   * Prefers the first content line under "## Status"; falls back to the first
+   * two non-heading content lines joined with " · ".
+   */
+  private extractContextSummary(content: string): string | null {
+    const lines = content.split('\n')
+
+    // Look for ## Status section and take first content line
+    let inStatus = false
+    for (const line of lines) {
+      if (/^##\s+Status\b/i.test(line)) { inStatus = true; continue }
+      if (inStatus) {
+        if (line.startsWith('#')) break
+        const trimmed = line.trim().replace(/\*\*/g, '')
+        if (trimmed) return trimmed.length > 70 ? trimmed.slice(0, 70) + '…' : trimmed
+      }
+    }
+
+    // Fallback: first 2 non-empty, non-heading lines
+    const contentLines = lines
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#') && l !== '---')
+      .slice(0, 2)
+
+    if (contentLines.length === 0) return null
+    const joined = contentLines.join(' · ')
+    return joined.length > 70 ? joined.slice(0, 70) + '…' : joined
+  }
+
+  /**
+   * Extract a short summary from conductor-history.md.
+   * Returns the last ## heading that isn't "Cumulative"; falls back to the
+   * last non-empty, non-heading content line.
+   */
+  private extractHistorySummary(content: string): string | null {
+    const lines = content.split('\n')
+    let lastPhaseHeading: string | null = null
+
+    for (const line of lines) {
+      const m = line.match(/^##\s+(.+)/)
+      if (m) {
+        const title = m[1].trim()
+        if (!/^cumulative/i.test(title)) lastPhaseHeading = title
+      }
+    }
+
+    if (lastPhaseHeading) {
+      // Strip date prefix like "[2026-05-10] "
+      const cleaned = lastPhaseHeading.replace(/^\[\d{4}-\d{2}-\d{2}\]\s+/, '')
+      return cleaned.length > 70 ? cleaned.slice(0, 70) + '…' : cleaned
+    }
+
+    // Fallback: last non-empty, non-heading line
+    const contentLines = lines.map((l) => l.trim()).filter((l) => l && !l.startsWith('#'))
+    if (contentLines.length === 0) return null
+    const last = contentLines[contentLines.length - 1]
+    return last.length > 70 ? last.slice(0, 70) + '…' : last
   }
 
   private readSystemPrompt(cwd: string): string | null {

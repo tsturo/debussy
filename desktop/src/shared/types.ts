@@ -115,6 +115,8 @@ export interface ConductorMessage {
   timestamp: number
   /** Preview URLs (object URLs) for images attached to user messages */
   images?: string[]
+  /** 'resume' — rich session-resume card; omit for the default pill style */
+  variant?: 'resume'
 }
 
 export interface WorkspaceGroup {

@@ -54,7 +54,7 @@ interface DebussyAPI {
     send:            (text: string, images?: string[], tempPaths?: string[]) => Promise<{ success: boolean }>
     cancel:          ()                                                       => void
     clearContext:    ()                                                       => Promise<{ success: boolean; sessionId?: string }>
-    getSessionId:    ()                                                       => Promise<{ sessionId: string | null }>
+    getSessionId:    ()                                                       => Promise<{ sessionId: string | null; contextSummary: string | null; historySummary: string | null }>
     onChunk:         (callback: (chunk: string) => void)                      => void
     onDone:          (callback: () => void)                                   => void
     removeListeners: ()                                                       => void

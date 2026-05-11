@@ -307,6 +307,105 @@ describe('ConductorBridge', () => {
     expect(configReads).toHaveLength(0)
   })
 
+  // ── getResumeContext ──────────────────────────────────────────────────────
+
+  it('getResumeContext returns nulls when neither context file exists', () => {
+    existsSyncMock.mockReturnValue(false)
+    const bridge = new ConductorBridge()
+    const result = bridge.getResumeContext('/project')
+    expect(result).toEqual({ contextSummary: null, historySummary: null })
+  })
+
+  it('getResumeContext extracts Status line from conductor-context.md', () => {
+    existsSyncMock.mockImplementation((p: unknown) => String(p).includes('conductor-context.md'))
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('conductor-context.md')) {
+        return [
+          '# Conductor Context',
+          '',
+          '## Goal',
+          'Build something great.',
+          '',
+          '## Status',
+          '**5 phases done** — all tasks complete.',
+        ].join('\n')
+      }
+      if (p.includes('conductor.md')) return 'system prompt'
+      if (p.includes('config.json')) return '{}'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+
+    const bridge = new ConductorBridge()
+    const { contextSummary } = bridge.getResumeContext('/project')
+    expect(contextSummary).toBe('5 phases done — all tasks complete.')
+  })
+
+  it('getResumeContext falls back to first content lines when no Status section', () => {
+    existsSyncMock.mockImplementation((p: unknown) => String(p).includes('conductor-context.md'))
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('conductor-context.md')) return '# Title\n\nFirst line.\nSecond line.'
+      if (p.includes('conductor.md')) return 'system prompt'
+      if (p.includes('config.json')) return '{}'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+
+    const bridge = new ConductorBridge()
+    const { contextSummary } = bridge.getResumeContext('/project')
+    expect(contextSummary).toBe('First line. · Second line.')
+  })
+
+  it('getResumeContext extracts last non-Cumulative ## heading from conductor-history.md', () => {
+    existsSyncMock.mockImplementation((p: unknown) => String(p).includes('conductor-history.md'))
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('conductor-history.md')) {
+        return [
+          '# Conductor History',
+          '',
+          '## [2026-05-10] Phase 1: Setup ✅',
+          '- Tasks: DBS-1→DBS-10',
+          '',
+          '## [2026-05-10] Phase 2: Core UI ✅',
+          '- Tasks: DBS-11→DBS-20',
+          '',
+          '## Cumulative',
+          '- 20 tasks completed',
+        ].join('\n')
+      }
+      if (p.includes('conductor.md')) return 'system prompt'
+      if (p.includes('config.json')) return '{}'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+
+    const bridge = new ConductorBridge()
+    const { historySummary } = bridge.getResumeContext('/project')
+    // Should pick Phase 2, not Cumulative; date prefix stripped
+    expect(historySummary).toBe('Phase 2: Core UI ✅')
+  })
+
+  it('getResumeContext returns both summaries when both files exist', () => {
+    existsSyncMock.mockReturnValue(true)
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('conductor-context.md')) {
+        return '# Context\n\n## Status\nAll done!'
+      }
+      if (p.includes('conductor-history.md')) {
+        return '# History\n\n## Phase 1: Complete ✅\n- stuff'
+      }
+      if (p.includes('conductor.md')) return 'system prompt'
+      if (p.includes('config.json')) return '{}'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+
+    const bridge = new ConductorBridge()
+    const { contextSummary, historySummary } = bridge.getResumeContext('/project')
+    expect(contextSummary).toBe('All done!')
+    expect(historySummary).toBe('Phase 1: Complete ✅')
+  })
+
   // ── clearWithContext ──────────────────────────────────────────────────────
 
   it('clearWithContext returns a new session ID and does NOT spawn when no context files exist', () => {
