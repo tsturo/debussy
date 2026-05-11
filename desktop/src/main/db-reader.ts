@@ -24,10 +24,9 @@ export interface Project {
  */
 export function openDatabase(dbPath: string): Database.Database | null {
   try {
-    return new Database(dbPath, { readonly: true, fileMustExist: false })
+    return new Database(dbPath, { readonly: true, fileMustExist: true })
   } catch {
-    // fileMustExist: false means this should never throw for a missing file,
-    // but better-sqlite3 may still throw if the path is a directory, etc.
+    // DB file doesn't exist yet — valid state for a new project.
     return null
   }
 }
