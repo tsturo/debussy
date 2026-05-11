@@ -6,6 +6,22 @@ import { registerIPC } from './ipc-register'
 // fall back to loading the built renderer file (covers both E2E tests and packaged apps).
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 
+// Single-instance lock: quit if another instance is already running.
+let mainWindow: BrowserWindow | null = null
+
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    // Focus existing window when a second instance is launched.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+}
+
 // Resolve icon: prefer .icns on macOS for best quality, fall back to PNG.
 function resolveIcon(): string {
   if (process.platform === 'darwin') {
@@ -15,7 +31,7 @@ function resolveIcon(): string {
 }
 
 function createWindow(): void {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     title: 'Debussy',
@@ -25,23 +41,25 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false
     }
   })
 
-  win.on('ready-to-show', () => {
-    win.show()
+  mainWindow.on('ready-to-show', () => {
+    mainWindow!.show()
   })
 
-  win.webContents.setWindowOpenHandler((details) => {
+  mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
   if (isDev) {
-    win.loadURL(process.env['ELECTRON_RENDERER_URL'] ?? 'http://localhost:5173')
+    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] ?? 'http://localhost:5173')
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
