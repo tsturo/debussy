@@ -171,65 +171,79 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Header */}
+      {/* Header — two-row layout */}
       <div
         style={{
-          height: 52,
           flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 14px',
           borderBottom: '1px solid var(--t-border)',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <span
+        {/* Row 1 (36px): Title + New Session */}
+        <div
           style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--t-text)',
-            letterSpacing: '-0.01em',
+            height: 40,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 14px',
+            gap: 12,
           }}
         >
-          Conductor
-        </span>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {/* Session ID chip — click to copy */}
-          {sessionId && (
-            <button
-              onClick={handleCopySessionId}
-              title={sessionIdCopied ? 'Copied!' : sessionId}
+          {/* Title + session ID subtitle */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <span
               style={{
-                background: 'transparent',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                color: 'var(--t-text-3)',
-                fontSize: 9,
-                fontFamily: 'ui-monospace, monospace',
+                fontSize: 14,
+                fontWeight: 600,
+                color: 'var(--t-text)',
+                letterSpacing: '-0.01em',
+                lineHeight: 1,
               }}
             >
-              {sessionIdCopied ? '✓' : sessionId.slice(0, 8) + '…'}
-            </button>
-          )}
+              Conductor
+            </span>
+            {sessionId && (
+              <button
+                onClick={handleCopySessionId}
+                title={sessionIdCopied ? 'Copied!' : 'Click to copy session ID'}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: sessionIdCopied ? 'var(--t-purple)' : 'var(--t-text-3)',
+                  fontSize: 11,
+                  fontFamily: 'ui-monospace, monospace',
+                  letterSpacing: '0.01em',
+                  textAlign: 'left',
+                  lineHeight: 1,
+                  transition: 'color var(--t-dur-fast)',
+                }}
+              >
+                {sessionIdCopied ? '✓ copied' : sessionId.slice(0, 8) + '…'}
+              </button>
+            )}
+          </div>
 
           {/* New Session button */}
           <button
             onClick={handleNewSession}
             title="New session — auto-loads project context"
             style={{
-              height: 22,
-              padding: '0 8px',
+              height: 26,
+              padding: '0 12px',
               background: 'transparent',
               border: '1px solid var(--t-border)',
-              borderRadius: 6,
+              borderRadius: 9,
               cursor: 'pointer',
-              color: 'var(--t-text-3)',
-              fontSize: 9,
+              color: 'var(--t-text-2)',
+              fontSize: 11,
               fontWeight: 500,
               fontFamily: 'inherit',
               whiteSpace: 'nowrap',
+              flexShrink: 0,
               transition: 'color var(--t-dur-fast), border-color var(--t-dur-fast)',
             }}
             onMouseEnter={(e) => {
@@ -237,50 +251,57 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
               e.currentTarget.style.borderColor = 'var(--t-text-3)'
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--t-text-3)'
+              e.currentTarget.style.color = 'var(--t-text-2)'
               e.currentTarget.style.borderColor = 'var(--t-border)'
             }}
           >
             New Session
           </button>
+        </div>
 
-          {/* Segmented toggle */}
-          <div
-            style={{
-              display: 'flex',
-              background: 'var(--t-surface)',
-              border: '1px solid var(--t-border)',
-              borderRadius: 11,
-              overflow: 'hidden',
-            }}
-          >
-            {(['watcher', 'agents'] as TabKey[]).map((tab, idx) => {
-              const isActive = activeTab === tab
-              const label = tab === 'watcher' ? 'Watcher' : 'Agents'
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  style={{
-                    background: isActive ? 'var(--t-bg)' : 'transparent',
-                    border: 'none',
-                    borderRadius:
-                      idx === 0 ? '9px 0 0 9px' : '0 9px 9px 0',
-                    padding: '4px 9px',
-                    fontSize: 9,
-                    fontWeight: isActive ? 600 : 400,
-                    color: isActive ? 'var(--t-text)' : 'var(--t-text-3)',
-                    cursor: 'pointer',
-                    transition: 'background var(--t-dur-fast), color var(--t-dur-fast)',
-                    lineHeight: 1.4,
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  {label}
-                </button>
-              )
-            })}
-          </div>
+        {/* Row 2 (32px): Watcher / Agents pill tabs */}
+        <div
+          style={{
+            height: 32,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 10px',
+            gap: 2,
+          }}
+        >
+          {(['watcher', 'agents'] as TabKey[]).map((tab) => {
+            const isActive = activeTab === tab
+            const label = tab === 'watcher' ? 'Watcher' : 'Agents'
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: '4px 14px',
+                  borderRadius: 100,
+                  border: 'none',
+                  background: isActive
+                    ? 'color-mix(in srgb, var(--t-purple) 14%, var(--t-bg))'
+                    : 'transparent',
+                  color: isActive ? 'var(--t-purple)' : 'var(--t-text-3)',
+                  fontSize: 11,
+                  fontWeight: isActive ? 600 : 400,
+                  cursor: 'pointer',
+                  transition: 'background var(--t-dur-fast), color var(--t-dur-fast)',
+                  fontFamily: 'inherit',
+                  lineHeight: 1.4,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.color = 'var(--t-text-2)'
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.color = 'var(--t-text-3)'
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
