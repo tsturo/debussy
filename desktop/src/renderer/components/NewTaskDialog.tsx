@@ -238,7 +238,7 @@ export function NewTaskDialog({ isOpen, onClose, onCreated }: NewTaskDialogProps
             <div>
               <div
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
                   color: 'var(--t-text-3)',
                   textTransform: 'uppercase',
@@ -283,7 +283,7 @@ export function NewTaskDialog({ isOpen, onClose, onCreated }: NewTaskDialogProps
             <div>
               <div
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
                   color: 'var(--t-text-3)',
                   textTransform: 'uppercase',

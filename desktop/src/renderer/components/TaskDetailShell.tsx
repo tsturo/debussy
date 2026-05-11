@@ -72,7 +72,7 @@ function CollapsedStrip({ agentCount, lastEvent, stageCounts }: CollapsedStripPr
       <div
         style={{
           flex: 1,
-          fontSize: 11,
+          fontSize: 12,
           color: 'var(--t-text-3)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -262,7 +262,7 @@ export function TaskDetailShell({
         {/* Stage badge */}
         <span
           style={{
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 600,
             color: stageDisplay.color,
             backgroundColor: withAlpha12(stageDisplay.color),
@@ -297,7 +297,7 @@ export function TaskDetailShell({
         {agent !== null && (
           <span
             style={{
-              fontSize: 11,
+              fontSize: 12,
               color: 'var(--t-purple)',
               backgroundColor: 'rgba(108, 92, 231, 0.12)',
               borderRadius: 100,
@@ -326,7 +326,7 @@ export function TaskDetailShell({
         {elapsed !== '' && (
           <span
             style={{
-              fontSize: 11,
+              fontSize: 12,
               color: 'var(--t-text-2)',
               backgroundColor: 'rgba(168, 176, 194, 0.10)',
               borderRadius: 100,
@@ -343,7 +343,7 @@ export function TaskDetailShell({
         {task.rejection_count > 0 && (
           <span
             style={{
-              fontSize: 11,
+              fontSize: 12,
               color: 'var(--t-error)',
               backgroundColor: 'rgba(217, 112, 112, 0.12)',
               borderRadius: 100,

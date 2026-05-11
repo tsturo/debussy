@@ -74,7 +74,7 @@ function AgentAvatar({
             borderRadius: 'var(--t-radius-sm)',
             padding: '4px 8px',
             whiteSpace: 'nowrap',
-            fontSize: 11,
+            fontSize: 12,
             color: 'var(--t-text-2)',
             pointerEvents: 'none',
             zIndex: 100,
@@ -134,7 +134,7 @@ export function AgentBar({ agents, watcherRunning, onAgentClick, onWatcherToggle
                 background: 'var(--t-surface)',
                 display: 'flex',
                 alignItems: 'center',
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: 500,
                 color: 'var(--t-text-3)',
                 flexShrink: 0,
@@ -176,7 +176,7 @@ export function AgentBar({ agents, watcherRunning, onAgentClick, onWatcherToggle
           />
           <span
             style={{
-              fontSize: 11,
+              fontSize: 12,
               color: watcherRunning ? 'var(--t-teal)' : 'var(--t-text-3)',
             }}
           >

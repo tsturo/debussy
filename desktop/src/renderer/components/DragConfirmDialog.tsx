@@ -98,11 +98,11 @@ export function DragConfirmDialog({
               gap: '6px',
             }}
           >
-            <span style={{ padding: '2px 6px', background: 'var(--t-bg)', borderRadius: 4, fontSize: '11px' }}>
+            <span style={{ padding: '2px 6px', background: 'var(--t-bg)', borderRadius: 4, fontSize: '12px' }}>
               {STAGE_LABELS[fromStage]}
             </span>
             <span aria-hidden="true">→</span>
-            <span style={{ padding: '2px 6px', background: 'var(--t-bg)', borderRadius: 4, fontSize: '11px', color: 'var(--t-accent)' }}>
+            <span style={{ padding: '2px 6px', background: 'var(--t-bg)', borderRadius: 4, fontSize: '12px', color: 'var(--t-accent)' }}>
               {STAGE_LABELS[toStage]}
             </span>
           </div>

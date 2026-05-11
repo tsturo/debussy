@@ -40,7 +40,7 @@ function ShortcutHint({ shortcut }: { shortcut: string }) {
   return (
     <kbd
       style={{
-        fontSize: 11,
+        fontSize: 12,
         color: 'var(--t-text-3)',
         background: 'color-mix(in srgb, var(--t-border) 60%, transparent)',
         border: '1px solid var(--t-border)',
@@ -109,7 +109,7 @@ function CategoryLabel({ label }: { label: string }) {
   return (
     <div
       style={{
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: 600,
         textTransform: 'uppercase',
         letterSpacing: '0.10em',

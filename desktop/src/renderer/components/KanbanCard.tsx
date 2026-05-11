@@ -91,7 +91,7 @@ export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = f
       >
         <span
           style={{
-            fontSize: '10px',
+            fontSize: '11px',
             fontFamily: '"SF Mono", Menlo, Monaco, Consolas, monospace',
             color: 'var(--t-text-3)',
             lineHeight: 1,
@@ -100,7 +100,7 @@ export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = f
         >
           {task.id}
         </span>
-        <span style={{ fontSize: '10px', color: 'var(--t-text-3)', lineHeight: 1, flexShrink: 0 }}>
+        <span style={{ fontSize: '11px', color: 'var(--t-text-3)', lineHeight: 1, flexShrink: 0 }}>
           ·
         </span>
         <span
@@ -141,7 +141,7 @@ export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = f
             borderRadius: '50%',
             backgroundColor: 'rgba(217,112,112,0.15)',
             color: '#d97070',
-            fontSize: '8px',
+            fontSize: '11px',
             fontWeight: 700,
             display: 'flex',
             alignItems: 'center',
@@ -157,7 +157,7 @@ export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = f
       {/* Blocked indicator */}
       {task.status === 'blocked' && (
         <span
-          style={{ fontSize: '10px', color: 'var(--t-error)', lineHeight: 1, flexShrink: 0 }}
+          style={{ fontSize: '11px', color: 'var(--t-error)', lineHeight: 1, flexShrink: 0 }}
         >
           ⊘
         </span>
@@ -177,7 +177,7 @@ export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = f
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '7px',
+              fontSize: '11px',
               fontWeight: 700,
               color: stageColor,
               flexShrink: 0,
@@ -187,7 +187,7 @@ export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = f
             {agent.name.charAt(0).toUpperCase()}
           </div>
           {agent.startedAt !== undefined && (
-            <span style={{ fontSize: '10px', color: 'var(--t-text-3)', lineHeight: 1 }}>
+            <span style={{ fontSize: '11px', color: 'var(--t-text-3)', lineHeight: 1 }}>
               {formatElapsed(agent.startedAt)}
             </span>
           )}

@@ -52,7 +52,7 @@ export function SectionLabel({ children }: SectionLabelProps) {
   return (
     <div
       style={{
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: 600,
         letterSpacing: '0.10em',
         textTransform: 'uppercase',
@@ -140,7 +140,7 @@ export function TimelineColumn({ timelineEntries, agentName }: TimelineColumnPro
         <button
           onClick={() => setShowAgentOutput(v => !v)}
           style={{
-            fontSize: 9,
+            fontSize: 12,
             color: 'var(--t-purple)',
             background: 'rgba(108, 92, 231, 0.10)',
             border: 'none',
@@ -171,11 +171,11 @@ export function TimelineColumn({ timelineEntries, agentName }: TimelineColumnPro
             }}
           >
             {!agentName ? (
-              <span style={{ color: 'var(--t-text-3)', fontStyle: 'italic', fontSize: 10 }}>
+              <span style={{ color: 'var(--t-text-3)', fontStyle: 'italic', fontSize: 11 }}>
                 No agent currently active for this task
               </span>
             ) : logLines.length === 0 ? (
-              <span style={{ color: 'var(--t-text-3)', fontStyle: 'italic', fontSize: 10 }}>
+              <span style={{ color: 'var(--t-text-3)', fontStyle: 'italic', fontSize: 11 }}>
                 Waiting for output…
               </span>
             ) : (
