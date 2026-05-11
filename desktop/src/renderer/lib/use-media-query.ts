@@ -14,5 +14,5 @@ export function useMediaQuery(query: string): boolean {
 export function useBreakpoint() {
   const isLarge = useMediaQuery('(min-width: 1680px)')
   const isMedium = useMediaQuery('(min-width: 1366px)')
-  return { isLarge, isMedium, isSmall: !isMedium }
+  return { isLarge, isMedium }
 }

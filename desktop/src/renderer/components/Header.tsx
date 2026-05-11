@@ -3,10 +3,8 @@ export interface HeaderProps {
   agentCount: number
   maxAgents: number
   blockedCount: number
-  conductorVisible: boolean
   onSearchClick: () => void
   onNewTaskClick: () => void
-  onToggleConductor: () => void
 }
 
 export function Header({
@@ -14,10 +12,8 @@ export function Header({
   agentCount,
   maxAgents,
   blockedCount,
-  conductorVisible,
   onSearchClick,
   onNewTaskClick,
-  onToggleConductor,
 }: HeaderProps) {
   return (
     <header
@@ -85,41 +81,6 @@ export function Header({
           >
             ⌘K
           </kbd>
-        </button>
-
-        {/* Conductor toggle button — always visible */}
-        <button
-          onClick={onToggleConductor}
-          title="Toggle Conductor (⌘\)"
-          aria-label="Toggle Conductor"
-          aria-pressed={conductorVisible}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 32,
-            height: 32,
-            background: conductorVisible ? 'rgba(108, 92, 231, 0.12)' : 'var(--t-surface)',
-            border: '1px solid var(--t-border)',
-            borderRadius: 'var(--t-radius-sm)',
-            cursor: 'pointer',
-            color: conductorVisible ? 'var(--t-purple)' : 'var(--t-text-3)',
-            flexShrink: 0,
-          }}
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
         </button>
 
         <button

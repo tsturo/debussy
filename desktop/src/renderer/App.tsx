@@ -80,42 +80,34 @@ function App() {
   }, [theme])
 
   // ── Responsive breakpoints ─────────────────────────────────────────────────
-  const { isLarge, isMedium, isSmall } = useBreakpoint()
+  const { isLarge, isMedium } = useBreakpoint()
 
   // Manual overrides — null means "use breakpoint default"
   const [sidebarOverride, setSidebarOverride] = useState<boolean | null>(null)
-  const [conductorOverride, setConductorOverride] = useState<boolean | null>(null)
 
-  // Reset overrides when the breakpoint boundary changes so the layout snaps
+  // Reset override when the breakpoint boundary changes so the layout snaps
   // back to the breakpoint default on resize.
   const prevBreakpoint = useRef({ isLarge, isMedium })
   useEffect(() => {
     const prev = prevBreakpoint.current
     if (prev.isLarge !== isLarge || prev.isMedium !== isMedium) {
       setSidebarOverride(null)
-      setConductorOverride(null)
       prevBreakpoint.current = { isLarge, isMedium }
     }
   }, [isLarge, isMedium])
 
   // Breakpoint defaults:
-  //   Large  (≥1680px): sidebar expanded, conductor visible, backlog shown
-  //   Medium (1366–1680px): sidebar collapsed, conductor hidden, no backlog
-  //   Small  (<1366px):  sidebar collapsed, conductor hidden (overlay on toggle)
+  //   Large  (≥1680px): sidebar expanded, backlog shown
+  //   Medium (1366–1680px): sidebar collapsed, no backlog
+  //   Small  (<1366px):  sidebar collapsed
   const defaultSidebarCollapsed = !isLarge
-  const defaultConductorVisible = isLarge
 
-  // Effective UI state — user override wins; breakpoint default is the fallback
+  // Effective sidebar state — user override wins; breakpoint default is the fallback
   const sidebarCollapsed = sidebarOverride ?? defaultSidebarCollapsed
-  const conductorVisible = conductorOverride ?? defaultConductorVisible
 
   const handleToggleSidebar = useCallback(() => {
     setSidebarOverride((prev) => !(prev ?? defaultSidebarCollapsed))
   }, [defaultSidebarCollapsed])
-
-  const handleToggleConductor = useCallback(() => {
-    setConductorOverride((prev) => !(prev ?? defaultConductorVisible))
-  }, [defaultConductorVisible])
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [newTaskOpen, setNewTaskOpen] = useState(false)
@@ -168,13 +160,6 @@ function App() {
         return
       }
 
-      // Cmd/Ctrl+\ → toggle Conductor panel
-      if (meta && e.key === '\\') {
-        e.preventDefault()
-        handleToggleConductor()
-        return
-      }
-
       // Cmd/Ctrl+K → open command palette
       if (meta && e.key === 'k') {
         e.preventDefault()
@@ -184,7 +169,7 @@ function App() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectTask, handleToggleConductor, paletteOpen])
+  }, [selectTask, paletteOpen])
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
@@ -249,13 +234,6 @@ function App() {
     },
     // Navigation
     {
-      id: 'toggle-conductor',
-      name: 'Toggle Conductor Panel',
-      category: 'Navigation',
-      shortcut: '⌘\\',
-      action: handleToggleConductor,
-    },
-    {
       id: 'toggle-sidebar',
       name: 'Toggle Sidebar',
       category: 'Navigation',
@@ -287,7 +265,7 @@ function App() {
       category: 'Appearance',
       action: () => setTheme('system'),
     },
-  ], [advanceTask, handleToggleConductor, handleToggleSidebar, setTheme, setPaletteOpen])
+  ], [advanceTask, handleToggleSidebar, setTheme, setPaletteOpen])
 
   // ── Task move handler (drag & drop) ───────────────────────────────────────
 
@@ -410,13 +388,11 @@ function App() {
             config={config}
             selectedTaskId={selectedTaskId}
             watcherRunning={watcherRunning}
-            conductorVisible={conductorVisible}
             showBacklog={isLarge}
             onTaskSelect={(taskId) => selectTask(taskId)}
             onNewTask={() => setNewTaskOpen(true)}
             onWatcherToggle={handleWatcherToggle}
             onTaskMove={handleTaskMove}
-            onToggleConductor={handleToggleConductor}
           />
         </div>
 
@@ -448,36 +424,11 @@ function App() {
         </TaskDetailShell>
       </div>
 
-      {/* ── Conductor panel ────────────────────────────────────────────────── */}
-      {/* On small screens (< 1366px) the conductor floats as an overlay so it
-          doesn't shrink the board. On medium/large it sits inline as a flex
-          sibling. */}
-      {isSmall ? (
-        conductorVisible && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 100,
-              display: 'flex',
-            }}
-          >
-            <Conductor
-              messages={conductorMessages}
-              isVisible={conductorVisible}
-              onSend={handleSendConductorMessage}
-            />
-          </div>
-        )
-      ) : (
-        <Conductor
-          messages={conductorMessages}
-          isVisible={conductorVisible}
-          onSend={handleSendConductorMessage}
-        />
-      )}
+      {/* ── Conductor panel — always visible ───────────────────────────────── */}
+      <Conductor
+        messages={conductorMessages}
+        onSend={handleSendConductorMessage}
+      />
 
       {/* ── Settings modal ──────────────────────────────────────────────────── */}
       <Settings
