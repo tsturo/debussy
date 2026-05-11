@@ -225,7 +225,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
+          background: 'rgba(10, 15, 26, 0.75)',
           zIndex: 100,
           animation: 'settings-fade-in var(--t-dur-base) var(--t-ease) both',
         }}
@@ -320,6 +320,9 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                       }}
                     >
                       {item.label}
+                      {item.disabled && (
+                        <span style={{ color: 'var(--t-text-3)', marginLeft: 4 }}>(soon)</span>
+                      )}
                     </button>
                   )
                 })}
