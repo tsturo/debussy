@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react'
 import type { Task, LogEntry } from '../../shared/types'
-import { TimelineColumn, SectionLabel } from './TimelineColumn'
+import { TimelineColumn } from './TimelineColumn'
+import { PencilIcon } from './icons'
+import { useAppStore } from '../store/app-store'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -75,7 +77,44 @@ interface DescriptionColumnProps {
 }
 
 function DescriptionColumn({ task }: DescriptionColumnProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const fetchAll = useAppStore((s) => s.fetchAll)
+
+  const isDone = task.stage === 'done'
   const descriptionNodes = renderDescription(task.description)
+
+  function startEditing() {
+    setEditText(task.description)
+    setSaveError(null)
+    setIsEditing(true)
+  }
+
+  function cancelEditing() {
+    setIsEditing(false)
+    setEditText('')
+    setSaveError(null)
+  }
+
+  async function saveDescription() {
+    if (saving) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const result = await window.debussy.tasks.update(task.id, { description: editText })
+      if (result.success) {
+        setIsEditing(false)
+        setEditText('')
+        await fetchAll()
+      } else {
+        setSaveError(result.error ?? 'Save failed')
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div
@@ -88,21 +127,131 @@ function DescriptionColumn({ task }: DescriptionColumnProps) {
         padding: '12px 14px',
       }}
     >
-      <SectionLabel>Description</SectionLabel>
-
-      {/* Description text */}
+      {/* Header row: DESCRIPTION label + optional pencil button */}
       <div
         style={{
-          fontSize: 13,
-          color: 'var(--t-text-2)',
-          lineHeight: 1.6,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 8,
           flexShrink: 0,
         }}
       >
-        {descriptionNodes}
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: '0.10em',
+            textTransform: 'uppercase',
+            color: 'var(--t-text-3)',
+          }}
+        >
+          Description
+        </span>
+
+        {!isDone && !isEditing && (
+          <button
+            onClick={startEditing}
+            title="Edit description"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 2,
+              borderRadius: 4,
+              color: 'var(--t-text-3)',
+              opacity: 0.7,
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.7' }}
+          >
+            <PencilIcon />
+          </button>
+        )}
       </div>
+
+      {isEditing ? (
+        /* Edit mode */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <textarea
+            value={editText}
+            onChange={e => setEditText(e.target.value)}
+            style={{
+              width: '100%',
+              minHeight: 120,
+              background: 'var(--t-bg)',
+              border: '1px solid var(--t-border)',
+              borderRadius: 6,
+              fontSize: 13,
+              color: 'var(--t-text)',
+              padding: '6px 8px',
+              outline: 'none',
+              resize: 'vertical',
+              lineHeight: 1.6,
+              fontFamily: 'inherit',
+              boxSizing: 'border-box',
+            }}
+            autoFocus
+          />
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button
+              onClick={saveDescription}
+              disabled={saving}
+              style={{
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: 600,
+                background: 'var(--t-purple)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 5,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.6 : 1,
+              }}
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={cancelEditing}
+              disabled={saving}
+              style={{
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: 600,
+                background: 'none',
+                color: 'var(--t-text-2)',
+                border: '1px solid var(--t-border)',
+                borderRadius: 5,
+                cursor: saving ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            {saveError && (
+              <span style={{ fontSize: 11, color: 'var(--t-red, #e55)', marginLeft: 4 }}>
+                {saveError}
+              </span>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Read mode */
+        <div
+          style={{
+            fontSize: 13,
+            color: 'var(--t-text-2)',
+            lineHeight: 1.6,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            flexShrink: 0,
+          }}
+        >
+          {descriptionNodes}
+        </div>
+      )}
     </div>
   )
 }
@@ -137,8 +286,8 @@ export function TaskDetailBody({ task, logEntries, agentName, onComment }: TaskD
           overflow: 'hidden',
         }}
       >
-        {/* Left: Description */}
-        <DescriptionColumn task={task} />
+        {/* Left: Description — key resets edit state when the selected task changes */}
+        <DescriptionColumn key={task.id} task={task} />
 
         {/* Vertical divider */}
         <div

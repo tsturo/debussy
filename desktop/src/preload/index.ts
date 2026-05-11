@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('debussy', {
     block:     (id: string)                      => ipcRenderer.invoke(IPC.TASK_BLOCK, id),
     comment: (id: string, msg: string) => ipcRenderer.invoke(IPC.TASK_COMMENT, id, msg),
     create:  (title: string, desc: string) => ipcRenderer.invoke(IPC.TASK_CREATE, title, desc),
+    update:  (id: string, fields: { description?: string }) => ipcRenderer.invoke(IPC.TASK_UPDATE, id, fields),
   },
   agents: {
     list:              ()                                                    => ipcRenderer.invoke(IPC.AGENTS_LIST),

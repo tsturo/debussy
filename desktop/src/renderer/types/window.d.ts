@@ -33,6 +33,7 @@ interface DebussyAPI {
     block:     (id: string)                        => Promise<{ success: boolean }>
     comment:   (id: string, msg: string)           => Promise<{ success: boolean }>
     create:    (title: string, desc: string)       => Promise<{ success: boolean }>
+    update:    (id: string, fields: { description?: string }) => Promise<{ success: boolean; error?: string }>
   }
   agents: {
     list:              ()                                                           => Promise<WatcherState>
