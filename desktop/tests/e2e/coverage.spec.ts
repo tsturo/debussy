@@ -1,7 +1,8 @@
 import { test, expect, _electron as electron } from '@playwright/test'
 import type { ElectronApplication, Page } from '@playwright/test'
-import { resolve } from 'path'
-import { mkdirSync } from 'fs'
+import { resolve, join } from 'path'
+import { mkdirSync, mkdtempSync } from 'fs'
+import { tmpdir } from 'os'
 
 const APP_MAIN = resolve(__dirname, '..', '..', 'out', 'main', 'index.js')
 const SCREENSHOT_DIR = resolve(__dirname, '..', '..', 'screenshots')
@@ -93,8 +94,13 @@ test.describe('Coverage: with real task database', () => {
 test('agent bar renders with watcher status even with zero agents', async () => {
   mkdirSync(SCREENSHOT_DIR, { recursive: true })
 
+  // Use an isolated --user-data-dir so no persisted workspace state (active
+  // agents from a real watcher_state.json) leaks into this test.  Without
+  // isolation the test is flaky when other pipeline agents are running.
+  const tempDataDir = mkdtempSync(join(tmpdir(), 'debussy-e2e-'))
+
   // Launch without WORKTREE_ROOT — no agent state loaded from disk
-  const app = await electron.launch({ args: [APP_MAIN] })
+  const app = await electron.launch({ args: [APP_MAIN, `--user-data-dir=${tempDataDir}`] })
   const page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
   await page.waitForTimeout(800)
@@ -107,8 +113,9 @@ test('agent bar renders with watcher status even with zero agents', async () => 
   const statusText = agentBar.locator('span', { hasText: /^(watching|stopped)$/ })
   await expect(statusText).toBeVisible()
 
-  // With no WORKTREE_ROOT there are zero active agents — no agent avatar pills
-  // should be present inside the toolbar (agent buttons use aria-label "name · role · id · elapsed")
+  // With no WORKTREE_ROOT and a fresh user-data-dir, the workspace store has no
+  // persisted project path, so process.cwd() is used — which has no
+  // .debussy/watcher_state.json — meaning zero active agent pills.
   const agentPills = agentBar.locator('button[aria-label*="·"]')
   await expect(agentPills).toHaveCount(0)
 

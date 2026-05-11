@@ -51,6 +51,10 @@ export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = f
       ref={isDragOverlay ? undefined : setNodeRef}
       {...(isDragOverlay ? {} : listeners)}
       {...(isDragOverlay ? {} : attributes)}
+      // Override aria-disabled set by dnd-kit when drag is disabled:
+      // done-stage cards are still fully clickable (to open the detail panel),
+      // so advertising them as disabled is misleading and breaks Playwright clicks.
+      aria-disabled={undefined}
       role="button"
       data-task-id={task.id}
       tabIndex={isDone ? -1 : 0}
