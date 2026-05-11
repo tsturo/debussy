@@ -90,7 +90,7 @@ export function KanbanColumn({
       >
         <span
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             fontWeight: 600,
             color,
             letterSpacing: '0.04em',
@@ -101,7 +101,7 @@ export function KanbanColumn({
         </span>
         <span
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             fontWeight: 600,
             color: 'var(--t-text-3)',
             lineHeight: 1,
@@ -182,7 +182,7 @@ export function KanbanColumn({
               borderRadius: 'var(--t-radius-sm)',
               background: 'rgba(217,112,112,0.12)',
               border: '1px solid rgba(217,112,112,0.3)',
-              fontSize: '10px',
+              fontSize: '11px',
               color: '#d97070',
               textAlign: 'center',
               flexShrink: 0,

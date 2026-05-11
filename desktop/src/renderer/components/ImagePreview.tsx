@@ -49,7 +49,7 @@ export function ImagePreview({ src, onRemove }: ImagePreviewProps) {
           justifyContent: 'center',
           padding: 0,
           color: 'var(--t-text-2)',
-          fontSize: 9,
+          fontSize: 11,
           lineHeight: 1,
           transition: 'background var(--t-dur-fast)',
         }}

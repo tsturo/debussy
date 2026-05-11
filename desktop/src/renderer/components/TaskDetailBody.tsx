@@ -135,7 +135,7 @@ function DescriptionColumn({ task, comments }: DescriptionColumnProps) {
               {/* Author + timestamp */}
               <div
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   color: 'var(--t-text-3)',
                   marginBottom: 4,
                   display: 'flex',

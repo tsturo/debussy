@@ -111,7 +111,7 @@ export function AboutPage() {
       <section>
         <div
           style={{
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.08em',
@@ -140,7 +140,7 @@ export function AboutPage() {
       <section style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div
           style={{
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.08em',
@@ -183,7 +183,7 @@ export function AboutPage() {
           marginTop: 'auto',
           paddingTop: 16,
           borderTop: '1px solid var(--t-border)',
-          fontSize: 11,
+          fontSize: 12,
           color: 'var(--t-text-3)',
         }}
       >

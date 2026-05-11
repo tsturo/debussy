@@ -430,7 +430,7 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
             border: '1px solid var(--t-border)',
             borderRadius: 12,
             padding: '6px 10px',
-            fontSize: 11,
+            fontSize: 12,
             color: 'var(--t-text)',
             outline: 'none',
             fontFamily: 'inherit',
