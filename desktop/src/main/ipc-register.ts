@@ -54,8 +54,18 @@ function switchProject(projectPath: string): void {
  * Returns null when .takt/takt.db does not exist yet (valid for new projects).
  * Re-tries on every call while db is null so a newly-initialised project is
  * picked up automatically.
+ *
+ * If the cached handle is stale (DB file replaced or connection errored),
+ * the health-check probe detects it and re-opens the connection.
  */
 function getDb(): Database.Database | null {
+  if (db) {
+    try {
+      db.prepare('SELECT 1').get()  // health-check: detects stale handles
+    } catch {
+      db = null  // stale handle — fall through to re-open
+    }
+  }
   if (!db) {
     const dbPath = join(getProjectPath(), '.takt', 'takt.db')
     db = dbReader.openDatabase(dbPath)
