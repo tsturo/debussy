@@ -10,6 +10,7 @@ export const IPC = {
   TASK_BLOCK:      'tasks:block',
   TASK_COMMENT:    'tasks:comment',
   TASK_CREATE:     'tasks:create',
+  TASK_UPDATE:     'tasks:update',
   AGENTS_LIST:     'agents:list',
   AGENT_LOG:       'agents:log',
   AGENT_LOG_STOP:  'agents:log:stop',

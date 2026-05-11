@@ -196,6 +196,12 @@ export function registerIPC(): void {
     return { ...result, id }
   })
 
+  ipcMain.handle(IPC.TASK_UPDATE, (_event, id: string, fields: { description?: string }) => {
+    const args = ['update', id]
+    if (fields.description !== undefined) args.push('-d', fields.description)
+    return runTakt(args)
+  })
+
   // ── Conductor IPC ──────────────────────────────────────────────────────────
 
   ipcMain.handle(IPC.CONDUCTOR_SEND, (_event, text: string, images?: string[], tempPaths?: string[]) => {
