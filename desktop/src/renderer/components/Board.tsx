@@ -22,11 +22,13 @@ export interface BoardProps {
   config: DebussyConfig | null
   selectedTaskId: string | null
   watcherRunning: boolean
+  conductorVisible: boolean
   showBacklog?: boolean
   onTaskSelect: (taskId: string) => void
   onNewTask: () => void
   onWatcherToggle: () => Promise<void>
   onTaskMove: (task: Task, toStage: Stage) => Promise<void>
+  onToggleConductor: () => void
 }
 
 /** Stages that are hidden when empty (not always shown as columns). */
@@ -43,11 +45,13 @@ export function Board({
   config,
   selectedTaskId,
   watcherRunning,
+  conductorVisible,
   showBacklog = true,
   onTaskSelect,
   onNewTask,
   onWatcherToggle,
   onTaskMove,
+  onToggleConductor,
 }: BoardProps) {
   /** Group tasks by stage into a map for O(1) lookup per column. */
   const tasksByStage = useMemo(() => {
@@ -175,8 +179,10 @@ export function Board({
           agentCount={agentCount}
           maxAgents={maxAgents}
           blockedCount={blockedCount}
+          conductorVisible={conductorVisible}
           onSearchClick={() => {}}
           onNewTaskClick={onNewTask}
+          onToggleConductor={onToggleConductor}
         />
 
         <AgentBar
