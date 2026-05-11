@@ -12,9 +12,11 @@ export interface KanbanCardProps {
   onClick: () => void
   /** When true, the card renders as a static overlay clone (no drag/events). */
   isDragOverlay?: boolean
+  /** When true, the title renders on up to two lines; when false, single line with ellipsis. */
+  isWide?: boolean
 }
 
-export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = false }: KanbanCardProps) {
+export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = false, isWide = true }: KanbanCardProps) {
   const [isHovered, setIsHovered] = useState(false)
 
   const isDone = task.stage === 'done'
@@ -102,15 +104,28 @@ export function KanbanCard({ task, agent, isSelected, onClick, isDragOverlay = f
           ·
         </span>
         <span
-          style={{
-            fontSize: '12px',
-            fontWeight: 500,
-            color: 'var(--t-text)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            lineHeight: 1.3,
-          }}
+          style={
+            isWide
+              ? {
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: 'var(--t-text)',
+                  overflow: 'hidden',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  lineHeight: 1.3,
+                }
+              : {
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: 'var(--t-text)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  lineHeight: 1.3,
+                }
+          }
         >
           {task.title}
         </span>

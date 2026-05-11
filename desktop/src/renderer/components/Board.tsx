@@ -218,6 +218,8 @@ export function Board({
             }}
           >
             {visibleStages.map((stage) => {
+              const stageTasks = tasksByStage.get(stage) ?? []
+              const isEmpty = stageTasks.length === 0
               const dragOver = overStage === stage && activeTask !== null
               const validTarget =
                 activeTask !== null &&
@@ -233,20 +235,23 @@ export function Board({
                   }
                   style={
                     stage === 'backlog'
-                      ? undefined
-                      : stage === 'done'
-                      ? { flex: 0.7, minWidth: '120px', display: 'flex' }
+                      ? isEmpty
+                        ? { flex: '0 0 80px', minWidth: '80px' }
+                        : undefined
+                      : isEmpty
+                      ? { flex: '0 0 80px', display: 'flex' }
                       : { flex: 1, minWidth: '140px', display: 'flex' }
                   }
                 >
                   <KanbanColumn
                     stage={stage}
-                    tasks={tasksByStage.get(stage) ?? []}
+                    tasks={stageTasks}
                     agents={agentsMap}
                     selectedTaskId={selectedTaskId}
                     onCardClick={onTaskSelect}
                     isValidDropTarget={validTarget}
                     isDragOver={dragOver}
+                    isWide={!isEmpty}
                   />
                 </div>
               )
