@@ -4,3 +4,4 @@ out
 .vite
 *.tsbuildinfo
 test-results/
+screenshots/*.png
