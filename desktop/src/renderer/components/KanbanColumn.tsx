@@ -130,7 +130,7 @@ export function KanbanColumn({
               border: '1px solid var(--t-border, rgba(255,255,255,0.08))',
               borderRadius: 'var(--t-radius-sm)',
               color: 'var(--t-text-3)',
-              fontSize: '10px',
+              fontSize: '12px',
               cursor: 'pointer',
               padding: '4px 6px',
               textAlign: 'center',
