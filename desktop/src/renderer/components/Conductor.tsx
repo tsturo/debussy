@@ -15,148 +15,14 @@ interface ConductorProps {
   onSend: (message: string, imagePaths: string[], tempPaths: string[], previewUrls: string[]) => void
 }
 
-// ── Session menu ─────────────────────────────────────────────────────────────
-
-interface SessionMenuProps {
-  sessionId: string | null
-  onClearContext: () => void
-  onNewBlankSession: () => void
-  onClose: () => void
-}
-
-function SessionMenu({ sessionId, onClearContext, onNewBlankSession, onClose }: SessionMenuProps) {
-  const [copied, setCopied] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  // Close when clicking outside
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose()
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [onClose])
-
-  function handleCopySessionId() {
-    if (!sessionId) return
-    navigator.clipboard.writeText(sessionId).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    })
-  }
-
-  const truncated = sessionId ? sessionId.slice(0, 8) + '…' : '—'
-
-  return (
-    <div
-      ref={menuRef}
-      style={{
-        position: 'absolute',
-        top: 42,
-        right: 10,
-        zIndex: 100,
-        background: 'var(--t-surface)',
-        border: '1px solid var(--t-border)',
-        borderRadius: 10,
-        boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
-        minWidth: 200,
-        overflow: 'hidden',
-      }}
-    >
-      <MenuItem
-        label="Clear & Reload Context"
-        description="Start fresh, auto-send project history"
-        onClick={() => { onClearContext(); onClose() }}
-      />
-      <MenuItem
-        label="New Blank Session"
-        description="Start completely blank"
-        onClick={() => { onNewBlankSession(); onClose() }}
-      />
-
-      {/* Separator */}
-      <div style={{ height: 1, background: 'var(--t-border)', margin: '2px 0' }} />
-
-      {/* Session ID row */}
-      <button
-        onClick={handleCopySessionId}
-        title={sessionId ?? 'No session yet'}
-        style={{
-          width: '100%',
-          background: 'transparent',
-          border: 'none',
-          padding: '7px 12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
-          cursor: sessionId ? 'pointer' : 'default',
-          color: 'var(--t-text-3)',
-          fontSize: 10,
-          fontFamily: 'inherit',
-          textAlign: 'left',
-        }}
-      >
-        <span>Session: <span style={{ fontFamily: 'ui-monospace, monospace' }}>{truncated}</span></span>
-        {sessionId && (
-          <span style={{ fontSize: 9, opacity: 0.7 }}>
-            {copied ? '✓ Copied' : 'Click to copy'}
-          </span>
-        )}
-      </button>
-    </div>
-  )
-}
-
-function MenuItem({
-  label,
-  description,
-  onClick,
-}: {
-  label: string
-  description: string
-  onClick: () => void
-}) {
-  const [hovered, setHovered] = useState(false)
-
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        width: '100%',
-        background: hovered ? 'var(--t-bg)' : 'transparent',
-        border: 'none',
-        padding: '8px 12px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        gap: 1,
-        cursor: 'pointer',
-        color: 'var(--t-text)',
-        fontSize: 11,
-        fontFamily: 'inherit',
-        textAlign: 'left',
-        transition: 'background var(--t-dur-fast)',
-      }}
-    >
-      <span style={{ fontWeight: 500 }}>{label}</span>
-      <span style={{ fontSize: 9, color: 'var(--t-text-3)' }}>{description}</span>
-    </button>
-  )
-}
-
 // ── Conductor ────────────────────────────────────────────────────────────────
 
 export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
   const [inputValue, setInputValue] = useState('')
   const [activeTab, setActiveTab] = useState<TabKey>('watcher')
   const [streamingContent, setStreamingContent] = useState('')
-  const [menuOpen, setMenuOpen] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [sessionIdCopied, setSessionIdCopied] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -260,7 +126,7 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
     }
   }
 
-  async function handleClearContext() {
+  async function handleNewSession() {
     window.debussy.conductor.cancel()
     setStreamingContent('')
     setConductorStreaming(false)
@@ -276,19 +142,11 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
     })
   }
 
-  async function handleNewBlankSession() {
-    window.debussy.conductor.cancel()
-    setStreamingContent('')
-    setConductorStreaming(false)
-    clearConductorMessages()
-    revokeAndClearImages()
-    const result = await window.debussy.conductor.newSession()
-    if (result.sessionId) setSessionId(result.sessionId)
-    addConductorMessage({
-      id: `cm-sys-blank-${Date.now()}`,
-      role: 'system',
-      content: 'New blank session started',
-      timestamp: Date.now(),
+  function handleCopySessionId() {
+    if (!sessionId) return
+    navigator.clipboard.writeText(sessionId).then(() => {
+      setSessionIdCopied(true)
+      setTimeout(() => setSessionIdCopied(false), 1500)
     })
   }
 
@@ -337,44 +195,53 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {/* Session menu button (three-dot) */}
+          {/* Session ID chip — click to copy */}
+          {sessionId && (
+            <button
+              onClick={handleCopySessionId}
+              title={sessionIdCopied ? 'Copied!' : sessionId}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                color: 'var(--t-text-3)',
+                fontSize: 9,
+                fontFamily: 'ui-monospace, monospace',
+              }}
+            >
+              {sessionIdCopied ? '✓' : sessionId.slice(0, 8) + '…'}
+            </button>
+          )}
+
+          {/* New Session button */}
           <button
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-label="Session options"
-            title="Session options"
+            onClick={handleNewSession}
+            title="New session — auto-loads project context"
             style={{
-              width: 26,
-              height: 26,
-              flexShrink: 0,
-              background: menuOpen ? 'var(--t-bg)' : 'transparent',
+              height: 22,
+              padding: '0 8px',
+              background: 'transparent',
               border: '1px solid var(--t-border)',
-              borderRadius: 8,
+              borderRadius: 6,
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: menuOpen ? 'var(--t-text)' : 'var(--t-text-3)',
-              transition: 'color var(--t-dur-fast), border-color var(--t-dur-fast), background var(--t-dur-fast)',
+              color: 'var(--t-text-3)',
+              fontSize: 9,
+              fontWeight: 500,
+              fontFamily: 'inherit',
+              whiteSpace: 'nowrap',
+              transition: 'color var(--t-dur-fast), border-color var(--t-dur-fast)',
             }}
             onMouseEnter={(e) => {
-              if (!menuOpen) {
-                e.currentTarget.style.color = 'var(--t-text)'
-                e.currentTarget.style.borderColor = 'var(--t-text-3)'
-              }
+              e.currentTarget.style.color = 'var(--t-text)'
+              e.currentTarget.style.borderColor = 'var(--t-text-3)'
             }}
             onMouseLeave={(e) => {
-              if (!menuOpen) {
-                e.currentTarget.style.color = 'var(--t-text-3)'
-                e.currentTarget.style.borderColor = 'var(--t-border)'
-              }
+              e.currentTarget.style.color = 'var(--t-text-3)'
+              e.currentTarget.style.borderColor = 'var(--t-border)'
             }}
           >
-            {/* Three-dot icon */}
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <circle cx="2.5" cy="6" r="1.2" fill="currentColor" />
-              <circle cx="6" cy="6" r="1.2" fill="currentColor" />
-              <circle cx="9.5" cy="6" r="1.2" fill="currentColor" />
-            </svg>
+            New Session
           </button>
 
           {/* Segmented toggle */}
@@ -416,16 +283,6 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
           </div>
         </div>
       </div>
-
-      {/* Session dropdown menu */}
-      {menuOpen && (
-        <SessionMenu
-          sessionId={sessionId}
-          onClearContext={handleClearContext}
-          onNewBlankSession={handleNewBlankSession}
-          onClose={() => setMenuOpen(false)}
-        />
-      )}
 
       {/* Chat area */}
       <div

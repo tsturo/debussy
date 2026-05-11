@@ -242,11 +242,6 @@ export function registerIPC(): void {
     conductorBridge.cancelCurrent()
   })
 
-  ipcMain.handle(IPC.CONDUCTOR_NEW_SESSION, () => {
-    const sessionId = conductorBridge.newBlankSession(getProjectPath())
-    return { success: true, sessionId }
-  })
-
   ipcMain.handle(IPC.CONDUCTOR_CLEAR_CONTEXT, () => {
     const sessionId = conductorBridge.clearWithContext(getProjectPath())
     return { success: true, sessionId }

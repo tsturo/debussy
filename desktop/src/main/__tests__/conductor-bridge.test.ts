@@ -247,23 +247,64 @@ describe('ConductorBridge', () => {
     expect(proc2.kill).toHaveBeenCalled()
   })
 
-  // ── newBlankSession ───────────────────────────────────────────────────────
+  // ── getSessionId ─────────────────────────────────────────────────────────
 
-  it('newBlankSession returns a new UUID and persists it', () => {
+  it('getSessionId returns null on first launch when no config exists', () => {
+    readFileMock.mockImplementation(() => {
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
     const bridge = new ConductorBridge()
-    const id = bridge.newBlankSession('/project')
+    const id = bridge.getSessionId('/project')
 
-    expect(typeof id).toBe('string')
-    expect(id).toMatch(/^[0-9a-f-]{36}$/)
-    // Should NOT spawn any process
+    expect(id).toBeNull()
+    // Should NOT spawn any process or persist a new UUID
     expect(spawnMock).not.toHaveBeenCalled()
   })
 
-  it('newBlankSession rotates session ID each call', () => {
+  it('getSessionId returns null when config exists but has no conductor_session_id', () => {
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('config.json')) return '{}'
+      if (p.includes('conductor.md')) return 'system prompt'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
     const bridge = new ConductorBridge()
-    const id1 = bridge.newBlankSession('/project')
-    const id2 = bridge.newBlankSession('/project')
-    expect(id1).not.toBe(id2)
+    const id = bridge.getSessionId('/project')
+
+    expect(id).toBeNull()
+  })
+
+  it('getSessionId returns the persisted session ID when one exists in config', () => {
+    const persistedId = '11111111-2222-3333-4444-555555555555'
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('config.json')) return JSON.stringify({ conductor_session_id: persistedId })
+      if (p.includes('conductor.md')) return 'system prompt'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+    const bridge = new ConductorBridge()
+    const id = bridge.getSessionId('/project')
+
+    expect(id).toBe(persistedId)
+  })
+
+  it('getSessionId caches the session ID after first read', () => {
+    const persistedId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('config.json')) return JSON.stringify({ conductor_session_id: persistedId })
+      if (p.includes('conductor.md')) return 'system prompt'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+    const bridge = new ConductorBridge()
+    bridge.getSessionId('/project') // first call — reads config
+    readFileMock.mockClear()
+    const id = bridge.getSessionId('/project') // second call — should use cache
+
+    expect(id).toBe(persistedId)
+    // config.json should NOT be read again
+    const configReads = readFileMock.mock.calls.filter(([p]) => String(p).includes('config.json'))
+    expect(configReads).toHaveLength(0)
   })
 
   // ── clearWithContext ──────────────────────────────────────────────────────
