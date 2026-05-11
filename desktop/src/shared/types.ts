@@ -110,7 +110,7 @@ export interface DebussyConfig {
 
 export interface ConductorMessage {
   id: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: number
   /** Preview URLs (object URLs) for images attached to user messages */

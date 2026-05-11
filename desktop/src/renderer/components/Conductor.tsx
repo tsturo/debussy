@@ -3,7 +3,7 @@ import { ConductorMessage } from '../../shared/types'
 import { useAppStore } from '../store/app-store'
 import { ImagePreview } from './ImagePreview'
 import { useImageAttachments } from '../hooks/useImageAttachments'
-import { UserBubble, AssistantBubble, StreamingIndicator } from './ConductorMessages'
+import { UserBubble, AssistantBubble, SystemBubble, StreamingIndicator } from './ConductorMessages'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,6 +21,8 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
   const [inputValue, setInputValue] = useState('')
   const [activeTab, setActiveTab] = useState<TabKey>('watcher')
   const [streamingContent, setStreamingContent] = useState('')
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [sessionIdCopied, setSessionIdCopied] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -69,6 +71,25 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
     }
   }, [addConductorMessage, setConductorStreaming])
 
+  // ── Auto-resume indicator on mount ─────────────────────────────────────────
+
+  useEffect(() => {
+    window.debussy.conductor.getSessionId().then(({ sessionId: id }) => {
+      setSessionId(id)
+      // If a session existed before this render, show "Resumed" notice
+      if (id && messages.length === 0) {
+        addConductorMessage({
+          id: `cm-sys-resume-${Date.now()}`,
+          role: 'system',
+          content: 'Resumed previous session',
+          timestamp: Date.now(),
+        })
+      }
+    })
+  // Run once on mount only
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Auto-scroll to bottom when messages or streaming content change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -111,7 +132,22 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
     setConductorStreaming(false)
     clearConductorMessages()
     revokeAndClearImages()
-    await window.debussy.conductor.newSession()
+    const result = await window.debussy.conductor.clearContext()
+    if (result.sessionId) setSessionId(result.sessionId)
+    addConductorMessage({
+      id: `cm-sys-clear-${Date.now()}`,
+      role: 'system',
+      content: 'Context cleared — project history loaded',
+      timestamp: Date.now(),
+    })
+  }
+
+  function handleCopySessionId() {
+    if (!sessionId) return
+    navigator.clipboard.writeText(sessionId).then(() => {
+      setSessionIdCopied(true)
+      setTimeout(() => setSessionIdCopied(false), 1500)
+    })
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -129,6 +165,7 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
         outline: isDragOver ? '2px dashed var(--t-purple)' : 'none',
         outlineOffset: -2,
         transition: 'background var(--t-dur-fast)',
+        position: 'relative',
       }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -158,23 +195,41 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* Session ID chip — click to copy */}
+          {sessionId && (
+            <button
+              onClick={handleCopySessionId}
+              title={sessionIdCopied ? 'Copied!' : sessionId}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                color: 'var(--t-text-3)',
+                fontSize: 9,
+                fontFamily: 'ui-monospace, monospace',
+              }}
+            >
+              {sessionIdCopied ? '✓' : sessionId.slice(0, 8) + '…'}
+            </button>
+          )}
+
           {/* New Session button */}
           <button
             onClick={handleNewSession}
-            aria-label="New session"
-            title="New Session"
+            title="New session — auto-loads project context"
             style={{
-              width: 26,
-              height: 26,
-              flexShrink: 0,
+              height: 22,
+              padding: '0 8px',
               background: 'transparent',
               border: '1px solid var(--t-border)',
-              borderRadius: 8,
+              borderRadius: 6,
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
               color: 'var(--t-text-3)',
+              fontSize: 9,
+              fontWeight: 500,
+              fontFamily: 'inherit',
+              whiteSpace: 'nowrap',
               transition: 'color var(--t-dur-fast), border-color var(--t-dur-fast)',
             }}
             onMouseEnter={(e) => {
@@ -186,23 +241,7 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
               e.currentTarget.style.borderColor = 'var(--t-border)'
             }}
           >
-            {/* Compose / new-chat icon */}
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path
-                d="M6 1H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6"
-                stroke="currentColor"
-                strokeWidth="1.25"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M9 1l2 2-4 4H5V5l4-4z"
-                stroke="currentColor"
-                strokeWidth="1.25"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            New Session
           </button>
 
           {/* Segmented toggle */}
@@ -257,7 +296,9 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
         }}
       >
         {messages.map((msg) =>
-          msg.role === 'user' ? (
+          msg.role === 'system' ? (
+            <SystemBubble key={msg.id} message={msg} />
+          ) : msg.role === 'user' ? (
             <UserBubble key={msg.id} message={msg} />
           ) : (
             <AssistantBubble key={msg.id} message={msg} />

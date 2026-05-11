@@ -33,7 +33,8 @@ contextBridge.exposeInMainWorld('debussy', {
     send:            (text: string, images?: string[], tempPaths?: string[]) =>
                        ipcRenderer.invoke(IPC.CONDUCTOR_SEND, text, images, tempPaths),
     cancel:          ()                                         => ipcRenderer.send(IPC.CONDUCTOR_CANCEL),
-    newSession:      ()                                         => ipcRenderer.invoke(IPC.CONDUCTOR_NEW_SESSION),
+    clearContext:    ()                                         => ipcRenderer.invoke(IPC.CONDUCTOR_CLEAR_CONTEXT),
+    getSessionId:    ()                                         => ipcRenderer.invoke(IPC.CONDUCTOR_GET_SESSION_ID),
     onChunk:         (callback: (chunk: string) => void)        => ipcRenderer.on(IPC.CONDUCTOR_RESPONSE_CHUNK, (_event, chunk) => callback(chunk)),
     onDone:          (callback: () => void)                     => ipcRenderer.on(IPC.CONDUCTOR_RESPONSE_DONE, () => callback()),
     removeListeners: ()                                         => {

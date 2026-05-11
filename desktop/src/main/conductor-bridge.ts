@@ -1,5 +1,5 @@
 import { spawn, ChildProcess } from 'child_process'
-import { readFileSync, writeFileSync, unlinkSync } from 'fs'
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { BrowserWindow } from 'electron'
@@ -90,13 +90,51 @@ export class ConductorBridge {
   }
 
   /**
-   * Generate a fresh session ID, persist it to config, and clear the
-   * in-memory cache so the next sendMessage call picks it up.
+   * Generate a fresh session ID and send the project context files
+   * (.debussy/conductor-context.md + .debussy/conductor-history.md) as the
+   * first message so Claude starts fresh but with full project awareness.
+   * If neither file exists the session is still rotated (blank start).
+   * Returns the new session ID.
    */
-  newSession(cwd: string): void {
+  clearWithContext(cwd: string): string {
     const newId = randomUUID()
     this.sessionId = newId
     this.persistSessionId(cwd, newId)
+
+    const contextPath = join(cwd, '.debussy', 'conductor-context.md')
+    const historyPath = join(cwd, '.debussy', 'conductor-history.md')
+
+    let contextContent = ''
+    let historyContent = ''
+    try { if (existsSync(contextPath)) contextContent = readFileSync(contextPath, 'utf-8') } catch { /* missing — skip */ }
+    try { if (existsSync(historyPath)) historyContent = readFileSync(historyPath, 'utf-8') } catch { /* missing — skip */ }
+
+    if (contextContent || historyContent) {
+      const parts = ['Here is the project context:']
+      if (contextContent) parts.push(contextContent)
+      if (historyContent) parts.push(historyContent)
+      this.sendMessage({ text: parts.join('\n\n') }, cwd)
+    }
+
+    return newId
+  }
+
+  /**
+   * Return the persisted session ID, or null if none has been created yet.
+   * Does NOT generate a new UUID as a side effect (unlike getOrCreateSessionId).
+   */
+  getSessionId(cwd: string): string | null {
+    if (this.sessionId) return this.sessionId
+    try {
+      const config = JSON.parse(readFileSync(join(cwd, '.debussy', 'config.json'), 'utf-8'))
+      if (typeof config?.conductor_session_id === 'string' && config.conductor_session_id) {
+        this.sessionId = config.conductor_session_id
+        return this.sessionId
+      }
+    } catch {
+      // Config missing or unreadable
+    }
+    return null
   }
 
   /** Kill the running process, if any. */

@@ -28,6 +28,7 @@ vi.mock('fs', () => ({
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
   unlinkSync: vi.fn(),
+  existsSync: vi.fn().mockReturnValue(false),
 }))
 
 // ── Imports after mocks ───────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ vi.mock('fs', () => ({
 import { ConductorBridge } from '../conductor-bridge'
 import { IPC } from '../../shared/ipc-channels'
 import { spawn } from 'child_process'
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync } from 'fs'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -52,8 +53,9 @@ function createMockProcess(): MockProcess {
   return proc
 }
 
-const spawnMock     = vi.mocked(spawn)
-const readFileMock  = vi.mocked(readFileSync)
+const spawnMock      = vi.mocked(spawn)
+const readFileMock   = vi.mocked(readFileSync)
+const existsSyncMock = vi.mocked(existsSync)
 
 // ── Test suite ────────────────────────────────────────────────────────────────
 
@@ -243,5 +245,123 @@ describe('ConductorBridge', () => {
     // proc2 is still tracked — cancel kills it
     bridge.cancelCurrent()
     expect(proc2.kill).toHaveBeenCalled()
+  })
+
+  // ── getSessionId ─────────────────────────────────────────────────────────
+
+  it('getSessionId returns null on first launch when no config exists', () => {
+    readFileMock.mockImplementation(() => {
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+    const bridge = new ConductorBridge()
+    const id = bridge.getSessionId('/project')
+
+    expect(id).toBeNull()
+    // Should NOT spawn any process or persist a new UUID
+    expect(spawnMock).not.toHaveBeenCalled()
+  })
+
+  it('getSessionId returns null when config exists but has no conductor_session_id', () => {
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('config.json')) return '{}'
+      if (p.includes('conductor.md')) return 'system prompt'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+    const bridge = new ConductorBridge()
+    const id = bridge.getSessionId('/project')
+
+    expect(id).toBeNull()
+  })
+
+  it('getSessionId returns the persisted session ID when one exists in config', () => {
+    const persistedId = '11111111-2222-3333-4444-555555555555'
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('config.json')) return JSON.stringify({ conductor_session_id: persistedId })
+      if (p.includes('conductor.md')) return 'system prompt'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+    const bridge = new ConductorBridge()
+    const id = bridge.getSessionId('/project')
+
+    expect(id).toBe(persistedId)
+  })
+
+  it('getSessionId caches the session ID after first read', () => {
+    const persistedId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('config.json')) return JSON.stringify({ conductor_session_id: persistedId })
+      if (p.includes('conductor.md')) return 'system prompt'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+    const bridge = new ConductorBridge()
+    bridge.getSessionId('/project') // first call — reads config
+    readFileMock.mockClear()
+    const id = bridge.getSessionId('/project') // second call — should use cache
+
+    expect(id).toBe(persistedId)
+    // config.json should NOT be read again
+    const configReads = readFileMock.mock.calls.filter(([p]) => String(p).includes('config.json'))
+    expect(configReads).toHaveLength(0)
+  })
+
+  // ── clearWithContext ──────────────────────────────────────────────────────
+
+  it('clearWithContext returns a new session ID and does NOT spawn when no context files exist', () => {
+    existsSyncMock.mockReturnValue(false)
+    const bridge = new ConductorBridge()
+    const id = bridge.clearWithContext('/project')
+
+    expect(typeof id).toBe('string')
+    expect(id).toMatch(/^[0-9a-f-]{36}$/)
+    expect(spawnMock).not.toHaveBeenCalled()
+  })
+
+  it('clearWithContext sends combined context when both files exist', () => {
+    existsSyncMock.mockReturnValue(true)
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('conductor-context.md')) return 'context content'
+      if (p.includes('conductor-history.md')) return 'history content'
+      if (p.includes('conductor.md')) return 'system prompt'
+      if (p.includes('config.json')) return '{}'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+    const proc = createMockProcess()
+    spawnMock.mockReturnValue(proc as unknown as ChildProcess)
+    const bridge = new ConductorBridge()
+
+    bridge.clearWithContext('/project')
+
+    expect(spawnMock).toHaveBeenCalledOnce()
+    // The text argument should contain both context and history
+    const args = spawnMock.mock.calls[0][1] as string[]
+    const text = args[args.length - 1]
+    expect(text).toContain('context content')
+    expect(text).toContain('history content')
+    expect(text).toContain('Here is the project context:')
+  })
+
+  it('clearWithContext sends only context when history file is missing', () => {
+    existsSyncMock.mockImplementation((p: unknown) => !String(p).includes('conductor-history.md'))
+    readFileMock.mockImplementation((filePath: unknown) => {
+      const p = String(filePath)
+      if (p.includes('conductor-context.md')) return 'only context'
+      if (p.includes('conductor.md')) return 'system prompt'
+      if (p.includes('config.json')) return '{}'
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+    const proc = createMockProcess()
+    spawnMock.mockReturnValue(proc as unknown as ChildProcess)
+    const bridge = new ConductorBridge()
+
+    bridge.clearWithContext('/project')
+
+    expect(spawnMock).toHaveBeenCalledOnce()
+    const args = spawnMock.mock.calls[0][1] as string[]
+    const text = args[args.length - 1]
+    expect(text).toContain('only context')
   })
 })
