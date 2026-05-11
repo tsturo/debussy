@@ -3,7 +3,7 @@ import { ConductorMessage } from '../../shared/types'
 import { useAppStore } from '../store/app-store'
 import { ImagePreview } from './ImagePreview'
 import { useImageAttachments } from '../hooks/useImageAttachments'
-import { UserBubble, AssistantBubble, SystemBubble, StreamingIndicator } from './ConductorMessages'
+import { UserBubble, AssistantBubble, SystemBubble, ResumeCard, StreamingIndicator } from './ConductorMessages'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +25,8 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
   const [sessionIdCopied, setSessionIdCopied] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  // Guards against double-fire in React Strict Mode and prevents re-adding on re-render
+  const sessionResumeShownRef = useRef(false)
 
   const isStreaming = useAppStore((s) => s.conductorStreaming)
   const setConductorStreaming = useAppStore((s) => s.setConductorStreaming)
@@ -71,20 +73,30 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
     }
   }, [addConductorMessage, setConductorStreaming])
 
-  // ── Auto-resume indicator on mount ─────────────────────────────────────────
+  // ── Auto-resume card on mount ──────────────────────────────────────────────
 
   useEffect(() => {
-    window.debussy.conductor.getSessionId().then(({ sessionId: id }) => {
+    window.debussy.conductor.getSessionId().then(({ sessionId: id, contextSummary, historySummary }) => {
       setSessionId(id)
-      // If a session existed before this render, show "Resumed" notice
-      if (id && messages.length === 0) {
-        addConductorMessage({
-          id: `cm-sys-resume-${Date.now()}`,
-          role: 'system',
-          content: 'Resumed previous session',
-          timestamp: Date.now(),
-        })
+      // Show resume card only when: a session exists, no messages yet, and not already shown
+      if (!id || messages.length > 0 || sessionResumeShownRef.current) return
+      sessionResumeShownRef.current = true
+
+      const lines: string[] = [`Session resumed (${id.slice(0, 8)}…)`]
+      if (contextSummary || historySummary) {
+        lines.push('Loaded context:')
+        if (contextSummary) lines.push(`• conductor-context.md — ${contextSummary}`)
+        if (historySummary) lines.push(`• conductor-history.md — ${historySummary}`)
       }
+      lines.push('Ready to continue.')
+
+      addConductorMessage({
+        id: `cm-sys-resume-${Date.now()}`,
+        role: 'system',
+        variant: 'resume',
+        content: lines.join('\n'),
+        timestamp: Date.now(),
+      })
     })
   // Run once on mount only
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -318,7 +330,9 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
       >
         {messages.map((msg) =>
           msg.role === 'system' ? (
-            <SystemBubble key={msg.id} message={msg} />
+            msg.variant === 'resume'
+              ? <ResumeCard key={msg.id} message={msg} />
+              : <SystemBubble key={msg.id} message={msg} />
           ) : msg.role === 'user' ? (
             <UserBubble key={msg.id} message={msg} />
           ) : (

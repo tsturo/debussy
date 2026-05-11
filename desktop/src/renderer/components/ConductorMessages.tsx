@@ -110,7 +110,7 @@ export function AssistantBubble({ message }: { message: ConductorMessage }) {
   )
 }
 
-/** Faded system notice shown for session events (resume, clear, etc.). */
+/** Faded system notice shown for session events (clear, etc.). */
 export function SystemBubble({ message }: { message: ConductorMessage }) {
   return (
     <div
@@ -127,6 +127,44 @@ export function SystemBubble({ message }: { message: ConductorMessage }) {
       }}
     >
       {message.content}
+    </div>
+  )
+}
+
+/**
+ * Rich session-resume card shown on app launch when a previous session exists.
+ * Styled as a subtle card (not the default pill) so it's present but unobtrusive.
+ */
+export function ResumeCard({ message }: { message: ConductorMessage }) {
+  const lines = message.content.split('\n')
+  return (
+    <div
+      style={{
+        alignSelf: 'stretch',
+        background: 'var(--t-surface)',
+        border: '1px solid var(--t-border)',
+        borderRadius: 12,
+        padding: '8px 10px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        userSelect: 'none',
+        color: 'var(--t-text-3)',
+        fontSize: 10,
+        lineHeight: 1.6,
+      }}
+    >
+      {lines.map((line, i) => (
+        <div
+          key={i}
+          style={{
+            fontFamily: i === 0 ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit',
+            fontWeight: i === 0 ? 500 : 400,
+          }}
+        >
+          {line || ' '}
+        </div>
+      ))}
     </div>
   )
 }
