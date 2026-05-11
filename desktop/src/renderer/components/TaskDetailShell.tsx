@@ -15,7 +15,6 @@ const STRIP_STAGES: Array<[Stage, string]> = [
 export interface TaskDetailShellProps {
   task: Task | null
   agent: { name: string; stage: Stage } | null
-  watcherRunning: boolean
   agentCount: number
   lastEvent: string       // e.g. "DBS-3 → reviewing"
   stageCounts: Partial<Record<Stage, number>>
@@ -45,13 +44,12 @@ function withAlpha12(hex: string): string {
 // ── Collapsed strip ───────────────────────────────────────────────────────────
 
 interface CollapsedStripProps {
-  watcherRunning: boolean
   agentCount: number
   lastEvent: string
   stageCounts: Partial<Record<Stage, number>>
 }
 
-function CollapsedStrip({ watcherRunning, agentCount, lastEvent, stageCounts }: CollapsedStripProps) {
+function CollapsedStrip({ agentCount, lastEvent, stageCounts }: CollapsedStripProps) {
   const stageCountStr = STRIP_STAGES
     .filter(([stage]) => (stageCounts[stage] ?? 0) > 0)
     .map(([stage, label]) => `${stageCounts[stage]} ${label}`)
@@ -70,34 +68,15 @@ function CollapsedStrip({ watcherRunning, agentCount, lastEvent, stageCounts }: 
         userSelect: 'none',
       }}
     >
-      {/* Left: status dot + label */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-        <span
-          style={{
-            display: 'inline-block',
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            backgroundColor: watcherRunning ? 'var(--t-teal)' : 'var(--t-muted)',
-            flexShrink: 0,
-          }}
-        />
-        <span style={{ fontSize: 11, color: 'var(--t-text-2)', whiteSpace: 'nowrap' }}>
-          {watcherRunning ? 'Watching' : 'Idle'}
-        </span>
-      </div>
-
-      {/* Center: stage counts + agent count + last event */}
+      {/* Left/Center: stage counts + agent count + last event */}
       <div
         style={{
           flex: 1,
-          textAlign: 'center',
           fontSize: 11,
           color: 'var(--t-text-3)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-          padding: '0 12px',
         }}
       >
         {stageCountStr || `${agentCount} agent${agentCount !== 1 ? 's' : ''}`}
@@ -134,7 +113,6 @@ function CollapsedStrip({ watcherRunning, agentCount, lastEvent, stageCounts }: 
 export function TaskDetailShell({
   task,
   agent,
-  watcherRunning,
   agentCount,
   lastEvent,
   stageCounts,
@@ -207,7 +185,6 @@ export function TaskDetailShell({
   if (task === null) {
     return (
       <CollapsedStrip
-        watcherRunning={watcherRunning}
         agentCount={agentCount}
         lastEvent={lastEvent}
         stageCounts={stageCounts}

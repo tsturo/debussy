@@ -99,8 +99,8 @@ function App() {
   }, [isLarge, isMedium])
 
   // Breakpoint defaults:
-  //   Large  (≥1920px): sidebar expanded, conductor visible, backlog shown
-  //   Medium (1366–1920px): sidebar collapsed, conductor hidden, no backlog
+  //   Large  (≥1680px): sidebar expanded, conductor visible, backlog shown
+  //   Medium (1366–1680px): sidebar collapsed, conductor hidden, no backlog
   //   Small  (<1366px):  sidebar collapsed, conductor hidden (overlay on toggle)
   const defaultSidebarCollapsed = !isLarge
   const defaultConductorVisible = isLarge
@@ -410,11 +410,13 @@ function App() {
             config={config}
             selectedTaskId={selectedTaskId}
             watcherRunning={watcherRunning}
+            conductorVisible={conductorVisible}
             showBacklog={isLarge}
             onTaskSelect={(taskId) => selectTask(taskId)}
             onNewTask={() => setNewTaskOpen(true)}
             onWatcherToggle={handleWatcherToggle}
             onTaskMove={handleTaskMove}
+            onToggleConductor={handleToggleConductor}
           />
         </div>
 
@@ -426,7 +428,6 @@ function App() {
               ? { name: selectedAgent.agent, stage: selectedTask.stage }
               : null
           }
-          watcherRunning={watcherRunning}
           agentCount={agentCount}
           lastEvent={lastEvent}
           stageCounts={stageCounts}
