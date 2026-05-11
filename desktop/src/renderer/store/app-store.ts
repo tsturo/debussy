@@ -30,7 +30,6 @@ export interface AppState {
 
   // UI state
   selectedTaskId: string | null
-  conductorVisible: boolean
   sidebarCollapsed: boolean
   conductorMessages: ConductorMessage[]
   conductorStreaming: boolean
@@ -43,7 +42,6 @@ export interface AppState {
   fetchAll: () => Promise<void>
   fetchWorkspaces: () => Promise<void>
   selectTask: (id: string | null) => void
-  toggleConductor: () => void
   toggleSidebar: () => void
   advanceTask: (id: string) => Promise<void>
   moveTask: (id: string, fromStage: import('../../shared/types').Stage, toStage: import('../../shared/types').Stage, isBlocked: boolean) => Promise<void>
@@ -91,7 +89,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Initial UI state
   selectedTaskId: null,
-  conductorVisible: true,
   sidebarCollapsed: false,
   conductorMessages: [],
   conductorStreaming: false,
@@ -234,7 +231,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   selectTask: (id) => set({ selectedTaskId: id }),
-  toggleConductor: () => set((s) => ({ conductorVisible: !s.conductorVisible })),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
   advanceTask: async (id) => {
