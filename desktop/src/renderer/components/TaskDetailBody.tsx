@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react'
 import type { Task, LogEntry } from '../../shared/types'
 import { TimelineColumn } from './TimelineColumn'
+import { PencilIcon } from './icons'
+import { useAppStore } from '../store/app-store'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -68,54 +70,39 @@ function renderDescription(text: string): React.ReactNode[] {
   return parts
 }
 
-/** Format a comment timestamp as a short relative or absolute string. */
-function formatCommentTime(timestamp: string): string {
-  const date = new Date(timestamp)
-  if (isNaN(date.getTime())) return timestamp
-  return date.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
 // ── Left column: Description ──────────────────────────────────────────────────
 
 interface DescriptionColumnProps {
   task: Task
-  comments: LogEntry[]
-  onDescriptionSaved: (newDescription: string) => void
 }
 
-function DescriptionColumn({ task, comments, onDescriptionSaved }: DescriptionColumnProps) {
-  const [editing, setEditing] = useState(false)
-  const [draftText, setDraftText] = useState('')
+function DescriptionColumn({ task }: DescriptionColumnProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState('')
   const [saving, setSaving] = useState(false)
+  const fetchAll = useAppStore((s) => s.fetchAll)
 
   const isDone = task.stage === 'done'
   const descriptionNodes = renderDescription(task.description)
 
-  function handleEditClick() {
-    setDraftText(task.description)
-    setEditing(true)
+  function startEditing() {
+    setEditText(task.description)
+    setIsEditing(true)
   }
 
-  function handleCancel() {
-    setEditing(false)
-    setDraftText('')
+  function cancelEditing() {
+    setIsEditing(false)
+    setEditText('')
   }
 
-  async function handleSave() {
+  async function saveDescription() {
     if (saving) return
     setSaving(true)
     try {
-      const result = await window.debussy.tasks.update(task.id, { description: draftText })
-      if (result.success) {
-        onDescriptionSaved(draftText)
-        setEditing(false)
-        setDraftText('')
-      }
+      await window.debussy.tasks.update(task.id, { description: editText })
+      setIsEditing(false)
+      setEditText('')
+      await fetchAll()
     } finally {
       setSaving(false)
     }
@@ -132,54 +119,58 @@ function DescriptionColumn({ task, comments, onDescriptionSaved }: DescriptionCo
         padding: '12px 14px',
       }}
     >
-      {/* Section label row with optional Edit button */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div
+      {/* Header row: DESCRIPTION label + optional pencil button */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 8,
+          flexShrink: 0,
+        }}
+      >
+        <span
           style={{
             fontSize: 12,
             fontWeight: 600,
             letterSpacing: '0.10em',
             textTransform: 'uppercase',
             color: 'var(--t-text-3)',
-            flexShrink: 0,
           }}
         >
           Description
-        </div>
-        {!isDone && !editing && (
+        </span>
+
+        {!isDone && !isEditing && (
           <button
-            onClick={handleEditClick}
+            onClick={startEditing}
             title="Edit description"
             style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              color: 'var(--t-text-3)',
-              padding: '2px 4px',
+              padding: 2,
               borderRadius: 4,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 3,
-              fontSize: 11,
+              color: 'var(--t-text-3)',
+              opacity: 0.7,
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--t-purple)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--t-text-3)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.7' }}
           >
-            {/* Pencil icon */}
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11.5 2.5a2.121 2.121 0 0 1 3 3L5 15H2v-3L11.5 2.5z"/>
-            </svg>
-            Edit
+            <PencilIcon />
           </button>
         )}
       </div>
 
-      {editing ? (
+      {isEditing ? (
         /* Edit mode */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <textarea
-            value={draftText}
-            onChange={e => setDraftText(e.target.value)}
+            value={editText}
+            onChange={e => setEditText(e.target.value)}
             style={{
               width: '100%',
               minHeight: 120,
@@ -187,11 +178,11 @@ function DescriptionColumn({ task, comments, onDescriptionSaved }: DescriptionCo
               border: '1px solid var(--t-border)',
               borderRadius: 6,
               fontSize: 13,
-              color: 'var(--t-text-2)',
-              lineHeight: 1.6,
+              color: 'var(--t-text)',
               padding: '6px 8px',
-              resize: 'vertical',
               outline: 'none',
+              resize: 'vertical',
+              lineHeight: 1.6,
               fontFamily: 'inherit',
               boxSizing: 'border-box',
             }}
@@ -199,31 +190,33 @@ function DescriptionColumn({ task, comments, onDescriptionSaved }: DescriptionCo
           />
           <div style={{ display: 'flex', gap: 6 }}>
             <button
-              onClick={handleSave}
+              onClick={saveDescription}
               disabled={saving}
               style={{
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: 600,
                 background: 'var(--t-purple)',
                 color: '#fff',
                 border: 'none',
-                borderRadius: 6,
-                padding: '4px 12px',
-                fontSize: 12,
+                borderRadius: 5,
                 cursor: saving ? 'not-allowed' : 'pointer',
-                opacity: saving ? 0.7 : 1,
+                opacity: saving ? 0.6 : 1,
               }}
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
-              onClick={handleCancel}
+              onClick={cancelEditing}
               disabled={saving}
               style={{
-                background: 'none',
-                border: '1px solid var(--t-border)',
-                borderRadius: 6,
-                padding: '4px 12px',
+                padding: '4px 10px',
                 fontSize: 12,
+                fontWeight: 600,
+                background: 'none',
                 color: 'var(--t-text-2)',
+                border: '1px solid var(--t-border)',
+                borderRadius: 5,
                 cursor: saving ? 'not-allowed' : 'pointer',
               }}
             >
@@ -232,7 +225,7 @@ function DescriptionColumn({ task, comments, onDescriptionSaved }: DescriptionCo
           </div>
         </div>
       ) : (
-        /* Read mode: description text */
+        /* Read mode */
         <div
           style={{
             fontSize: 13,
@@ -246,50 +239,6 @@ function DescriptionColumn({ task, comments, onDescriptionSaved }: DescriptionCo
           {descriptionNodes}
         </div>
       )}
-
-      {/* Inline comments */}
-      {comments.length > 0 && (
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {comments.map(entry => (
-            <div
-              key={entry.id}
-              style={{
-                background: 'rgba(108, 92, 231, 0.06)',
-                borderRadius: 9,
-                borderLeft: '2px solid var(--t-purple)',
-                padding: '8px 10px',
-              }}
-            >
-              {/* Author + timestamp */}
-              <div
-                style={{
-                  fontSize: 12,
-                  color: 'var(--t-text-3)',
-                  marginBottom: 4,
-                  display: 'flex',
-                  gap: 6,
-                  alignItems: 'baseline',
-                }}
-              >
-                <span style={{ fontWeight: 600 }}>{entry.author}</span>
-                <span>{formatCommentTime(entry.timestamp)}</span>
-              </div>
-              {/* Comment body */}
-              <div
-                style={{
-                  fontSize: 12,
-                  color: 'var(--t-text-2)',
-                  lineHeight: 1.6,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {entry.message}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
@@ -298,22 +247,7 @@ function DescriptionColumn({ task, comments, onDescriptionSaved }: DescriptionCo
 
 export function TaskDetailBody({ task, logEntries, agentName, onComment }: TaskDetailBodyProps) {
   const [commentInput, setCommentInput] = useState('')
-  const [localDescription, setLocalDescription] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  // Reset local description override whenever the selected task changes
-  const prevTaskIdRef = useRef(task.id)
-  if (prevTaskIdRef.current !== task.id) {
-    prevTaskIdRef.current = task.id
-    setLocalDescription(null)
-  }
-
-  const displayTask = localDescription !== null ? { ...task, description: localDescription } : task
-
-  const comments = logEntries.filter(e => e.type === 'comment')
-  const timelineEntries = logEntries.filter(
-    e => e.type === 'transition' || e.type === 'assignment',
-  )
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter' && commentInput.trim() !== '') {
@@ -340,7 +274,7 @@ export function TaskDetailBody({ task, logEntries, agentName, onComment }: TaskD
         }}
       >
         {/* Left: Description */}
-        <DescriptionColumn task={displayTask} comments={comments} onDescriptionSaved={setLocalDescription} />
+        <DescriptionColumn task={task} />
 
         {/* Vertical divider */}
         <div
@@ -353,8 +287,8 @@ export function TaskDetailBody({ task, logEntries, agentName, onComment }: TaskD
           }}
         />
 
-        {/* Right: Timeline — receives transition/assignment entries only; comments render inline */}
-        <TimelineColumn timelineEntries={timelineEntries} agentName={agentName} />
+        {/* Right: Timeline — receives all entries; comments render inline */}
+        <TimelineColumn timelineEntries={logEntries} agentName={agentName} />
       </div>
 
       {/* Comment input row */}
