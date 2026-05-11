@@ -2,7 +2,7 @@ import { ipcMain, app, BrowserWindow, dialog, shell } from 'electron'
 import { join, basename } from 'path'
 import { randomUUID } from 'crypto'
 import * as fs from 'fs'
-import { spawn, spawnSync } from 'child_process'
+import { spawn } from 'child_process'
 import { IPC } from '../shared/ipc-channels'
 import type { DebussyConfig, WatcherState } from '../shared/types'
 import * as dbReader from './db-reader'
@@ -177,39 +177,39 @@ export function registerIPC(): void {
 
   // ── Write-action handlers ──────────────────────────────────────────────────
 
-  ipcMain.handle(IPC.TASK_ADVANCE, (_event, id: string, toStage?: string) => {
+  ipcMain.handle(IPC.TASK_ADVANCE, async (_event, id: string, toStage?: string) => {
     const args = ['advance', id]
     if (toStage) args.push('--to', toStage)
-    return runTakt(args)
+    return execTakt(args, getProjectPath())
   })
 
   ipcMain.handle(IPC.TASK_RELEASE, (_event, id: string) =>
-    runTakt(['release', id])
+    execTakt(['release', id], getProjectPath())
   )
 
   ipcMain.handle(IPC.TASK_ADVANCE_TO, (_event, id: string, toStage: string) =>
-    runTakt(['advance', id, '--to', toStage])
+    execTakt(['advance', id, '--to', toStage], getProjectPath())
   )
 
   ipcMain.handle(IPC.TASK_BLOCK, (_event, id: string) =>
-    runTakt(['block', id])
+    execTakt(['block', id], getProjectPath())
   )
 
   ipcMain.handle(IPC.TASK_COMMENT, (_event, id: string, msg: string) =>
-    runTakt(['comment', id, msg])
+    execTakt(['comment', id, msg], getProjectPath())
   )
 
-  ipcMain.handle(IPC.TASK_CREATE, (_event, title: string, desc: string) => {
-    const result = runTakt(['create', title, '-d', desc])
+  ipcMain.handle(IPC.TASK_CREATE, async (_event, title: string, desc: string) => {
+    const result = await execTakt(['create', title, '-d', desc], getProjectPath())
     if (!result.success) return result
-    const id = result.output?.trim() || undefined
+    const id = result.stdout.trim() || undefined
     return { ...result, id }
   })
 
   ipcMain.handle(IPC.TASK_UPDATE, (_event, id: string, fields: { description?: string }) => {
     const args = ['update', id]
     if (fields.description !== undefined) args.push('-d', fields.description)
-    return runTakt(args)
+    return execTakt(args, getProjectPath())
   })
 
   // ── Conductor IPC ──────────────────────────────────────────────────────────
@@ -513,21 +513,23 @@ export function registerIPC(): void {
 
 /**
  * Run a takt sub-command with the given positional arguments.
- * Uses spawnSync (no shell) to avoid any command-injection risk.
+ * Uses async spawn (no shell) to avoid blocking the Electron main process.
  */
-function runTakt(
-  args: string[]
-): { success: boolean; output?: string; error?: string } {
-  const result = spawnSync('takt', args, {
-    cwd:      getProjectPath(),
-    encoding: 'utf-8',
+function execTakt(
+  args: string[],
+  cwd: string,
+): Promise<{ success: boolean; stdout: string; error?: string }> {
+  return new Promise((resolve) => {
+    const child = spawn('takt', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (d) => { stdout += d })
+    child.stderr.on('data', (d) => { stderr += d })
+    child.on('close', (code) => {
+      resolve({ success: code === 0, stdout: stdout.trim(), error: stderr.trim() || undefined })
+    })
+    child.on('error', (err) => {
+      resolve({ success: false, stdout: '', error: err.message })
+    })
   })
-  if (result.status === 0) {
-    return { success: true, output: result.stdout }
-  }
-  const error =
-    result.stderr?.trim() ||
-    result.error?.message ||
-    `takt exited with code ${result.status}`
-  return { success: false, error }
 }
