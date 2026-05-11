@@ -110,6 +110,27 @@ export function AssistantBubble({ message }: { message: ConductorMessage }) {
   )
 }
 
+/** Faded system notice shown for session events (resume, clear, etc.). */
+export function SystemBubble({ message }: { message: ConductorMessage }) {
+  return (
+    <div
+      style={{
+        alignSelf: 'center',
+        fontSize: 10,
+        color: 'var(--t-text-3)',
+        padding: '3px 10px',
+        background: 'var(--t-bg)',
+        border: '1px solid var(--t-border)',
+        borderRadius: 20,
+        opacity: 0.75,
+        userSelect: 'none',
+      }}
+    >
+      {message.content}
+    </div>
+  )
+}
+
 /** Animated pulsing dots shown while the conductor is streaming a response. */
 export function StreamingIndicator({ content }: { content: string }) {
   return (

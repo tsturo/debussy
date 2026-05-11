@@ -1,5 +1,5 @@
 import { spawn, ChildProcess } from 'child_process'
-import { readFileSync, writeFileSync, unlinkSync } from 'fs'
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { BrowserWindow } from 'electron'
@@ -90,13 +90,49 @@ export class ConductorBridge {
   }
 
   /**
-   * Generate a fresh session ID, persist it to config, and clear the
-   * in-memory cache so the next sendMessage call picks it up.
+   * Generate a fresh session ID with no auto-context injection.
+   * Returns the new session ID.
    */
-  newSession(cwd: string): void {
+  newBlankSession(cwd: string): string {
     const newId = randomUUID()
     this.sessionId = newId
     this.persistSessionId(cwd, newId)
+    return newId
+  }
+
+  /**
+   * Generate a fresh session ID and send the project context files
+   * (.debussy/conductor-context.md + .debussy/conductor-history.md) as the
+   * first message so Claude starts fresh but with full project awareness.
+   * If neither file exists the session is still rotated (blank start).
+   * Returns the new session ID.
+   */
+  clearWithContext(cwd: string): string {
+    const newId = randomUUID()
+    this.sessionId = newId
+    this.persistSessionId(cwd, newId)
+
+    const contextPath = join(cwd, '.debussy', 'conductor-context.md')
+    const historyPath = join(cwd, '.debussy', 'conductor-history.md')
+
+    let contextContent = ''
+    let historyContent = ''
+    try { if (existsSync(contextPath)) contextContent = readFileSync(contextPath, 'utf-8') } catch { /* missing — skip */ }
+    try { if (existsSync(historyPath)) historyContent = readFileSync(historyPath, 'utf-8') } catch { /* missing — skip */ }
+
+    if (contextContent || historyContent) {
+      const parts = ['Here is the project context:']
+      if (contextContent) parts.push(contextContent)
+      if (historyContent) parts.push(historyContent)
+      this.sendMessage({ text: parts.join('\n\n') }, cwd)
+    }
+
+    return newId
+  }
+
+  /** Return the current session ID (reading from config if needed). */
+  getSessionId(cwd: string): string {
+    return this.getOrCreateSessionId(cwd)
   }
 
   /** Kill the running process, if any. */

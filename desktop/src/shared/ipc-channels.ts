@@ -21,6 +21,8 @@ export const IPC = {
   CONDUCTOR_SEND:           'conductor:send',
   CONDUCTOR_CANCEL:         'conductor:cancel',
   CONDUCTOR_NEW_SESSION:    'conductor:new-session',
+  CONDUCTOR_CLEAR_CONTEXT:  'conductor:clear-context',
+  CONDUCTOR_GET_SESSION_ID: 'conductor:get-session-id',
   CONDUCTOR_RESPONSE_CHUNK: 'conductor:response-chunk',
   CONDUCTOR_RESPONSE_DONE:  'conductor:response-done',
   AGENT_LOG_LINE:           'agent-log:line',

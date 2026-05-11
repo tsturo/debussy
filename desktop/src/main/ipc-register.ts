@@ -243,8 +243,18 @@ export function registerIPC(): void {
   })
 
   ipcMain.handle(IPC.CONDUCTOR_NEW_SESSION, () => {
-    conductorBridge.newSession(getProjectPath())
-    return { success: true }
+    const sessionId = conductorBridge.newBlankSession(getProjectPath())
+    return { success: true, sessionId }
+  })
+
+  ipcMain.handle(IPC.CONDUCTOR_CLEAR_CONTEXT, () => {
+    const sessionId = conductorBridge.clearWithContext(getProjectPath())
+    return { success: true, sessionId }
+  })
+
+  ipcMain.handle(IPC.CONDUCTOR_GET_SESSION_ID, () => {
+    const sessionId = conductorBridge.getSessionId(getProjectPath())
+    return { sessionId }
   })
 
   // ── Watcher control handlers ───────────────────────────────────────────────

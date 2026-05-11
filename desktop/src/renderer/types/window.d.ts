@@ -53,7 +53,9 @@ interface DebussyAPI {
   conductor: {
     send:            (text: string, images?: string[], tempPaths?: string[]) => Promise<{ success: boolean }>
     cancel:          ()                                                       => void
-    newSession:      ()                                                       => Promise<{ success: boolean }>
+    newSession:      ()                                                       => Promise<{ success: boolean; sessionId?: string }>
+    clearContext:    ()                                                       => Promise<{ success: boolean; sessionId?: string }>
+    getSessionId:    ()                                                       => Promise<{ sessionId: string }>
     onChunk:         (callback: (chunk: string) => void)                      => void
     onDone:          (callback: () => void)                                   => void
     removeListeners: ()                                                       => void
