@@ -19,20 +19,6 @@ const FILE_PATH_RE = /([\w.-]+(?:\/[\w.-]+)+\.\w{1,10})/g
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Format an ISO timestamp to a readable comment header, e.g. "14:03 · 10 May". */
-function formatCommentTime(iso: string): string {
-  try {
-    const d = new Date(iso)
-    const hh = String(d.getHours()).padStart(2, '0')
-    const mm = String(d.getMinutes()).padStart(2, '0')
-    const day = d.getDate()
-    const month = d.toLocaleString('en', { month: 'short' })
-    return `${hh}:${mm} · ${day} ${month}`
-  } catch {
-    return iso
-  }
-}
-
 /**
  * Render a description string with file-path tokens wrapped in clickable
  * purple spans. Returns an array of React nodes.
@@ -86,10 +72,9 @@ function renderDescription(text: string): React.ReactNode[] {
 
 interface DescriptionColumnProps {
   task: Task
-  comments: LogEntry[]
 }
 
-function DescriptionColumn({ task, comments }: DescriptionColumnProps) {
+function DescriptionColumn({ task }: DescriptionColumnProps) {
   const descriptionNodes = renderDescription(task.description)
 
   return (
@@ -118,50 +103,6 @@ function DescriptionColumn({ task, comments }: DescriptionColumnProps) {
       >
         {descriptionNodes}
       </div>
-
-      {/* Inline comments */}
-      {comments.length > 0 && (
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {comments.map(entry => (
-            <div
-              key={entry.id}
-              style={{
-                background: 'rgba(108, 92, 231, 0.06)',
-                borderRadius: 9,
-                borderLeft: '2px solid var(--t-purple)',
-                padding: '8px 10px',
-              }}
-            >
-              {/* Author + timestamp */}
-              <div
-                style={{
-                  fontSize: 12,
-                  color: 'var(--t-text-3)',
-                  marginBottom: 4,
-                  display: 'flex',
-                  gap: 6,
-                  alignItems: 'baseline',
-                }}
-              >
-                <span style={{ fontWeight: 600 }}>{entry.author}</span>
-                <span>{formatCommentTime(entry.timestamp)}</span>
-              </div>
-              {/* Comment body */}
-              <div
-                style={{
-                  fontSize: 12,
-                  color: 'var(--t-text-2)',
-                  lineHeight: 1.6,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {entry.message}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
@@ -171,11 +112,6 @@ function DescriptionColumn({ task, comments }: DescriptionColumnProps) {
 export function TaskDetailBody({ task, logEntries, agentName, onComment }: TaskDetailBodyProps) {
   const [commentInput, setCommentInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-
-  const comments = logEntries.filter(e => e.type === 'comment')
-  const timelineEntries = logEntries.filter(
-    e => e.type === 'transition' || e.type === 'assignment',
-  )
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter' && commentInput.trim() !== '') {
@@ -202,7 +138,7 @@ export function TaskDetailBody({ task, logEntries, agentName, onComment }: TaskD
         }}
       >
         {/* Left: Description */}
-        <DescriptionColumn task={task} comments={comments} />
+        <DescriptionColumn task={task} />
 
         {/* Vertical divider */}
         <div
@@ -215,8 +151,8 @@ export function TaskDetailBody({ task, logEntries, agentName, onComment }: TaskD
           }}
         />
 
-        {/* Right: Timeline */}
-        <TimelineColumn timelineEntries={timelineEntries} agentName={agentName} />
+        {/* Right: Timeline — receives all entries; comments render inline */}
+        <TimelineColumn timelineEntries={logEntries} agentName={agentName} />
       </div>
 
       {/* Comment input row */}

@@ -30,6 +30,18 @@ function formatTime(iso: string): string {
   }
 }
 
+/** Format an ISO timestamp to hh:mm only, e.g. "14:38". */
+function formatTimeShort(iso: string): string {
+  try {
+    const d = new Date(iso)
+    const hh = String(d.getHours()).padStart(2, '0')
+    const mm = String(d.getMinutes()).padStart(2, '0')
+    return `${hh}:${mm}`
+  } catch {
+    return iso
+  }
+}
+
 /**
  * Return the first known action keyword found in a log message, or null.
  * The message is lowercased before searching.
@@ -40,6 +52,80 @@ function extractAction(message: string): string | null {
     if (lower.includes(action)) return action
   }
   return null
+}
+
+// ── Comment block ─────────────────────────────────────────────────────────────
+
+/** Number of newline-separated lines above which the "Show more" toggle appears. */
+const COMMENT_LINE_THRESHOLD = 5
+/** Number of lines shown when the comment is collapsed. */
+const COMMENT_VISIBLE_LINES = 3
+
+interface CommentBlockProps {
+  entry: LogEntry
+}
+
+function CommentBlock({ entry }: CommentBlockProps) {
+  const [expanded, setExpanded] = useState(false)
+  const lines = entry.message.split('\n')
+  const isLong = lines.length > COMMENT_LINE_THRESHOLD
+  const displayText = !isLong || expanded
+    ? entry.message
+    : lines.slice(0, COMMENT_VISIBLE_LINES).join('\n') + '…'
+
+  return (
+    <div
+      style={{
+        background: 'rgba(108,92,231,0.06)',
+        borderLeft: '2px solid var(--t-purple)',
+        borderRadius: 9,
+        padding: '8px 12px',
+        margin: '4px 0',
+      }}
+    >
+      {/* Author + timestamp */}
+      <div
+        style={{
+          fontSize: 12,
+          color: 'var(--t-text-3)',
+          marginBottom: 4,
+        }}
+      >
+        {entry.author} · {formatTimeShort(entry.timestamp)}
+      </div>
+
+      {/* Comment body */}
+      <div
+        style={{
+          fontSize: 13,
+          color: 'var(--t-text-2)',
+          lineHeight: 1.6,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}
+      >
+        {displayText}
+      </div>
+
+      {/* Show more / Show less toggle */}
+      {isLong && (
+        <button
+          onClick={() => setExpanded(v => !v)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--t-purple)',
+            fontSize: 12,
+            cursor: 'pointer',
+            padding: '2px 0',
+            marginTop: 2,
+          }}
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  )
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -207,6 +293,11 @@ export function TimelineColumn({ timelineEntries, agentName }: TimelineColumnPro
               </span>
             ) : (
               timelineEntries.map(entry => {
+                // Comments render as distinct blocks, not monospace lines.
+                if (entry.type === 'comment') {
+                  return <CommentBlock key={entry.id} entry={entry} />
+                }
+
                 const action = extractAction(entry.message)
                 const actionColor = action ? ACTION_COLORS[action] : 'var(--t-text-2)'
 
