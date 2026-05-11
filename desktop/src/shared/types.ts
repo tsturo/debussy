@@ -103,7 +103,11 @@ export interface DebussyConfig {
   project_type: 'web' | 'ios' | null
   conductor_session_id: string | null
   test_command: string | null
-  auto_start_watcher: boolean             // default false — UI-only workspace field
+}
+
+/** UI-only preferences stored in Electron userData, not in config.json. */
+export interface UiPrefs {
+  auto_start_watcher: boolean
 }
 
 // ── UI-only types (not backed by DB) ────────────────────────────────────────

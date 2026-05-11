@@ -38,6 +38,8 @@ export const IPC = {
   SHELL_OPEN_EXTERNAL:      'shell:open-external',
   CONDUCTOR_UPLOAD_IMAGE:   'conductor:upload-image',
   CONDUCTOR_OPEN_FILE_DIALOG: 'conductor:open-file-dialog',
+  UI_PREF_GET:              'ui-pref:get',
+  UI_PREF_SET:              'ui-pref:set',
 } as const
 
 export type IpcChannel = typeof IPC[keyof typeof IPC]

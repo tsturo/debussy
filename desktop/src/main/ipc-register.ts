@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 import * as fs from 'fs'
 import { spawn, spawnSync } from 'child_process'
 import { IPC } from '../shared/ipc-channels'
-import type { DebussyConfig, WatcherState } from '../shared/types'
+import type { DebussyConfig, UiPrefs, WatcherState } from '../shared/types'
 import * as dbReader from './db-reader'
 import { LogStreamer } from './log-streamer'
 import { ConductorBridge } from './conductor-bridge'
@@ -26,7 +26,28 @@ const DEFAULT_CONFIG: DebussyConfig = {
   project_type:         null,
   conductor_session_id: null,
   test_command:         null,
-  auto_start_watcher:   false,
+}
+
+/** Keys the renderer is permitted to write to config.json (Python KNOWN_KEYS). */
+const ALLOWED_CONFIG_KEYS = new Set([
+  'max_total_agents',
+  'use_tmux_windows',
+  'base_branch',
+  'paused',
+  'agent_timeout',
+  'agent_provider',
+  'role_models',
+  'docs_path',
+  'notify_conductor',
+  'max_role_agents',
+  'monitor_interval',
+  'project_type',
+  'conductor_session_id',
+  'test_command',
+])
+
+const DEFAULT_UI_PREFS: UiPrefs = {
+  auto_start_watcher: false,
 }
 
 // ── Module state ──────────────────────────────────────────────────────────────
@@ -311,6 +332,11 @@ export function registerIPC(): void {
   // ── Config write handler ───────────────────────────────────────────────────
 
   ipcMain.handle(IPC.CONFIG_SET, (_event, key: string, value: unknown): { success: boolean; error?: string } => {
+    // Reject keys that Python's config.py does not recognise
+    if (!ALLOWED_CONFIG_KEYS.has(key)) {
+      return { success: false, error: `Unknown config key: ${key}` }
+    }
+
     // Validate known keys and value ranges
     if (key === 'max_total_agents') {
       const n = Number(value)
@@ -340,6 +366,37 @@ export function registerIPC(): void {
     try {
       fs.writeFileSync(tmpPath, JSON.stringify(current, null, 2), 'utf-8')
       fs.renameSync(tmpPath, configPath)
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: String(err) }
+    }
+  })
+
+  // ── UI preferences handlers (userData-backed, not written to config.json) ──
+
+  ipcMain.handle(IPC.UI_PREF_GET, (): UiPrefs => {
+    const prefsPath = join(app.getPath('userData'), 'ui-prefs.json')
+    try {
+      const raw = JSON.parse(fs.readFileSync(prefsPath, 'utf-8'))
+      return { ...DEFAULT_UI_PREFS, ...raw }
+    } catch {
+      return { ...DEFAULT_UI_PREFS }
+    }
+  })
+
+  ipcMain.handle(IPC.UI_PREF_SET, (_event, key: string, value: unknown): { success: boolean; error?: string } => {
+    const prefsPath = join(app.getPath('userData'), 'ui-prefs.json')
+    const tmpPath   = prefsPath + '.tmp'
+    let current: Record<string, unknown> = {}
+    try {
+      current = JSON.parse(fs.readFileSync(prefsPath, 'utf-8'))
+    } catch {
+      // Missing or unreadable — start fresh
+    }
+    current[key] = value
+    try {
+      fs.writeFileSync(tmpPath, JSON.stringify(current, null, 2), 'utf-8')
+      fs.renameSync(tmpPath, prefsPath)
       return { success: true }
     } catch (err) {
       return { success: false, error: String(err) }

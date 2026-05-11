@@ -65,4 +65,8 @@ contextBridge.exposeInMainWorld('debussy', {
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke(IPC.SHELL_OPEN_EXTERNAL, url),
   },
+  uiPrefs: {
+    get: ()                            => ipcRenderer.invoke(IPC.UI_PREF_GET),
+    set: (key: string, value: unknown) => ipcRenderer.invoke(IPC.UI_PREF_SET, key, value),
+  },
 })

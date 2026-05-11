@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { DebussyConfig } from '../../../shared/types'
+import type { DebussyConfig, UiPrefs } from '../../../shared/types'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -310,11 +310,15 @@ function AgentsPage({
 
 function WatcherPage({
   config,
+  uiPrefs,
   setKey,
+  setUiPref,
   errors,
 }: {
   config: DebussyConfig
+  uiPrefs: UiPrefs
   setKey: (key: string, value: unknown) => Promise<void>
+  setUiPref: (key: keyof UiPrefs, value: boolean) => Promise<void>
   errors: Record<string, string>
 }) {
   return (
@@ -337,8 +341,8 @@ function WatcherPage({
         description="Automatically start the watcher when a project is loaded"
       >
         <Toggle
-          checked={config.auto_start_watcher}
-          onChange={(v) => setKey('auto_start_watcher', v)}
+          checked={uiPrefs.auto_start_watcher}
+          onChange={(v) => setUiPref('auto_start_watcher', v)}
         />
       </SettingRow>
 
@@ -357,12 +361,16 @@ function WatcherPage({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
+const DEFAULT_UI_PREFS: UiPrefs = { auto_start_watcher: false }
+
 export function PipelineSettings({ section }: PipelineSettingsProps) {
   const [config, setConfig] = useState<DebussyConfig | null>(null)
+  const [uiPrefs, setUiPrefs] = useState<UiPrefs>(DEFAULT_UI_PREFS)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     window.debussy.config.get().then(setConfig)
+    window.debussy.uiPrefs.get().then(setUiPrefs)
   }, [section])
 
   async function setKey(key: string, value: unknown): Promise<void> {
@@ -381,6 +389,13 @@ export function PipelineSettings({ section }: PipelineSettingsProps) {
     }
   }
 
+  async function setUiPref(key: keyof UiPrefs, value: boolean): Promise<void> {
+    const result = await window.debussy.uiPrefs.set(key, value)
+    if (result.success) {
+      setUiPrefs((prev) => ({ ...prev, [key]: value }))
+    }
+  }
+
   if (!config) {
     return (
       <div style={{ color: 'var(--t-text-3)', fontSize: 13, paddingTop: 8 }}>
@@ -391,5 +406,5 @@ export function PipelineSettings({ section }: PipelineSettingsProps) {
 
   return section === 'agents'
     ? <AgentsPage config={config} setKey={setKey} errors={errors} />
-    : <WatcherPage config={config} setKey={setKey} errors={errors} />
+    : <WatcherPage config={config} uiPrefs={uiPrefs} setKey={setKey} setUiPref={setUiPref} errors={errors} />
 }
