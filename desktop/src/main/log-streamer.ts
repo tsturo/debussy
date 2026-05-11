@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import { dirname } from 'path'
+import { basename, dirname } from 'path'
 
 interface TailState {
   watcher:        fs.FSWatcher | null
@@ -97,7 +97,7 @@ export class LogStreamer {
 
     try {
       const creationWatcher = fs.watch(dir, (_eventType, filename) => {
-        if (filename && logPath.endsWith(filename) && fs.existsSync(logPath)) {
+        if (filename && basename(logPath) === filename && fs.existsSync(logPath)) {
           state.creationWatcher?.close()
           state.creationWatcher = null
           this.tails.delete(logPath)

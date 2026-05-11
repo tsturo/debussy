@@ -71,23 +71,11 @@ test.describe('App interactions', () => {
     await expect(page.locator('button', { hasText: 'Advance' })).not.toBeVisible({ timeout: 2000 })
   })
 
-  test('conductor toggle shows and hides panel', async () => {
-    // Use the conductor's message input as the visibility indicator — it only
-    // exists when the panel is rendered (not a substring match on task titles).
+  test('conductor panel is always visible', async () => {
+    // Conductor panel is permanently visible — it can no longer be hidden.
     const conductorInput = page.locator('input[placeholder="Talk to conductor..."]')
-
-    // At 1200px width, conductor starts hidden. First press shows it.
-    await page.keyboard.press('Meta+\\')
     await expect(conductorInput).toBeVisible({ timeout: 2000 })
-
-    // Second press hides it — take screenshot showing board without conductor
-    await page.keyboard.press('Meta+\\')
-    await expect(conductorInput).not.toBeVisible({ timeout: 2000 })
-    await page.screenshot({ path: `${SCREENSHOT_DIR}/04-no-conductor.png`, fullPage: true })
-
-    // Third press shows it again to confirm bidirectional toggle
-    await page.keyboard.press('Meta+\\')
-    await expect(conductorInput).toBeVisible({ timeout: 2000 })
+    await page.screenshot({ path: `${SCREENSHOT_DIR}/04-conductor-always-visible.png`, fullPage: true })
   })
 
   test('command palette filters results and executes action', async () => {
