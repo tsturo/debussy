@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import type { Task, Stage } from '../../shared/types'
 import { STAGE_COLORS } from '../lib/stage-colors'
 import { KanbanCard } from './KanbanCard'
+
+const DONE_COLLAPSE_THRESHOLD = 20
+const DONE_DEFAULT_VISIBLE = 15
 
 export interface KanbanColumnProps {
   stage: Stage
@@ -13,6 +17,8 @@ export interface KanbanColumnProps {
   isValidDropTarget?: boolean
   /** Whether an active drag is currently hovering this column */
   isDragOver?: boolean
+  /** Whether the column is wide (has tasks, flex: 1) vs narrow (empty, 80px) */
+  isWide?: boolean
 }
 
 /** Column opacity by stage — done and backlog are visually de-emphasized. */
@@ -30,8 +36,19 @@ export function KanbanColumn({
   onCardClick,
   isValidDropTarget = false,
   isDragOver = false,
+  isWide = true,
 }: KanbanColumnProps) {
   const { color, label } = STAGE_COLORS[stage]
+  const [doneExpanded, setDoneExpanded] = useState(false)
+
+  const isDone = stage === 'done'
+  const cardGap = isDone ? '6px' : '4px'
+
+  const visibleTasks =
+    isDone && !doneExpanded && tasks.length > DONE_COLLAPSE_THRESHOLD
+      ? tasks.slice(-DONE_DEFAULT_VISIBLE)
+      : tasks
+  const hiddenCount = tasks.length - visibleTasks.length
 
   const { setNodeRef } = useDroppable({ id: stage })
 
@@ -51,7 +68,7 @@ export function KanbanColumn({
       ref={setNodeRef}
       style={{
         flex: 1,
-        minWidth: '140px',
+        minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
         opacity: columnOpacity(stage),
@@ -99,12 +116,32 @@ export function KanbanColumn({
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '4px',
+          gap: cardGap,
           overflowY: 'auto',
           flex: 1,
         }}
       >
-        {tasks.map((task) => {
+        {/* Expand button shown when done column has many tasks */}
+        {isDone && hiddenCount > 0 && (
+          <button
+            onClick={() => setDoneExpanded(true)}
+            style={{
+              background: 'none',
+              border: '1px solid var(--t-border, rgba(255,255,255,0.08))',
+              borderRadius: 'var(--t-radius-sm)',
+              color: 'var(--t-text-3)',
+              fontSize: '10px',
+              cursor: 'pointer',
+              padding: '4px 6px',
+              textAlign: 'center',
+              flexShrink: 0,
+            }}
+          >
+            Show all {tasks.length} (+{hiddenCount} older)
+          </button>
+        )}
+
+        {visibleTasks.map((task) => {
           const agentInfo = agents.get(task.id) ?? null
           const agent = agentInfo
             ? { name: agentInfo.name, stage: agentInfo.stage }
@@ -117,6 +154,7 @@ export function KanbanColumn({
               agent={agent}
               isSelected={task.id === selectedTaskId}
               onClick={() => onCardClick(task.id)}
+              isWide={isWide}
             />
           )
         })}
