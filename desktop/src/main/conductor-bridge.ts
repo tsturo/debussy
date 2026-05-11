@@ -1,5 +1,5 @@
 import { spawn, ChildProcess } from 'child_process'
-import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { BrowserWindow } from 'electron'
@@ -209,7 +209,9 @@ export class ConductorBridge {
       // File missing or malformed — start from empty object
     }
     config['conductor_session_id'] = id
-    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8')
+    const tmpPath = configPath + '.tmp'
+    writeFileSync(tmpPath, JSON.stringify(config, null, 2) + '\n', 'utf-8')
+    renameSync(tmpPath, configPath)
   }
 
   /**
