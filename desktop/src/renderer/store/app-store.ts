@@ -294,7 +294,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addConductorMessage: (msg) =>
-    set((s) => ({ conductorMessages: [...s.conductorMessages, msg] })),
+    set((s) => ({ conductorMessages: [...s.conductorMessages, msg].slice(-200) })),
 
   clearConductorMessages: () => set({ conductorMessages: [] }),
 

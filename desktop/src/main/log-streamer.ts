@@ -128,8 +128,10 @@ export class LogStreamer {
 
     if (size === state.position) return
 
+    const MAX_READ_SIZE = 64 * 1024  // 64KB
     const start = state.position
-    const stream = fs.createReadStream(logPath, { start })
+    const bytesToRead = Math.min(size - start, MAX_READ_SIZE)
+    const stream = fs.createReadStream(logPath, { start, end: start + bytesToRead - 1 })
     stream.on('error', () => {})
 
     const chunks: Buffer[] = []
@@ -137,7 +139,7 @@ export class LogStreamer {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
     })
     stream.on('end', () => {
-      state.position = size
+      state.position = start + bytesToRead
       const callback = this.callbacks.get(logPath)
       if (!callback) return
 
