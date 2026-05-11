@@ -80,6 +80,7 @@ function DescriptionColumn({ task }: DescriptionColumnProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const fetchAll = useAppStore((s) => s.fetchAll)
 
   const isDone = task.stage === 'done'
@@ -87,22 +88,29 @@ function DescriptionColumn({ task }: DescriptionColumnProps) {
 
   function startEditing() {
     setEditText(task.description)
+    setSaveError(null)
     setIsEditing(true)
   }
 
   function cancelEditing() {
     setIsEditing(false)
     setEditText('')
+    setSaveError(null)
   }
 
   async function saveDescription() {
     if (saving) return
     setSaving(true)
+    setSaveError(null)
     try {
-      await window.debussy.tasks.update(task.id, { description: editText })
-      setIsEditing(false)
-      setEditText('')
-      await fetchAll()
+      const result = await window.debussy.tasks.update(task.id, { description: editText })
+      if (result.success) {
+        setIsEditing(false)
+        setEditText('')
+        await fetchAll()
+      } else {
+        setSaveError(result.error ?? 'Save failed')
+      }
     } finally {
       setSaving(false)
     }
@@ -188,7 +196,7 @@ function DescriptionColumn({ task }: DescriptionColumnProps) {
             }}
             autoFocus
           />
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <button
               onClick={saveDescription}
               disabled={saving}
@@ -222,6 +230,11 @@ function DescriptionColumn({ task }: DescriptionColumnProps) {
             >
               Cancel
             </button>
+            {saveError && (
+              <span style={{ fontSize: 11, color: 'var(--t-red, #e55)', marginLeft: 4 }}>
+                {saveError}
+              </span>
+            )}
           </div>
         </div>
       ) : (
@@ -273,8 +286,8 @@ export function TaskDetailBody({ task, logEntries, agentName, onComment }: TaskD
           overflow: 'hidden',
         }}
       >
-        {/* Left: Description */}
-        <DescriptionColumn task={task} />
+        {/* Left: Description — key resets edit state when the selected task changes */}
+        <DescriptionColumn key={task.id} task={task} />
 
         {/* Vertical divider */}
         <div
