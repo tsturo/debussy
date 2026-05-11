@@ -7,19 +7,15 @@ import { UserBubble, AssistantBubble, SystemBubble, ResumeCard, StreamingIndicat
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type TabKey = 'watcher' | 'agents'
-
 interface ConductorProps {
   messages: ConductorMessage[]
-  isVisible: boolean
   onSend: (message: string, imagePaths: string[], tempPaths: string[], previewUrls: string[]) => void
 }
 
 // ── Conductor ────────────────────────────────────────────────────────────────
 
-export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
+export function Conductor({ messages, onSend }: ConductorProps) {
   const [inputValue, setInputValue] = useState('')
-  const [activeTab, setActiveTab] = useState<TabKey>('watcher')
   const [streamingContent, setStreamingContent] = useState('')
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionIdCopied, setSessionIdCopied] = useState(false)
@@ -106,8 +102,6 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
-
-  if (!isVisible) return null
 
   // ── Core actions ───────────────────────────────────────────────────────────
 
@@ -271,50 +265,6 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
           </button>
         </div>
 
-        {/* Row 2 (32px): Watcher / Agents pill tabs */}
-        <div
-          style={{
-            height: 32,
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 10px',
-            gap: 2,
-          }}
-        >
-          {(['watcher', 'agents'] as TabKey[]).map((tab) => {
-            const isActive = activeTab === tab
-            const label = tab === 'watcher' ? 'Watcher' : 'Agents'
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  padding: '4px 14px',
-                  borderRadius: 100,
-                  border: 'none',
-                  background: isActive
-                    ? 'color-mix(in srgb, var(--t-purple) 14%, var(--t-bg))'
-                    : 'transparent',
-                  color: isActive ? 'var(--t-purple)' : 'var(--t-text-3)',
-                  fontSize: 12,
-                  fontWeight: isActive ? 600 : 400,
-                  cursor: 'pointer',
-                  transition: 'background var(--t-dur-fast), color var(--t-dur-fast)',
-                  fontFamily: 'inherit',
-                  lineHeight: 1.4,
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) e.currentTarget.style.color = 'var(--t-text-2)'
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) e.currentTarget.style.color = 'var(--t-text-3)'
-                }}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </div>
       </div>
 
       {/* Chat area */}
