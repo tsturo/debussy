@@ -52,7 +52,7 @@ export function SectionLabel({ children }: SectionLabelProps) {
   return (
     <div
       style={{
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: 600,
         letterSpacing: '0.10em',
         textTransform: 'uppercase',
@@ -140,7 +140,7 @@ export function TimelineColumn({ timelineEntries, agentName }: TimelineColumnPro
         <button
           onClick={() => setShowAgentOutput(v => !v)}
           style={{
-            fontSize: 11,
+            fontSize: 12,
             color: 'var(--t-purple)',
             background: 'rgba(108, 92, 231, 0.10)',
             border: 'none',

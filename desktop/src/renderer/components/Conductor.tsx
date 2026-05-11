@@ -251,7 +251,7 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
               borderRadius: 9,
               cursor: 'pointer',
               color: 'var(--t-text-2)',
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 500,
               fontFamily: 'inherit',
               whiteSpace: 'nowrap',
@@ -296,7 +296,7 @@ export function Conductor({ messages, isVisible, onSend }: ConductorProps) {
                     ? 'color-mix(in srgb, var(--t-purple) 14%, var(--t-bg))'
                     : 'transparent',
                   color: isActive ? 'var(--t-purple)' : 'var(--t-text-3)',
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: isActive ? 600 : 400,
                   cursor: 'pointer',
                   transition: 'background var(--t-dur-fast), color var(--t-dur-fast)',

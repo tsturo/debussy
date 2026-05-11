@@ -276,7 +276,7 @@ export function Sidebar({
           <div
             data-testid="projects-section"
             style={{
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 600,
               textTransform: 'uppercase',
               letterSpacing: '0.10em',

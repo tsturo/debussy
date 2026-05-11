@@ -262,7 +262,7 @@ export function TaskDetailShell({
         {/* Stage badge */}
         <span
           style={{
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 600,
             color: stageDisplay.color,
             backgroundColor: withAlpha12(stageDisplay.color),

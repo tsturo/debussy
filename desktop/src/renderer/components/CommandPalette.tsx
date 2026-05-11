@@ -109,7 +109,7 @@ function CategoryLabel({ label }: { label: string }) {
   return (
     <div
       style={{
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: 600,
         textTransform: 'uppercase',
         letterSpacing: '0.10em',

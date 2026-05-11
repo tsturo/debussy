@@ -150,7 +150,7 @@ export function ResumeCard({ message }: { message: ConductorMessage }) {
         gap: 1,
         userSelect: 'none',
         color: 'var(--t-text-3)',
-        fontSize: 10,
+        fontSize: 12,
         lineHeight: 1.6,
       }}
     >
