@@ -1,4 +1,4 @@
-import type { Task, Dependency, LogEntry, WatcherState, DebussyConfig } from '../../shared/types'
+import type { Task, Dependency, LogEntry, WatcherState, DebussyConfig, UiPrefs } from '../../shared/types'
 
 export interface TaskDetail extends Task {
   deps: Dependency[]
@@ -84,6 +84,10 @@ interface DebussyAPI {
   }
   shell: {
     openExternal: (url: string) => Promise<{ success: boolean; error?: string }>
+  }
+  uiPrefs: {
+    get: () => Promise<UiPrefs>
+    set: (key: keyof UiPrefs, value: boolean) => Promise<{ success: boolean; error?: string }>
   }
 }
 
