@@ -1,7 +1,0 @@
-node_modules
-dist
-out
-.vite
-*.tsbuildinfo
-test-results/
-screenshots/*.png

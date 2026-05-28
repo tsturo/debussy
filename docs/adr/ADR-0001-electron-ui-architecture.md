@@ -34,7 +34,7 @@ Electron reads `.takt/takt.db` via `better-sqlite3` in read-only mode. All write
 
 ### 4. Tonale shared design system
 
-The design system is imported as a `@tonale/ds` git dependency. It provides CSS tokens, a theme system, and shared React components. App-specific components (KanbanCard, AgentAvatar, etc.) stay in the debussy `desktop/` directory and consume Tonale tokens. This ensures visual consistency with lem and future apps that share the design system, while keeping domain-specific UI co-located with the domain logic.
+The design system is imported as a `@tonale/ds` git dependency. It provides CSS tokens, a theme system, and shared React components. App-specific components (KanbanCard, AgentAvatar, etc.) live in the separate [debussy-desktop](https://github.com/tsturo/debussy-desktop) repository and consume Tonale tokens. This ensures visual consistency with lem and future apps that share the design system, while keeping domain-specific UI co-located with the domain logic.
 
 ### 5. Zustand over Redux
 
