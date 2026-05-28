@@ -36,7 +36,7 @@ cd your-project
 debussy start
 ```
 
-This opens a tmux session with four panes: conductor, board, watcher, and a shell. Talk to the conductor to plan work — it creates tasks, and the watcher automatically spawns agents to execute them.
+This opens a tmux session with three panes: conductor, board, and watcher. Talk to the conductor to plan work — it creates tasks, and the watcher automatically spawns agents to execute them.
 
 ### First Run Checklist
 
@@ -132,10 +132,6 @@ The watcher reads the task state after the agent finishes and transitions accord
 - **Integrator queueing**: Only one integrator runs at a time to avoid merge conflicts
 - **Priority sorting**: Bugs are prioritized over features
 
-### Event Recording
-
-All pipeline events (spawn, advance, reject, close, block, timeout, crash) are recorded to `.debussy/pipeline_events.jsonl`. Use `debussy metrics` to view analytics.
-
 ---
 
 ## Git Worktree Isolation
@@ -192,18 +188,18 @@ Agents never merge to master.
 ### Debussy
 
 ```bash
-debussy start [requirement]  # Start tmux session with optional initial requirement
-debussy watch                # Run watcher only
-debussy status               # Show active agents, branches, base branch
-debussy board                # Kanban board view
-debussy metrics              # Pipeline analytics (stage durations, rejections)
-debussy config [key] [value] # View/set config
-debussy backup               # Backup takt database
-debussy clear [-f]           # Clear all tasks (with backup)
-debussy upgrade              # Upgrade to latest version
-debussy restart [-u]         # Restart session (-u to upgrade first)
-debussy pause                # Stop watcher, kill agents, reset tasks to pending
-debussy debug                # Troubleshoot pipeline detection
+debussy start [--paused] [requirement]  # Start tmux session; optional initial requirement
+debussy watch                           # Run watcher only
+debussy board [-p PREFIX]               # Kanban board view (optional project filter)
+debussy config [key] [value]            # View or set config
+debussy clear [-f]                      # Clear all tasks and worktrees
+debussy pause                           # Pause pipeline, kill agents, reset active tasks
+debussy resume                          # Resume paused pipeline
+debussy kill [--all]                    # Kill current debussy tmux session (or --all)
+debussy kill-agent <name|task-id>       # Kill a single agent
+debussy sessions                        # List running debussy sessions
+debussy connect [name]                  # Attach to a running session
+debussy upgrade                         # Upgrade via pipx to latest
 ```
 
 ### Takt (task tracking)
@@ -250,17 +246,18 @@ The acceptance task stays blocked until all dependencies have passed merging.
 ## tmux Layout
 
 ```
-┌──────────┬──────────┬─────────┐
-│conductor │          │         │
-├──────────┤  board   │ watcher │
-│   cmd    │          │         │
-└──────────┴──────────┴─────────┘
+┌───────────┬──────────┬─────────┐
+│           │          │         │
+│ conductor │  board   │ watcher │
+│           │          │         │
+└───────────┴──────────┴─────────┘
 ```
 
 - **conductor**: Main Claude instance for task creation
-- **cmd**: Shell for manual commands
 - **board**: Auto-refreshing kanban board (updates every 5s)
 - **watcher**: Agent spawner logs
+
+Use `debussy connect` to reattach to a running session, or `debussy sessions` to list sessions across projects.
 
 ---
 
@@ -268,35 +265,46 @@ The acceptance task stays blocked until all dependencies have passed merging.
 
 ```
 src/debussy/
-  cli.py              # CLI command handlers (thin dispatch layer)
-  watcher.py          # Watcher run loop and agent state management
-  config.py           # Configuration, constants, stage/status definitions
-  transitions.py      # Stage transition logic (state machine)
-  spawner.py          # Agent spawning (tmux windows and background processes)
-  pipeline_checker.py # Pipeline scanning and dependency resolution
-  board.py            # Kanban board rendering
-  metrics.py          # Pipeline analytics and stage duration tracking
-  status.py           # Status and debug display
-  tmux.py             # Tmux session and window management
-  worktree.py         # Git worktree lifecycle
-  diagnostics.py      # Failure diagnostics for agent deaths
-  preflight.py        # Pre-spawn validation checks
-  prompts/            # Agent prompt templates (one file per role)
-  takt/               # Built-in SQLite task tracking
-    db.py             # Database connection and schema
-    models.py         # Task CRUD operations
-    log.py            # Log entries and workflow operations
-    cli.py            # CLI entry point for takt command
+  __main__.py          # CLI entry point (subcommand parsing)
+  cli.py               # CLI command handlers
+  agent.py             # AgentInfo dataclass and shared agent utilities
+  watcher.py           # Watcher run loop and agent lifecycle
+  config.py            # Configuration, stage/status constants, defaults
+  transitions.py       # Stage transition logic (state machine)
+  spawner.py           # Agent spawning (tmux windows and background processes)
+  pipeline_checker.py  # Pipeline scanning and dependency resolution
+  preflight.py         # Pre-spawn validation checks
+  board.py             # Kanban board rendering
+  status.py            # Runtime info helpers (agents, branches, base)
+  tmux.py              # Tmux session and window management
+  worktree.py          # Git worktree lifecycle
+  diagnostics.py       # Failure diagnostics for agent deaths
+  hooks.py             # Claude Code hook installation
+  prompts/             # Agent prompt templates (one file per role)
+  takt/                # Built-in SQLite task tracking
+    db.py              # Database connection and schema
+    models.py          # Task CRUD operations
+    log.py             # Log entries and workflow operations
+    cli.py             # CLI entry point for takt command
 tests/
-  test_takt_db.py     # Tests for takt database layer
-  test_takt_models.py # Tests for takt task model
-  test_takt_log.py    # Tests for takt log and workflow operations
-  test_takt_cli.py    # Tests for takt CLI
-  test_takt.py        # End-to-end takt tests
-  test_transitions.py # Tests for stage transition logic
-  test_spawner.py     # Tests for agent spawning
-  test_pipeline_checker.py # Tests for pipeline scanning
-.takt/                # SQLite task database (auto-created)
+  test_cli_sessions.py
+  test_config.py
+  test_diagnostics.py
+  test_hooks.py
+  test_integrator_prompt_content.py
+  test_pipeline_checker.py
+  test_preflight.py
+  test_spawner.py
+  test_takt.py
+  test_takt_cli.py
+  test_takt_db.py
+  test_takt_log.py
+  test_takt_models.py
+  test_tmux.py
+  test_transitions.py
+  test_worktree.py
+.takt/                 # SQLite task database (auto-created)
+.debussy/              # Local state, config, logs (auto-created)
 ```
 
 ---
@@ -308,26 +316,31 @@ Settings are stored in `.debussy/config.json`. Defaults:
 | Key | Default | Description |
 |-----|---------|-------------|
 | `max_total_agents` | 8 | Max concurrent agents across all roles |
+| `max_role_agents` | 10 per role | Per-role concurrency cap (developer, reviewer, security-reviewer, integrator, tester) |
 | `use_tmux_windows` | false | Spawn agents as tmux windows instead of background processes |
+| `agent_provider` | claude | CLI binary used to spawn agents |
 | `agent_timeout` | 3600 | Kill agents after this many seconds |
+| `monitor_interval` | 240 | Conductor heartbeat interval (seconds) |
+| `notify_conductor` | false | Notify the conductor pane when tasks finish |
+| `test_command` | — | Optional command the integrator runs during auto-resolve |
 | `base_branch` | — | Conductor's feature branch (set per feature) |
 | `role_models` | see below | Claude model per agent role |
 
-Default model assignments:
+Default model assignments (all roles use 1M-context models):
 
 | Role | Model |
 |------|-------|
 | conductor | claude-opus-4-6[1m] |
-| developer | claude-sonnet-4-6 |
-| reviewer | claude-opus-4-6 |
-| security-reviewer | claude-opus-4-6 |
-| integrator | claude-sonnet-4-6 |
-| tester | claude-sonnet-4-6 |
+| developer | claude-sonnet-4-6[1m] |
+| reviewer | claude-opus-4-6[1m] |
+| security-reviewer | claude-opus-4-6[1m] |
+| integrator | claude-sonnet-4-6[1m] |
+| tester | claude-sonnet-4-6[1m] |
 
 Override any role's model:
 
 ```bash
-debussy config role_models '{"developer": "claude-opus-4-6"}'
+debussy config role_models '{"developer": "claude-opus-4-6[1m]"}'
 ```
 
 ### tmux Windows Mode

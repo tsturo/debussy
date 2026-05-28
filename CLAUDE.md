@@ -201,34 +201,30 @@ Merging to master is NEVER done by agents — only by the user manually.
 
 ```
 src/debussy/
-  cli.py              # CLI command handlers (thin dispatch layer)
-  watcher.py          # Watcher run loop and agent state management
-  config.py           # Configuration, constants, stage/status definitions
-  transitions.py      # Stage transition logic (state machine)
-  spawner.py          # Agent spawning (tmux windows and background processes)
-  pipeline_checker.py # Pipeline scanning and dependency resolution
-  board.py            # Kanban board rendering
-  metrics.py          # Pipeline analytics and stage duration tracking
-  status.py           # Status and debug display
-  tmux.py             # Tmux session and window management
-  worktree.py         # Git worktree lifecycle
-  diagnostics.py      # Failure diagnostics for agent deaths
-  preflight.py        # Pre-spawn validation checks
-  prompts/            # Agent prompt templates (one file per role)
-  takt/               # Built-in SQLite task tracking
-    db.py             # Database connection and schema
-    models.py         # Task CRUD operations
-    log.py            # Log entries and workflow operations (advance, reject, claim, etc.)
-    cli.py            # CLI entry point for takt command
-tests/
-  test_takt_db.py     # Tests for takt database layer
-  test_takt_models.py # Tests for takt task model
-  test_takt_log.py    # Tests for takt log and workflow operations
-  test_takt_cli.py    # Tests for takt CLI
-  test_takt.py        # End-to-end takt tests
-  test_transitions.py # Tests for stage transition logic
-  test_spawner.py     # Tests for agent spawning
-.takt/                # SQLite task database (auto-created)
+  __main__.py          # CLI entry point (subcommand parsing)
+  cli.py               # CLI command handlers
+  agent.py             # AgentInfo dataclass and shared agent utilities
+  watcher.py           # Watcher run loop and agent lifecycle
+  config.py            # Configuration, stage/status constants, defaults
+  transitions.py       # Stage transition logic (state machine)
+  spawner.py           # Agent spawning (tmux windows and background processes)
+  pipeline_checker.py  # Pipeline scanning and dependency resolution
+  preflight.py         # Pre-spawn validation checks
+  board.py             # Kanban board rendering
+  status.py            # Runtime info helpers (agents, branches, base)
+  tmux.py              # Tmux session and window management
+  worktree.py          # Git worktree lifecycle
+  diagnostics.py       # Failure diagnostics for agent deaths
+  hooks.py             # Claude Code hook installation
+  prompts/             # Agent prompt templates (one file per role)
+  takt/                # Built-in SQLite task tracking
+    db.py              # Database connection and schema
+    models.py          # Task CRUD operations
+    log.py             # Log entries and workflow operations (advance, reject, claim, etc.)
+    cli.py             # CLI entry point for takt command
+tests/                 # 16 test modules, one per source module pair
+.takt/                 # SQLite task database (auto-created)
+.debussy/              # Local state, config, logs (auto-created)
 ```
 
 ---
@@ -236,11 +232,20 @@ tests/
 ## Commands
 
 ```bash
-debussy start              # Start system (tmux)
-debussy watch              # Run watcher
-debussy board [-p PREFIX]              # Show kanban board
-debussy config base_branch feature/<name>  # Set conductor's base branch
-debussy config test_command "<cmd>"        # Override integrator's test command (used when auto-discovery finds none)
+debussy start [--paused] [requirement]      # Start system (tmux)
+debussy watch                                # Run watcher only
+debussy board [-p PREFIX]                    # Show kanban board
+debussy config [key] [value]                 # View or set config
+debussy config base_branch feature/<name>    # Set conductor's base branch
+debussy config test_command "<cmd>"          # Override integrator's test command (used when auto-discovery finds none)
+debussy pause                                # Pause pipeline, kill agents
+debussy resume                               # Resume paused pipeline
+debussy kill [--all]                         # Kill current debussy tmux session
+debussy kill-agent <name|task-id>            # Kill one agent
+debussy sessions                             # List running debussy sessions
+debussy connect [name]                       # Attach to a running session
+debussy clear [-f]                           # Clear all tasks and worktrees
+debussy upgrade                              # Upgrade via pipx
 takt project add <PREFIX> <NAME> [--default]  # Add a project
 takt project list                              # List projects
 takt project default [PREFIX]                  # Show or switch default

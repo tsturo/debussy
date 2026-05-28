@@ -125,13 +125,6 @@ def label_panes():
 
 
 
-def stop_watcher():
-    subprocess.run(
-        ["tmux", "send-keys", "-t", f"{SESSION_NAME}:main.3", "C-c"],
-        capture_output=True,
-    )
-
-
 def list_debussy_sessions() -> list[dict]:
     result = subprocess.run(
         ["tmux", "list-sessions", "-F", "#{session_name}"],
