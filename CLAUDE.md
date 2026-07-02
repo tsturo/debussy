@@ -113,7 +113,7 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 - **First step**: creates a feature branch and registers it: `debussy config base_branch feature/<name>`
 - Creates tasks with `takt create "title" -d "description"`
 - Advances tasks to development: `takt advance <id>`
-- Creates all tasks first (backlog), then advances them
+- Creates all tasks first (backlog), presents the breakdown, and advances them only on the user's go-ahead — planning is interactive; autonomy governs the run phase only
 - Monitors progress with `debussy board`
 - Supervises the pipeline until every task is done or parked: diagnoses failures, spawns investigation subagents when information is missing, and escalates per the ladder (rewrite → re-plan → park + report)
 - **Does not write code**

@@ -45,6 +45,12 @@ def test_supervision_sections_present(project_dir):
     assert "TERMINAL CHECK" in text
 
 
+def test_run_phase_gated_on_user_go_ahead(project_dir):
+    text = get_conductor_system_prompt()
+    assert "TWO PHASES" in text
+    assert "NEVER release tasks without it" in text
+
+
 def test_parking_uses_parked_stage(project_dir):
     text = get_conductor_system_prompt()
     assert "takt advance <id> --to parked" in text
