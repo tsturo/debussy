@@ -8,7 +8,7 @@ from pathlib import Path
 
 import shlex
 
-from .config import SESSION_NAME, YOLO_MODE, get_config, set_config
+from .config import SESSION_NAME, YOLO_MODE, get_config, role_cli_args, set_config
 from .prompts import get_conductor_system_prompt, get_conductor_user_message
 
 
@@ -74,11 +74,9 @@ def _save_conductor_session(session_id: str) -> None:
 
 
 def _build_conductor_cmd(requirement: str | None = None, resume: bool = False) -> str:
-    cfg = get_config()
-    conductor_model = cfg.get("role_models", {}).get("conductor")
     claude_cmd = "claude --dangerously-skip-permissions" if YOLO_MODE else "claude"
-    if conductor_model:
-        claude_cmd += f" --model {shlex.quote(conductor_model)}"
+    for arg in role_cli_args("conductor"):
+        claude_cmd += f" {shlex.quote(arg)}"
 
     if resume:
         session_id = _read_conductor_session()
