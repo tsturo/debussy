@@ -4,7 +4,7 @@ import shutil
 
 from .config import (
     LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_BACKLOG, STAGE_DEVELOPMENT,
-    STAGE_DONE, STAGE_MERGING, STAGE_REVIEWING,
+    STAGE_DONE, STAGE_MERGING, STAGE_PARKED, STAGE_REVIEWING,
     STAGE_SECURITY_REVIEW, STATUS_BLOCKED,
 )
 from .status import get_running_agents, print_runtime_info
@@ -18,6 +18,7 @@ BOARD_COLUMNS = [
     ("merge", "Merge"),
     ("accept", "Accept"),
     ("backlog", "Backlog"),
+    ("parked", "Parked"),
     ("done", "Done"),
 ]
 BOARD_STAGE_MAP = {
@@ -27,6 +28,7 @@ BOARD_STAGE_MAP = {
     STAGE_MERGING: "merge",
     STAGE_ACCEPTANCE: "accept",
     STAGE_BACKLOG: "backlog",
+    STAGE_PARKED: "parked",
     STAGE_DONE: "done",
 }
 DONE_LIMIT = 5

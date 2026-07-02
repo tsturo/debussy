@@ -6,7 +6,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 SCHEMA_SQL = """\
 CREATE TABLE IF NOT EXISTS metadata (
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     description     TEXT DEFAULT '',
     stage           TEXT DEFAULT 'backlog'
                     CHECK(stage IN ('backlog','development','reviewing',
-                                    'security_review','merging','acceptance','done')),
+                                    'security_review','merging','acceptance','parked','done')),
     status          TEXT DEFAULT 'pending'
                     CHECK(status IN ('pending','active','blocked')),
     tags            TEXT DEFAULT '[]',
@@ -177,6 +177,32 @@ def _migrate(conn: sqlite3.Connection) -> None:
             )
             conn.execute("INSERT INTO tasks SELECT * FROM tasks_old")
             conn.execute("DROP TABLE tasks_old")
+    if version < 5:
+        table_sql = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'"
+        ).fetchone()
+        if table_sql and "'parked'" not in (table_sql[0] or ""):
+            conn.commit()
+            conn.execute("PRAGMA foreign_keys=OFF")
+            conn.execute(
+                "CREATE TABLE tasks_new ("
+                "id TEXT PRIMARY KEY, seq INTEGER NOT NULL, "
+                "title TEXT NOT NULL, description TEXT DEFAULT '', "
+                "stage TEXT DEFAULT 'backlog' "
+                "CHECK(stage IN ('backlog','development','reviewing',"
+                "'security_review','merging','acceptance','parked','done')), "
+                "status TEXT DEFAULT 'pending' "
+                "CHECK(status IN ('pending','active','blocked')), "
+                "tags TEXT DEFAULT '[]', "
+                "rejection_count INTEGER DEFAULT 0, "
+                "created_at TEXT DEFAULT (datetime('now')), "
+                "updated_at TEXT DEFAULT (datetime('now')))"
+            )
+            conn.execute("INSERT INTO tasks_new SELECT * FROM tasks")
+            conn.execute("DROP TABLE tasks")
+            conn.execute("ALTER TABLE tasks_new RENAME TO tasks")
+            conn.commit()
+            conn.execute("PRAGMA foreign_keys=ON")
     conn.commit()
     conn.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
 
