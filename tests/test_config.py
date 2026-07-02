@@ -34,3 +34,23 @@ def test_clean_config_removes_unknown_keys(project_dir):
 
 def test_test_command_is_a_known_key():
     assert "test_command" in KNOWN_KEYS
+
+
+def test_autonomy_defaults_to_auto(project_dir):
+    assert get_config()["autonomy"] == "auto"
+
+
+def test_role_models_default_to_current_generation(project_dir):
+    assert get_config()["role_models"] == {
+        "conductor": "claude-fable-5",
+        "developer": "claude-sonnet-5",
+        "reviewer": "claude-opus-4-8",
+        "security-reviewer": "claude-fable-5",
+        "integrator": "claude-sonnet-5",
+        "tester": "claude-sonnet-5",
+    }
+
+
+def test_role_efforts_cover_same_roles_as_role_models(project_dir):
+    cfg = get_config()
+    assert set(cfg["role_efforts"]) == set(cfg["role_models"])

@@ -48,13 +48,22 @@ DEFAULTS = {
     "use_tmux_windows": False,
     "agent_provider": "claude",
     "role_models": {
-        "conductor": "claude-opus-4-6[1m]",
-        "developer": "claude-sonnet-4-6[1m]",
-        "reviewer": "claude-opus-4-6[1m]",
-        "security-reviewer": "claude-opus-4-6[1m]",
-        "integrator": "claude-sonnet-4-6[1m]",
-        "tester": "claude-sonnet-4-6[1m]",
+        "conductor": "claude-fable-5",
+        "developer": "claude-sonnet-5",
+        "reviewer": "claude-opus-4-8",
+        "security-reviewer": "claude-fable-5",
+        "integrator": "claude-sonnet-5",
+        "tester": "claude-sonnet-5",
     },
+    "role_efforts": {
+        "conductor": "high",
+        "developer": "medium",
+        "reviewer": "high",
+        "security-reviewer": "high",
+        "integrator": "low",
+        "tester": "low",
+    },
+    "autonomy": "auto",
     "monitor_interval": 240,
     "notify_conductor": False,
     "max_role_agents": {
@@ -158,6 +167,7 @@ KNOWN_KEYS = {
     "paused", "agent_timeout", "agent_provider", "role_models",
     "docs_path", "notify_conductor", "max_role_agents", "monitor_interval",
     "project_type", "conductor_session_id", "test_command",
+    "autonomy", "role_efforts",
 }
 
 
