@@ -97,7 +97,8 @@ Two-field state model (stage + status):
 | `reviewing` | `pending` | Ready for reviewer agent |
 | `merging` | `pending` | Ready for integrator agent |
 | `acceptance` | `pending` | Ready for tester agent |
-| `backlog` | `pending` | Backlog/parked |
+| `backlog` | `pending` | Backlog |
+| `parked` | `pending` | Parked by conductor (undeliverable) — watcher ignores it, dependents stay blocked |
 | any | `blocked` | Waiting for deps / needs conductor |
 | `done` | `pending` | Pipeline complete |
 

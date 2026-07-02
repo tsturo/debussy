@@ -30,10 +30,21 @@ Additionally:
 ## Non-Goals
 
 - No `--manual`/`--auto` flags on `debussy start` (the config key covers it).
-- No changes to takt (dependency parking already works: deps only unblock when a task
-  exits `merging`).
 - No new watcher logic.
 - `YOLO_MODE` (permissions) is untouched and unrelated.
+
+## Revisions after multi-perspective review (2026-07-02)
+
+The initial design parked tasks via `takt block`. Review against the watcher code showed
+`release_ready` auto-unblocks any blocked task whose dependencies are resolved, so a
+conductor park would be resurrected on the next tick. Parking is now a dedicated `parked`
+stage (takt schema v5 widens the stage CHECK constraint): the watcher never scans it,
+dependency resolution never satisfies it, and the board shows it as its own column.
+`release_ready` also no longer unblocks tasks at MAX_REJECTIONS, closing a pre-existing
+churn loop. Additionally: `get_config()` deep-merges dict-valued keys (partial
+`role_models` overrides no longer wipe other roles' defaults), `role_cli_args` only emits
+flags for the claude provider, and the conductor prompt gained a terminal check,
+mode-scoped decision bullets, persisted ladder counts, and an acceptance-task carve-out.
 
 ## Design
 
@@ -61,9 +72,9 @@ findings, choose the recommended solution, act on it.
 2. Still failing → spawn an investigation subagent for root cause (bad spec, missing
    dependency, environment issue); re-plan: new task breakdown, different approach, or
    restructured deps.
-3. After 2 failed re-plans → the task is not deliverable as specified. Park it (leave
-   blocked). Dependents stay parked automatically. Keep driving all independent tasks to
-   done.
+3. After 2 failed re-plans → the task is not deliverable as specified. Park it
+   (`takt advance <id> --to parked` — see Revisions section). Dependents stay parked
+   automatically. Keep driving all independent tasks to done.
 4. End of run → final report: what shipped, what was parked and why, what the parked
    tasks blocked.
 
@@ -122,9 +133,9 @@ or unverifiable, ship plain IDs.
 
 ## Edge Cases
 
-- `get_config()` does a shallow merge (`{**DEFAULTS, **file}`): a project with an existing
-  `role_models` key in `.debussy/config.json` keeps its old models entirely until the user
-  updates or deletes that key. Accepted; no migration.
+- `get_config()` deep-merges dict-valued keys against DEFAULTS (revised after review):
+  a partial `role_models` override customizes only the listed roles; unlisted roles get
+  current defaults. Per-role opt-out: set the role's value to `""`.
 - `role_efforts` missing a role → no `--effort` flag for that role (CLI session default
   applies).
 - Unknown `autonomy` value → behaves as `auto`.

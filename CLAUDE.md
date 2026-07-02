@@ -58,7 +58,8 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 | `reviewing` | `pending` | Ready for reviewer agent |
 | `merging` | `pending` | Ready for integrator agent |
 | `acceptance` | `pending` | Ready for tester agent |
-| `backlog` | `pending` | Backlog/parked |
+| `backlog` | `pending` | Backlog |
+| `parked` | `pending` | Parked by conductor (undeliverable) — watcher ignores it, dependents stay blocked |
 | any | `blocked` | Waiting for deps / agent stuck |
 | `done` | `pending` | Pipeline complete |
 
