@@ -43,15 +43,16 @@ _NO_BRANCH_ERROR = (
 
 _AUTONOMY_MODES = {
     "auto": (
-        "AUTONOMY: full — never ask the user mid-run. Make every recovery and "
-        "re-planning decision yourself. Log each decision to .debussy/conductor-context.md "
-        "(what, why, alternatives considered). When every task is done or parked, "
+        "AUTONOMY: full — never ask the user mid-run. Make every recovery, "
+        "re-planning, and parking decision yourself and act on it immediately; "
+        "do not stop to confirm. Log each decision to .debussy/conductor-context.md "
+        "(what, why, alternatives considered). When the terminal check fires, "
         "produce the final report."
     ),
     "manual": (
         "AUTONOMY: manual — at each decision point (rejection loop, stuck agent, "
         "re-plan, parking), present the options with your recommendation and wait "
-        "for the user's choice."
+        "for the user's choice before acting."
     ),
 }
 

@@ -42,3 +42,10 @@ def test_supervision_sections_present(project_dir):
     assert "PIPELINE SUPERVISION" in text
     assert "DECISION PROTOCOL" in text
     assert "ESCALATION LADDER" in text
+    assert "TERMINAL CHECK" in text
+
+
+def test_parking_uses_parked_stage(project_dir):
+    text = get_conductor_system_prompt()
+    assert "takt advance <id> --to parked" in text
+    assert "Never park an acceptance task" in text
