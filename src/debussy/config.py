@@ -138,24 +138,32 @@ def atomic_write(path: Path, data: str):
 
 _config_cache = {}
 _config_mtime = 0.0
+_config_path = None
 
 
 def get_config() -> dict:
-    global _config_cache, _config_mtime
+    global _config_cache, _config_mtime, _config_path
     path = CONFIG_DIR / "config.json"
     try:
+        resolved = path.resolve()
         mtime = path.stat().st_mtime
-        if mtime != _config_mtime:
+        if resolved != _config_path or mtime != _config_mtime:
             _config_cache = json.loads(path.read_text())
             _config_mtime = mtime
+            _config_path = resolved
     except (FileNotFoundError, PermissionError, json.JSONDecodeError, OSError):
         _config_cache = {}
         _config_mtime = 0.0
+        _config_path = None
     merged = {**DEFAULTS, **_config_cache}
     for key, default in DEFAULTS.items():
+        if not isinstance(default, dict):
+            continue
         override = _config_cache.get(key)
-        if isinstance(default, dict) and isinstance(override, dict):
+        if isinstance(override, dict):
             merged[key] = {**default, **override}
+        elif key in _config_cache:
+            merged[key] = default
     return merged
 
 
