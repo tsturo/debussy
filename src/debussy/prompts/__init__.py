@@ -122,8 +122,10 @@ def get_conductor_prompt_path() -> Path:
 def get_conductor_system_prompt() -> str:
     text = get_conductor_prompt_path().read_text()
     cfg = get_config()
-    text = text.replace("MONITOR_INTERVAL", str(cfg.get("monitor_interval", 300)))
-    mode = "manual" if cfg.get("autonomy") == "manual" else "auto"
+    text = text.replace("MONITOR_INTERVAL", str(cfg["monitor_interval"]))
+    mode = cfg.get("autonomy")
+    if mode not in _AUTONOMY_MODES:
+        mode = "auto"
     return text.replace("AUTONOMY_INSTRUCTIONS", _AUTONOMY_MODES[mode])
 
 

@@ -29,6 +29,7 @@ STAGE_REVIEWING = "reviewing"
 STAGE_SECURITY_REVIEW = "security_review"
 STAGE_MERGING = "merging"
 STAGE_ACCEPTANCE = "acceptance"
+STAGE_PARKED = "parked"
 STAGE_DONE = "done"
 
 STATUS_PENDING = "pending"
@@ -103,6 +104,7 @@ STAGE_SHORT = {
     STAGE_SECURITY_REVIEW: "sec",
     STAGE_MERGING: "merge",
     STAGE_ACCEPTANCE: "accept",
+    STAGE_PARKED: "park",
     STAGE_DONE: "done",
 }
 
@@ -149,7 +151,12 @@ def get_config() -> dict:
     except (FileNotFoundError, PermissionError, json.JSONDecodeError, OSError):
         _config_cache = {}
         _config_mtime = 0.0
-    return {**DEFAULTS, **_config_cache}
+    merged = {**DEFAULTS, **_config_cache}
+    for key, default in DEFAULTS.items():
+        override = _config_cache.get(key)
+        if isinstance(default, dict) and isinstance(override, dict):
+            merged[key] = {**default, **override}
+    return merged
 
 
 def _read_config_file() -> dict:
@@ -242,7 +249,9 @@ def parse_value(value: str) -> str | bool | int | dict | list:
     return value
 
 
-def role_cli_args(role: str) -> list[str]:
+def role_cli_args(role: str, provider: str = "claude") -> list[str]:
+    if provider != "claude":
+        return []
     cfg = get_config()
     args = []
     model = cfg.get("role_models", {}).get(role)

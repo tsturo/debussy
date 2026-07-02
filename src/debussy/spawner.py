@@ -82,7 +82,7 @@ def _spawn_tmux(agent_name, task_id, role, prompt_path, user_message, stage, wor
     cli_cmd = agent_provider
     if agent_provider == "claude" and YOLO_MODE:
         cli_cmd += " --dangerously-skip-permissions"
-    for arg in role_cli_args(role):
+    for arg in role_cli_args(role, agent_provider):
         cli_cmd += f" {shlex.quote(arg)}"
     cli_cmd += f" --system-prompt \"$(cat {shlex.quote(str(prompt_path))})\" {shlex.quote(user_message)}"
 
@@ -132,7 +132,7 @@ def _spawn_background(agent_name, task_id, role, system_prompt, user_message, st
     cmd = [agent_provider]
     if agent_provider == "claude" and YOLO_MODE:
         cmd.append("--dangerously-skip-permissions")
-    cmd.extend(role_cli_args(role))
+    cmd.extend(role_cli_args(role, agent_provider))
     cmd.extend(["--system-prompt", system_prompt, "--print", user_message])
 
     logs_dir = Path(".debussy/logs")

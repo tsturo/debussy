@@ -64,6 +64,23 @@ def test_role_cli_args_empty_for_unknown_role(project_dir):
     assert role_cli_args("no-such-role") == []
 
 
-def test_role_cli_args_omits_unset_effort(project_dir):
-    set_config("role_efforts", {})
+def test_role_cli_args_omits_effort_disabled_per_role(project_dir):
+    set_config("role_efforts", {"developer": ""})
     assert role_cli_args("developer") == ["--model", "claude-sonnet-5"]
+
+
+def test_role_cli_args_empty_for_non_claude_provider(project_dir):
+    assert role_cli_args("developer", "other-cli") == []
+
+
+def test_dict_config_values_deep_merge_with_defaults(project_dir):
+    set_config("role_models", {"developer": "custom-model"})
+    cfg = get_config()
+    assert cfg["role_models"]["developer"] == "custom-model"
+    assert cfg["role_models"]["reviewer"] == "claude-opus-4-8"
+    assert cfg["role_efforts"]["developer"] == "medium"
+
+
+def test_scalar_config_values_still_override(project_dir):
+    set_config("max_total_agents", 3)
+    assert get_config()["max_total_agents"] == 3
