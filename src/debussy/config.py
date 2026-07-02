@@ -242,3 +242,15 @@ def parse_value(value: str) -> str | bool | int | dict | list:
     return value
 
 
+def role_cli_args(role: str) -> list[str]:
+    cfg = get_config()
+    args = []
+    model = cfg.get("role_models", {}).get(role)
+    if model:
+        args.extend(["--model", model])
+    effort = cfg.get("role_efforts", {}).get(role)
+    if effort:
+        args.extend(["--effort", effort])
+    return args
+
+

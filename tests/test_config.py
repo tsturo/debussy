@@ -2,7 +2,7 @@
 
 import pytest
 
-from debussy.config import KNOWN_KEYS, clean_config, get_config, set_config
+from debussy.config import KNOWN_KEYS, clean_config, get_config, role_cli_args, set_config
 
 
 @pytest.fixture
@@ -54,3 +54,16 @@ def test_role_models_default_to_current_generation(project_dir):
 def test_role_efforts_cover_same_roles_as_role_models(project_dir):
     cfg = get_config()
     assert set(cfg["role_efforts"]) == set(cfg["role_models"])
+
+
+def test_role_cli_args_returns_model_and_effort(project_dir):
+    assert role_cli_args("developer") == ["--model", "claude-sonnet-5", "--effort", "medium"]
+
+
+def test_role_cli_args_empty_for_unknown_role(project_dir):
+    assert role_cli_args("no-such-role") == []
+
+
+def test_role_cli_args_omits_unset_effort(project_dir):
+    set_config("role_efforts", {})
+    assert role_cli_args("developer") == ["--model", "claude-sonnet-5"]
