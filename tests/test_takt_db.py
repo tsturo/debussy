@@ -265,6 +265,18 @@ class TestMigrationV4ToV5:
             ).fetchone()[0]
             assert stage == "parked"
 
+    def test_migration_recovers_from_interrupted_previous_attempt(self, db_dir):
+        self._make_v4_db(db_dir)
+        conn = sqlite3.connect(str(db_dir / ".takt" / "takt.db"))
+        conn.execute("CREATE TABLE tasks_new (id TEXT)")
+        conn.commit()
+        conn.close()
+
+        with get_db(db_dir) as conn:
+            conn.execute("UPDATE tasks SET stage = 'parked' WHERE id = 'T-1'")
+            count = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
+            assert count == 2
+
     def test_migration_preserves_rows_and_fk_references(self, db_dir):
         self._make_v4_db(db_dir)
         with get_db(db_dir) as conn:

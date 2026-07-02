@@ -184,6 +184,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
         if table_sql and "'parked'" not in (table_sql[0] or ""):
             conn.commit()
             conn.execute("PRAGMA foreign_keys=OFF")
+            conn.execute("DROP TABLE IF EXISTS tasks_new")
             conn.execute(
                 "CREATE TABLE tasks_new ("
                 "id TEXT PRIMARY KEY, seq INTEGER NOT NULL, "
