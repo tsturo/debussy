@@ -324,23 +324,26 @@ Settings are stored in `.debussy/config.json`. Defaults:
 | `notify_conductor` | false | Notify the conductor pane when tasks finish |
 | `test_command` | — | Optional command the integrator runs during auto-resolve |
 | `base_branch` | — | Conductor's feature branch (set per feature) |
+| `autonomy` | auto | `auto`: conductor never asks mid-run; `manual`: asks at decision points |
 | `role_models` | see below | Claude model per agent role |
+| `role_efforts` | see below | Reasoning effort per agent role |
 
-Default model assignments (all roles use 1M-context models):
+Default model and effort assignments:
 
-| Role | Model |
-|------|-------|
-| conductor | claude-opus-4-6[1m] |
-| developer | claude-sonnet-4-6[1m] |
-| reviewer | claude-opus-4-6[1m] |
-| security-reviewer | claude-opus-4-6[1m] |
-| integrator | claude-sonnet-4-6[1m] |
-| tester | claude-sonnet-4-6[1m] |
+| Role | Model | Effort |
+|------|-------|--------|
+| conductor | claude-fable-5 | high |
+| developer | claude-sonnet-5 | medium |
+| reviewer | claude-opus-4-8 | high |
+| security-reviewer | claude-fable-5 | high |
+| integrator | claude-sonnet-5 | low |
+| tester | claude-sonnet-5 | low |
 
-Override any role's model:
+Override any role's model or effort:
 
 ```bash
-debussy config role_models '{"developer": "claude-opus-4-6[1m]"}'
+debussy config role_models '{"developer": "claude-opus-4-8"}'
+debussy config role_efforts '{"developer": "high"}'
 ```
 
 ### tmux Windows Mode
