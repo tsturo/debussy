@@ -1,6 +1,9 @@
 """Tests for agent spawning."""
 
+import os
+import shutil
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -151,6 +154,42 @@ class TestSpawnAgentPreflight(unittest.TestCase):
         result = spawn_agent(watcher, "developer", "bd-001", "stage:development")
 
         self.assertTrue(result)
+
+
+class TestSpawnCommandFlags(unittest.TestCase):
+    def setUp(self):
+        self._old_cwd = os.getcwd()
+        self._tmp = tempfile.mkdtemp()
+        os.chdir(self._tmp)
+
+    def tearDown(self):
+        os.chdir(self._old_cwd)
+        shutil.rmtree(self._tmp, ignore_errors=True)
+
+    @patch("debussy.spawner.subprocess.run")
+    @patch("debussy.spawner.role_cli_args", return_value=["--model", "claude-sonnet-5", "--effort", "medium"])
+    @patch("debussy.spawner.get_config", return_value={"agent_provider": "claude"})
+    def test_tmux_command_includes_model_and_effort(self, _cfg, _args, mock_run):
+        from debussy.spawner import _spawn_tmux
+
+        mock_run.return_value = MagicMock(stdout="@42\n", returncode=0)
+        _spawn_tmux("developer-bach", "bd-1", "developer", Path("/tmp/p.md"), "msg", "stage:development")
+
+        shell_cmd = mock_run.call_args_list[0][0][0][-1]
+        self.assertIn("--model claude-sonnet-5", shell_cmd)
+        self.assertIn("--effort medium", shell_cmd)
+
+    @patch("debussy.spawner.subprocess.Popen")
+    @patch("debussy.spawner.role_cli_args", return_value=["--model", "claude-sonnet-5", "--effort", "medium"])
+    @patch("debussy.spawner.get_config", return_value={"agent_provider": "claude"})
+    def test_background_command_includes_model_and_effort(self, _cfg, _args, mock_popen):
+        from debussy.spawner import _spawn_background
+
+        _spawn_background("developer-bach", "bd-1", "developer", "sys", "msg", "stage:development")
+
+        cmd = mock_popen.call_args[0][0]
+        self.assertEqual(cmd[cmd.index("--model") + 1], "claude-sonnet-5")
+        self.assertEqual(cmd[cmd.index("--effort") + 1], "medium")
 
 
 if __name__ == "__main__":

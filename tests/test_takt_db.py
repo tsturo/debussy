@@ -223,6 +223,75 @@ class TestMigrationV2ToV3:
             assert version == SCHEMA_VERSION
 
 
+class TestMigrationV4ToV5:
+    def _make_v4_db(self, db_dir):
+        takt_dir = db_dir / ".takt"
+        takt_dir.mkdir()
+        db_path = takt_dir / "takt.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.execute(
+            "CREATE TABLE tasks ("
+            "id TEXT PRIMARY KEY, seq INTEGER NOT NULL, "
+            "title TEXT NOT NULL, description TEXT DEFAULT '', "
+            "stage TEXT DEFAULT 'backlog' "
+            "CHECK(stage IN ('backlog','development','reviewing',"
+            "'security_review','merging','acceptance','done')), "
+            "status TEXT DEFAULT 'pending' "
+            "CHECK(status IN ('pending','active','blocked')), "
+            "tags TEXT DEFAULT '[]', "
+            "rejection_count INTEGER DEFAULT 0, "
+            "created_at TEXT DEFAULT (datetime('now')), "
+            "updated_at TEXT DEFAULT (datetime('now')))"
+        )
+        conn.execute(
+            "CREATE TABLE dependencies ("
+            "task_id TEXT REFERENCES tasks(id), "
+            "depends_on_id TEXT REFERENCES tasks(id), "
+            "PRIMARY KEY (task_id, depends_on_id))"
+        )
+        conn.execute("INSERT INTO tasks (id, seq, title) VALUES ('T-1', 1, 'A')")
+        conn.execute("INSERT INTO tasks (id, seq, title) VALUES ('T-2', 2, 'B')")
+        conn.execute("INSERT INTO dependencies VALUES ('T-2', 'T-1')")
+        conn.execute("PRAGMA user_version = 4")
+        conn.commit()
+        conn.close()
+
+    def test_parked_stage_accepted_after_migration(self, db_dir):
+        self._make_v4_db(db_dir)
+        with get_db(db_dir) as conn:
+            conn.execute("UPDATE tasks SET stage = 'parked' WHERE id = 'T-1'")
+            stage = conn.execute(
+                "SELECT stage FROM tasks WHERE id = 'T-1'"
+            ).fetchone()[0]
+            assert stage == "parked"
+
+    def test_migration_recovers_from_interrupted_previous_attempt(self, db_dir):
+        self._make_v4_db(db_dir)
+        conn = sqlite3.connect(str(db_dir / ".takt" / "takt.db"))
+        conn.execute("CREATE TABLE tasks_new (id TEXT)")
+        conn.commit()
+        conn.close()
+
+        with get_db(db_dir) as conn:
+            conn.execute("UPDATE tasks SET stage = 'parked' WHERE id = 'T-1'")
+            count = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
+            assert count == 2
+
+    def test_migration_preserves_rows_and_fk_references(self, db_dir):
+        self._make_v4_db(db_dir)
+        with get_db(db_dir) as conn:
+            count = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
+            assert count == 2
+            dep = conn.execute("SELECT * FROM dependencies").fetchone()
+            assert (dep["task_id"], dep["depends_on_id"]) == ("T-2", "T-1")
+            deps_sql = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='dependencies'"
+            ).fetchone()[0]
+            assert "tasks_old" not in deps_sql
+            conn.execute("INSERT INTO tasks (id, seq, title) VALUES ('T-3', 3, 'C')")
+            conn.execute("INSERT INTO dependencies VALUES ('T-3', 'T-1')")
+
+
 class TestGetPrefix:
     def test_returns_default_project_prefix(self, db_dir):
         with get_db(db_dir) as conn:

@@ -58,7 +58,8 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 | `reviewing` | `pending` | Ready for reviewer agent |
 | `merging` | `pending` | Ready for integrator agent |
 | `acceptance` | `pending` | Ready for tester agent |
-| `backlog` | `pending` | Backlog/parked |
+| `backlog` | `pending` | Backlog |
+| `parked` | `pending` | Parked by conductor (undeliverable) — watcher ignores it, dependents stay blocked |
 | any | `blocked` | Waiting for deps / agent stuck |
 | `done` | `pending` | Pipeline complete |
 
@@ -114,6 +115,7 @@ Tasks with the `frontend` tag (set by conductor) trigger Playwright visual verif
 - Advances tasks to development: `takt advance <id>`
 - Creates all tasks first (backlog), then advances them
 - Monitors progress with `debussy board`
+- Supervises the pipeline until every task is done or parked: diagnoses failures, spawns investigation subagents when information is missing, and escalates per the ladder (rewrite → re-plan → park + report)
 - **Does not write code**
 - **Never merges to master** — user does that manually
 
@@ -238,6 +240,7 @@ debussy board [-p PREFIX]                    # Show kanban board
 debussy config [key] [value]                 # View or set config
 debussy config base_branch feature/<name>    # Set conductor's base branch
 debussy config test_command "<cmd>"          # Override integrator's test command (used when auto-discovery finds none)
+debussy config autonomy manual               # Conductor asks at decision points (default: auto — never asks mid-run)
 debussy pause                                # Pause pipeline, kill agents
 debussy resume                               # Resume paused pipeline
 debussy kill [--all]                         # Kill current debussy tmux session

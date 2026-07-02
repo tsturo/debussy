@@ -29,6 +29,7 @@ STAGE_REVIEWING = "reviewing"
 STAGE_SECURITY_REVIEW = "security_review"
 STAGE_MERGING = "merging"
 STAGE_ACCEPTANCE = "acceptance"
+STAGE_PARKED = "parked"
 STAGE_DONE = "done"
 
 STATUS_PENDING = "pending"
@@ -48,13 +49,22 @@ DEFAULTS = {
     "use_tmux_windows": False,
     "agent_provider": "claude",
     "role_models": {
-        "conductor": "claude-opus-4-6[1m]",
-        "developer": "claude-sonnet-4-6[1m]",
-        "reviewer": "claude-opus-4-6[1m]",
-        "security-reviewer": "claude-opus-4-6[1m]",
-        "integrator": "claude-sonnet-4-6[1m]",
-        "tester": "claude-sonnet-4-6[1m]",
+        "conductor": "claude-fable-5",
+        "developer": "claude-sonnet-5",
+        "reviewer": "claude-opus-4-8",
+        "security-reviewer": "claude-fable-5",
+        "integrator": "claude-sonnet-5",
+        "tester": "claude-sonnet-5",
     },
+    "role_efforts": {
+        "conductor": "high",
+        "developer": "medium",
+        "reviewer": "high",
+        "security-reviewer": "high",
+        "integrator": "low",
+        "tester": "low",
+    },
+    "autonomy": "auto",
     "monitor_interval": 240,
     "notify_conductor": False,
     "max_role_agents": {
@@ -94,6 +104,7 @@ STAGE_SHORT = {
     STAGE_SECURITY_REVIEW: "sec",
     STAGE_MERGING: "merge",
     STAGE_ACCEPTANCE: "accept",
+    STAGE_PARKED: "park",
     STAGE_DONE: "done",
 }
 
@@ -127,20 +138,33 @@ def atomic_write(path: Path, data: str):
 
 _config_cache = {}
 _config_mtime = 0.0
+_config_path = None
 
 
 def get_config() -> dict:
-    global _config_cache, _config_mtime
+    global _config_cache, _config_mtime, _config_path
     path = CONFIG_DIR / "config.json"
     try:
+        resolved = path.resolve()
         mtime = path.stat().st_mtime
-        if mtime != _config_mtime:
+        if resolved != _config_path or mtime != _config_mtime:
             _config_cache = json.loads(path.read_text())
             _config_mtime = mtime
+            _config_path = resolved
     except (FileNotFoundError, PermissionError, json.JSONDecodeError, OSError):
         _config_cache = {}
         _config_mtime = 0.0
-    return {**DEFAULTS, **_config_cache}
+        _config_path = None
+    merged = {**DEFAULTS, **_config_cache}
+    for key, default in DEFAULTS.items():
+        if not isinstance(default, dict):
+            continue
+        override = _config_cache.get(key)
+        if isinstance(override, dict):
+            merged[key] = {**default, **override}
+        elif key in _config_cache:
+            merged[key] = default
+    return merged
 
 
 def _read_config_file() -> dict:
@@ -158,6 +182,7 @@ KNOWN_KEYS = {
     "paused", "agent_timeout", "agent_provider", "role_models",
     "docs_path", "notify_conductor", "max_role_agents", "monitor_interval",
     "project_type", "conductor_session_id", "test_command",
+    "autonomy", "role_efforts",
 }
 
 
@@ -230,5 +255,19 @@ def parse_value(value: str) -> str | bool | int | dict | list:
     except (json.JSONDecodeError, ValueError):
         pass
     return value
+
+
+def role_cli_args(role: str, provider: str = "claude") -> list[str]:
+    if provider != "claude":
+        return []
+    cfg = get_config()
+    args = []
+    model = cfg.get("role_models", {}).get(role)
+    if model:
+        args.extend(["--model", model])
+    effort = cfg.get("role_efforts", {}).get(role)
+    if effort:
+        args.extend(["--effort", effort])
+    return args
 
 

@@ -7,7 +7,7 @@ import pytest
 from debussy.takt import get_db, init_db, create_task, advance_task, update_task, get_task
 from debussy.pipeline_checker import reset_orphaned, release_ready, _should_skip_task
 from debussy.config import (
-    STAGE_DEVELOPMENT, STAGE_BACKLOG, STAGE_ACCEPTANCE,
+    STAGE_DEVELOPMENT, STAGE_BACKLOG, STAGE_ACCEPTANCE, STAGE_PARKED,
     STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
 )
 
@@ -110,6 +110,42 @@ class TestReleaseReady:
 
         with get_db() as db:
             updated = get_task(db, task_id)
+        assert updated["status"] == STATUS_PENDING
+
+    def test_blocked_task_at_max_rejections_stays_blocked(self, project):
+        """Auto-blocked rejection loops must not be resurrected by dep resolution."""
+        with get_db() as db:
+            dep = create_task(db, "Dependency")
+            update_task(db, dep["id"], stage="done")
+            task = create_task(db, "Rejection loop", deps=[dep["id"]])
+            advance_task(db, task["id"])  # → development
+            update_task(db, task["id"], status=STATUS_BLOCKED, rejection_count=3)
+            task_id = task["id"]
+
+        watcher = _make_watcher()
+
+        release_ready(watcher)
+
+        with get_db() as db:
+            updated = get_task(db, task_id)
+        assert updated["status"] == STATUS_BLOCKED
+
+    def test_parked_task_is_left_alone(self, project):
+        """A task parked by the conductor (stage=parked) must not be released or advanced."""
+        with get_db() as db:
+            dep = create_task(db, "Dependency")
+            update_task(db, dep["id"], stage="done")
+            task = create_task(db, "Undeliverable", deps=[dep["id"]])
+            advance_task(db, task["id"], to_stage=STAGE_PARKED)
+            task_id = task["id"]
+
+        watcher = _make_watcher()
+
+        release_ready(watcher)
+
+        with get_db() as db:
+            updated = get_task(db, task_id)
+        assert updated["stage"] == STAGE_PARKED
         assert updated["status"] == STATUS_PENDING
 
     def test_backlog_task_with_resolved_deps_gets_advanced(self, project):

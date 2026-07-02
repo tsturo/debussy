@@ -45,3 +45,14 @@ class TestListDebussySessions:
         result = list_debussy_sessions()
 
         assert result == [{"session": "debussy-broken", "path": "unknown"}]
+
+
+class TestBuildConductorCmd:
+    def test_includes_model_and_effort_from_defaults(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        from debussy.tmux import _build_conductor_cmd
+
+        cmd = _build_conductor_cmd()
+
+        assert "--model claude-fable-5" in cmd
+        assert "--effort high" in cmd

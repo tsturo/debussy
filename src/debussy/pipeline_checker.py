@@ -12,6 +12,7 @@ from .takt import (
     add_comment, advance_task, block_task, get_db, get_task,
     get_unresolved_deps, list_tasks, release_task,
 )
+from .takt.log import MAX_REJECTIONS
 from .transitions import MAX_RETRIES
 
 
@@ -79,6 +80,8 @@ def _try_release_task(watcher, task, status):
     if status == STATUS_BLOCKED and stage == STAGE_ACCEPTANCE:
         return
     if status == STATUS_BLOCKED and watcher.empty_branch_retries.get(task_id, 0) >= MAX_RETRIES:
+        return
+    if status == STATUS_BLOCKED and task.get("rejection_count", 0) >= MAX_REJECTIONS:
         return
 
     with get_db() as db:

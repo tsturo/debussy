@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 from .agent import AgentInfo
-from .config import SESSION_NAME, YOLO_MODE, get_base_branch, get_config, log
+from .config import SESSION_NAME, YOLO_MODE, get_base_branch, get_config, log, role_cli_args
 from .diagnostics import comment_on_task
 from .preflight import preflight_spawn
 from .prompts import get_prompt_path, get_system_prompt, get_user_message
@@ -78,14 +78,12 @@ def create_agent_worktree(role: str, task_id: str, agent_name: str) -> str:
 def _spawn_tmux(agent_name, task_id, role, prompt_path, user_message, stage, worktree_path=""):
     cfg = get_config()
     agent_provider = cfg.get("agent_provider", "claude")
-    role_models = cfg.get("role_models", {})
-    model = role_models.get(role)
 
     cli_cmd = agent_provider
     if agent_provider == "claude" and YOLO_MODE:
         cli_cmd += " --dangerously-skip-permissions"
-    if model:
-        cli_cmd += f" --model {shlex.quote(model)}"
+    for arg in role_cli_args(role, agent_provider):
+        cli_cmd += f" {shlex.quote(arg)}"
     cli_cmd += f" --system-prompt \"$(cat {shlex.quote(str(prompt_path))})\" {shlex.quote(user_message)}"
 
     cd_prefix = f"cd {shlex.quote(worktree_path)} && " if worktree_path else ""
@@ -130,14 +128,11 @@ def _spawn_tmux(agent_name, task_id, role, prompt_path, user_message, stage, wor
 def _spawn_background(agent_name, task_id, role, system_prompt, user_message, stage, worktree_path=""):
     cfg = get_config()
     agent_provider = cfg.get("agent_provider", "claude")
-    role_models = cfg.get("role_models", {})
-    model = role_models.get(role)
 
     cmd = [agent_provider]
     if agent_provider == "claude" and YOLO_MODE:
         cmd.append("--dangerously-skip-permissions")
-    if model:
-        cmd.extend(["--model", model])
+    cmd.extend(role_cli_args(role, agent_provider))
     cmd.extend(["--system-prompt", system_prompt, "--print", user_message])
 
     logs_dir = Path(".debussy/logs")
