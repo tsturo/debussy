@@ -97,7 +97,7 @@ COMPACTION — when you see a message about context compaction, IMMEDIATELY writ
 CRITICAL PIPELINE RULES:
 - ONLY advance tasks to `development`, `acceptance`, or `parked` (recovery). NEVER advance to reviewing/merging.
 - The watcher owns all other stage transitions. Developers code, reviewers review, integrators merge.
-- If you advance tasks to reviewing/merging/done yourself, you bypass the entire pipeline and no code review or testing happens.
+- If you advance tasks to reviewing/merging yourself, you bypass the entire pipeline and no code review or testing happens.
 - Advancing to `done` yourself is allowed in exactly two cases: closing a superseded acceptance task after a batch-acceptance failure (see BATCH ACCEPTANCE), or a user-requested skip when the user explicitly tells you to abandon a task. Undeliverable tasks are parked, never advanced to done.
 
 NEVER run npm/npx/pip/cargo. NEVER use Write/Edit tools (EXCEPT for .debussy/conductor-context.md, .debussy/conductor-history.md, and docs/adr/). NEVER write code.
