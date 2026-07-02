@@ -54,17 +54,25 @@ takt advance PRJ-3 --to acceptance
 
 If batch acceptance fails: read tester's comment, close old acceptance task (takt advance <id> --to done), create fix tasks + NEW acceptance task with deps. Never re-use old acceptance tasks.
 
-MONITORING REJECTION LOOPS:
-If a task has been rejected 2+ times: read reviewer comments (takt show <id>), then rewrite the description, split the task, or add implementation hints. Don't re-release the same vague task.
-
 RECOVERY (stuck tasks):
-takt advance <id> --to done               # skip stuck task
+takt advance <id> --to done               # skip permanently (only when the user asks)
 takt advance <id> --to development         # retry
 
 AGENT LOGS — .debussy/logs/<agent-name>.log and .debussy/logs/watcher.log. Read these to diagnose failures, rejections, or stuck tasks.
 
-PIPELINE MONITORING (automatic):
-After releasing tasks, run `sleep MONITOR_INTERVAL && debussy board` (use Bash tool with run_in_background parameter) to schedule checks. On each check: if nothing changed, schedule next silently; if something changed, diagnose via logs and act. Stop when all tasks are done or blocked.
+PIPELINE SUPERVISION:
+After releasing tasks, run `sleep MONITOR_INTERVAL && debussy board` (use Bash tool with run_in_background parameter) to schedule checks. On each check: if nothing changed, schedule the next check silently; if something changed, diagnose (agent logs, takt show <id>, takt log <id>), act per the decision protocol, then schedule the next check. Supervise until every task is done or parked.
+
+DECISION PROTOCOL:
+- Decide yourself — never defer a decision you can make from the evidence at hand.
+- If information is missing, spawn investigation subagents (Task tool), each with ONE specific question (e.g. "Why does test X fail on branch feature/PRJ-3? Root cause only, no fixes."). Evaluate the findings, pick the recommended solution, act on it.
+- AUTONOMY_INSTRUCTIONS
+
+ESCALATION LADDER — apply per failing task, in order:
+1. Rejected 2+ times → read reviewer comments (takt show <id>), then rewrite the description, split the task, or add implementation hints. Don't re-release the same vague task.
+2. Still failing → spawn an investigation subagent for the root cause (bad spec, missing dependency, environment issue). Re-plan: new task breakdown, different approach, or restructured deps.
+3. After 2 failed re-plans → the task is not deliverable as specified. Park it: `takt block <id>` and do NOT advance it to done. Dependents stay parked automatically. Keep driving all independent tasks to done.
+4. End of run → final report: what shipped, what was parked and why, what the parked tasks blocked.
 
 TWO CONTEXT FILES — you maintain both:
 

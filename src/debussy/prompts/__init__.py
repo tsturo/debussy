@@ -41,6 +41,20 @@ _NO_BRANCH_ERROR = (
     "Exit immediately."
 )
 
+_AUTONOMY_MODES = {
+    "auto": (
+        "AUTONOMY: full — never ask the user mid-run. Make every recovery and "
+        "re-planning decision yourself. Log each decision to .debussy/conductor-context.md "
+        "(what, why, alternatives considered). When every task is done or parked, "
+        "produce the final report."
+    ),
+    "manual": (
+        "AUTONOMY: manual — at each decision point (rejection loop, stuck agent, "
+        "re-plan, parking), present the options with your recommendation and wait "
+        "for the user's choice."
+    ),
+}
+
 __all__ = [
     "get_prompt_path", "get_system_prompt", "get_user_message",
     "get_conductor_prompt_path", "get_conductor_system_prompt", "get_conductor_user_message",
@@ -107,8 +121,10 @@ def get_conductor_prompt_path() -> Path:
 
 def get_conductor_system_prompt() -> str:
     text = get_conductor_prompt_path().read_text()
-    interval = get_config().get("monitor_interval", 300)
-    return text.replace("MONITOR_INTERVAL", str(interval))
+    cfg = get_config()
+    text = text.replace("MONITOR_INTERVAL", str(cfg.get("monitor_interval", 300)))
+    mode = "manual" if cfg.get("autonomy") == "manual" else "auto"
+    return text.replace("AUTONOMY_INSTRUCTIONS", _AUTONOMY_MODES[mode])
 
 
 def get_conductor_user_message(requirement: str | None = None) -> str:
