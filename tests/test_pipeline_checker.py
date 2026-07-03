@@ -148,8 +148,11 @@ class TestReleaseReady:
         assert updated["stage"] == STAGE_PARKED
         assert updated["status"] == STATUS_PENDING
 
-    def test_backlog_task_with_resolved_deps_gets_advanced(self, project):
-        """Backlog task whose deps are all done should be advanced to development."""
+    def test_backlog_task_with_resolved_deps_is_not_auto_released(self, project):
+        """A backlog task must never enter the pipeline on its own, even when its
+        deps are already done. Releasing is the conductor's go-ahead gate — the
+        watcher advancing it would bypass that gate (e.g. a cross-batch task whose
+        dependency completed in an earlier batch)."""
         with get_db() as db:
             dep = create_task(db, "Dependency")
             update_task(db, dep["id"], stage="done")
@@ -163,7 +166,8 @@ class TestReleaseReady:
 
         with get_db() as db:
             updated = get_task(db, task_id)
-        assert updated["stage"] == STAGE_DEVELOPMENT
+        assert updated["stage"] == STAGE_BACKLOG
+        assert updated["status"] == STATUS_PENDING
 
     def test_task_with_unresolved_deps_is_not_released(self, project):
         """Task whose dep is still in development should NOT be released."""

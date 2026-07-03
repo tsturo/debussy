@@ -3,13 +3,13 @@
 import subprocess
 
 from .config import (
-    LABEL_PRIORITY, STAGE_ACCEPTANCE, STAGE_BACKLOG, STAGE_DEVELOPMENT,
+    LABEL_PRIORITY, STAGE_ACCEPTANCE,
     STAGE_TO_ROLE, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
     get_config, log,
 )
 from .spawner import MAX_TOTAL_SPAWNS, spawn_agent
 from .takt import (
-    add_comment, advance_task, block_task, get_db, get_task,
+    add_comment, block_task, get_db, get_task,
     get_unresolved_deps, list_tasks, release_task,
 )
 from .takt.log import MAX_REJECTIONS
@@ -56,16 +56,12 @@ def reset_orphaned(watcher):
 def release_ready(watcher):
     with get_db() as db:
         blocked_tasks = list_tasks(db, status=STATUS_BLOCKED)
-        backlog_tasks = list_tasks(db, stage=STAGE_BACKLOG, status=STATUS_PENDING)
 
     for task in blocked_tasks:
-        _try_release_task(watcher, task, STATUS_BLOCKED)
-
-    for task in backlog_tasks:
-        _try_release_task(watcher, task, STATUS_PENDING)
+        _try_unblock_task(watcher, task)
 
 
-def _try_release_task(watcher, task, status):
+def _try_unblock_task(watcher, task):
     task_id = task.get("id")
     if not task_id or not task.get("dependencies"):
         return
@@ -76,23 +72,16 @@ def _try_release_task(watcher, task, status):
         return
 
     stage = task.get("stage")
-
-    if status == STATUS_BLOCKED and stage == STAGE_ACCEPTANCE:
+    if stage == STAGE_ACCEPTANCE:
         return
-    if status == STATUS_BLOCKED and watcher.empty_branch_retries.get(task_id, 0) >= MAX_RETRIES:
+    if watcher.empty_branch_retries.get(task_id, 0) >= MAX_RETRIES:
         return
-    if status == STATUS_BLOCKED and task.get("rejection_count", 0) >= MAX_REJECTIONS:
+    if task.get("rejection_count", 0) >= MAX_REJECTIONS:
         return
 
     with get_db() as db:
-        if status == STATUS_BLOCKED:
-            # Unblock: set back to pending
-            release_task(db, task_id)
-            log(f"Unblocked {task_id}: deps resolved", "🔓")
-        elif stage == STAGE_BACKLOG:
-            # Release from backlog to development
-            advance_task(db, task_id, to_stage=STAGE_DEVELOPMENT)
-            log(f"Released {task_id}: deps resolved → {STAGE_DEVELOPMENT}", "🔓")
+        release_task(db, task_id)
+        log(f"Unblocked {task_id}: deps resolved", "🔓")
 
 
 def _should_skip_task(watcher, task_id, task, role):
