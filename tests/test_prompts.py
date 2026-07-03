@@ -48,7 +48,25 @@ def test_supervision_sections_present(project_dir):
 def test_run_phase_gated_on_user_go_ahead(project_dir):
     text = get_conductor_system_prompt()
     assert "TWO PHASES" in text
-    assert "NEVER release tasks without it" in text
+    assert "NEVER make the initial release without it" in text
+
+
+def test_first_release_gate_does_not_block_mid_run_releases(project_dir):
+    text = get_conductor_system_prompt()
+    assert "before the FIRST release" in text
+    assert "needs no fresh go-ahead" in text
+
+
+def test_go_ahead_distinguished_from_requirement(project_dir):
+    text = get_conductor_system_prompt()
+    assert "is a requirement, not a go-ahead" in text
+    assert "never the breakdown presentation" in text
+
+
+def test_phase_is_persisted_for_resume(project_dir):
+    text = get_conductor_system_prompt()
+    assert "Phase (PLANNING or RUN" in text
+    assert "read the Phase field FIRST" in text
 
 
 def test_parking_uses_parked_stage(project_dir):

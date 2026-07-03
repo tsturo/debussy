@@ -45,7 +45,9 @@ _AUTONOMY_MODES = {
     "auto": (
         "AUTONOMY: full — never ask the user mid-run. Make every recovery, "
         "re-planning, and parking decision yourself and act on it immediately; "
-        "do not stop to confirm. Log each decision to .debussy/conductor-context.md "
+        "do not stop to confirm. (This governs the run only — it does not restrict "
+        "the pre-run planning conversation or waiting for the user's go-ahead to "
+        "start the run.) Log each decision to .debussy/conductor-context.md "
         "(what, why, alternatives considered). When the terminal check fires, "
         "produce the final report."
     ),
