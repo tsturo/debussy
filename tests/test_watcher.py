@@ -133,7 +133,7 @@ def test_pause_running_agents_stops_and_clears(project_dir, monkeypatch):
 
 def test_quota_gate_disabled_returns_none(project_dir):
     w = _blank_watcher()
-    assert w._quota_gate() is None  # quota_check defaults to False
+    assert w._quota_gate() is None
 
 
 def test_quota_gate_respects_interval(project_dir, monkeypatch):
@@ -141,7 +141,7 @@ def test_quota_gate_respects_interval(project_dir, monkeypatch):
     set_config("quota_check", True)
     w = _blank_watcher()
     w._last_quota_check = 999.0
-    monkeypatch.setattr(watcher_mod.time, "time", lambda: 1000.0)  # <60s since last
+    monkeypatch.setattr(watcher_mod.time, "time", lambda: 1000.0)
     called = []
     monkeypatch.setattr(watcher_mod, "check_quota", lambda *a: called.append(1))
     assert w._quota_gate() is None
@@ -182,8 +182,6 @@ def test_quota_gate_warns_and_returns_none_on_unavailable(project_dir, monkeypat
 
 
 def _dead_agent(task="PRJ-1", role="developer"):
-    # started_at close to the stubbed clock (elapsed 5s < MIN_AGENT_RUNTIME=30)
-    # so cleanup_finished routes into the death branch, not the completed branch.
     agent = types.SimpleNamespace(
         task=task, role=role, name=f"{role}-x", tmux=False, window_id="",
         worktree_path="", log_path="/tmp/x.log", claimed=True,
@@ -196,7 +194,7 @@ def _dead_agent(task="PRJ-1", role="developer"):
 
 
 def _prime_cleanup(monkeypatch, w, tail):
-    monkeypatch.setattr(watcher_mod.time, "time", lambda: 1005.0)  # elapsed 5s
+    monkeypatch.setattr(watcher_mod.time, "time", lambda: 1005.0)
     monkeypatch.setattr(watcher_mod, "read_log_tail", lambda p: tail)
     monkeypatch.setattr(watcher_mod, "get_task_status", lambda t: "pending")
     monkeypatch.setattr(watcher_mod, "ensure_stage_transition", lambda *a: False)
