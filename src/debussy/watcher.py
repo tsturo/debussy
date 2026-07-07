@@ -12,8 +12,9 @@ from .agent import AgentInfo, get_task_status, repo_root
 from .config import (
     AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
     HEARTBEAT_TICKS, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
-    _ensure_gitignored, atomic_write, get_config, log,
+    _ensure_gitignored, atomic_write, get_config, log, set_config,
 )
+from .quota import check_quota, detect_limit_signal, QUOTA_CHECK_INTERVAL, QUOTA_DEFAULT_COOLDOWN
 from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
 from .takt import get_db, get_task, init_db, list_tasks, release_task, add_comment
 from .takt.log import add_log
@@ -37,6 +38,8 @@ class Watcher:
         self.spawn_counts: dict[str, int] = {}
         self.blocked_failures: set[str] = set()
         self.preflight_warned: set[str] = set()
+        self._last_quota_check = 0.0
+        self._quota_warned = 0.0
         self.should_exit = False
         self.lock_file = self._root / ".debussy" / "watcher.lock"
         self.state_file = self._root / ".debussy" / "watcher_state.json"
@@ -211,6 +214,9 @@ class Watcher:
     def cleanup_finished(self):
         cleaned = False
         transitioned = False
+        quota_hit = False
+        quota_ts = None
+        quota_on = get_config().get("quota_check")
         for key, agent in list(self.running.items()):
             if agent.tmux and agent.is_alive(self._cached_windows):
                 if agent.check_completion():
@@ -239,6 +245,13 @@ class Watcher:
                     self.failures[agent.task] = self.failures.get(agent.task, 0) + 1
                     log(f"{agent.name} died on {agent.task} after {int(elapsed)}s, status={task_status} (attempt {self.failures[agent.task]}/{MAX_RETRIES})", "💥")
                     log_tail = read_log_tail(agent.log_path) if agent.log_path else ""
+                    if quota_on:
+                        hit, ts = detect_limit_signal(log_tail)
+                        if hit:
+                            quota_hit = True
+                            if ts is not None:
+                                quota_ts = ts if quota_ts is None else min(quota_ts, ts)
+                            self.failures[agent.task] = max(0, self.failures.get(agent.task, 0) - 1)
                     comment = format_death_comment(agent.name, int(elapsed), str(task_status), log_tail)
                     comment_on_task(agent.task, comment)
                     if task_status == STATUS_ACTIVE:
@@ -257,6 +270,76 @@ class Watcher:
         if cleaned:
             self.save_state()
             self._save_empty_branch_retries()
+        return quota_hit, quota_ts
+
+    def _clear_quota_pause(self):
+        set_config("paused", False)
+        set_config("pause_reason", None)
+        set_config("paused_until", None)
+
+    def _warn_quota_unavailable(self, now: float):
+        if now - self._quota_warned >= QUOTA_CHECK_INTERVAL:
+            self._quota_warned = now
+            log("Quota check unavailable (ccusage) — proceeding", "⚠️")
+
+    def _pause_running_agents(self, comment: str):
+        for key, agent in list(self.running.items()):
+            agent.stop()
+            if get_task_status(agent.task) == STATUS_ACTIVE:
+                with get_db() as db:
+                    add_comment(db, agent.task, "watcher", comment)
+                    release_task(db, agent.task)
+            self._remove_agent(key, agent)
+            if agent.role == "developer":
+                try:
+                    delete_task_branch(agent.task)
+                except (subprocess.SubprocessError, OSError):
+                    pass
+        self.save_state()
+
+    def _enter_quota_pause(self, reset_at, source: str, status=None):
+        if reset_at is None:
+            reset_at = time.time() + QUOTA_DEFAULT_COOLDOWN
+        detail = f" [{status.used}/{status.limit}]" if status else ""
+        log(f"Quota pause ({source}); resuming at {int(reset_at)}{detail}", "🪫")
+        self._pause_running_agents("Paused: quota limit reached")
+        set_config("pause_reason", "quota")
+        set_config("paused_until", reset_at)
+        set_config("paused", True)
+
+    def _maybe_auto_resume(self):
+        cfg = get_config()
+        if not cfg.get("paused") or cfg.get("pause_reason") != "quota":
+            return
+        if not cfg.get("quota_check"):
+            self._clear_quota_pause()
+            return
+        until = cfg.get("paused_until")
+        if until is not None and time.time() < until:
+            return
+        status = check_quota(cfg.get("quota_command"), cfg.get("quota_margin"))
+        if status is None:
+            self._clear_quota_pause()
+            return
+        if status.exhausted:
+            set_config("paused_until", status.reset_at or time.time() + QUOTA_DEFAULT_COOLDOWN)
+        else:
+            self._last_quota_check = time.time()
+            self._clear_quota_pause()
+
+    def _quota_gate(self):
+        cfg = get_config()
+        if not cfg.get("quota_check"):
+            return None
+        now = time.time()
+        if now - self._last_quota_check < QUOTA_CHECK_INTERVAL:
+            return None
+        self._last_quota_check = now
+        status = check_quota(cfg.get("quota_command"), cfg.get("quota_margin"))
+        if status is None:
+            self._warn_quota_unavailable(now)
+            return None
+        return status if status.exhausted else None
 
     def _notify_conductor(self):
         if not get_config().get("notify_conductor", False):
@@ -358,14 +441,22 @@ class Watcher:
             try:
                 self._refresh_tmux_cache()
                 self._check_timeouts()
-                self.cleanup_finished()
+                quota_hit, quota_ts = self.cleanup_finished()
                 self._kill_orphan_windows()
                 reset_orphaned(self)
 
+                if quota_hit:
+                    self._enter_quota_pause(quota_ts, "wall-hit")
+
+                self._maybe_auto_resume()
                 if not get_config().get("paused", False):
                     self._refresh_tmux_cache()
-                    release_ready(self)
-                    check_pipeline(self)
+                    status = self._quota_gate()
+                    if status is not None:
+                        self._enter_quota_pause(status.reset_at, "quota", status)
+                    else:
+                        release_ready(self)
+                        check_pipeline(self)
 
                 self.save_state()
 

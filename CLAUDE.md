@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project uses takt (built-in SQLite) for task tracking. The watcher automatically spawns agents based on **stage** values on tasks.
+This project uses takt (built-in SQLite) for task tracking. The watcher automatically spawns agents based on **stage** values on tasks. With `quota_check` enabled, the watcher pauses worker spawns as the account token limit is approached and auto-resumes after the session/weekly window resets.
 
 ---
 
@@ -241,6 +241,9 @@ debussy config [key] [value]                 # View or set config
 debussy config base_branch feature/<name>    # Set conductor's base branch
 debussy config test_command "<cmd>"          # Override integrator's test command (used when auto-discovery finds none)
 debussy config autonomy manual               # Conductor asks at decision points (default: auto — never asks mid-run)
+debussy config quota_check true              # Pause worker spawns near the token limit, auto-resume after reset (requires ccusage: npm i -g ccusage)
+debussy config quota_command "<cmd>"         # Override the ccusage invocation used for quota checks
+debussy config quota_margin 0.97             # Pause when used >= margin * estimated ceiling (default 0.97)
 debussy pause                                # Pause pipeline, kill agents
 debussy resume                               # Resume paused pipeline
 debussy kill [--all]                         # Kill current debussy tmux session

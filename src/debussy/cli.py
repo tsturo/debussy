@@ -48,6 +48,8 @@ def cmd_start(args):
         set_config("paused", True)
     else:
         set_config("paused", False)
+    set_config("pause_reason", None)
+    set_config("paused_until", None)
     install_hooks()
     requirement = getattr(args, "requirement", None)
     resume = False
@@ -247,6 +249,8 @@ def _kill_all_agents():
 
 def cmd_pause(args):
     set_config("paused", True)
+    set_config("pause_reason", "manual")
+    set_config("paused_until", None)
     _kill_all_agents()
     log("Pipeline paused", "\u23f8")
 
@@ -275,6 +279,8 @@ def cmd_kill_agent(args):
 
 def cmd_resume(args):
     set_config("paused", False)
+    set_config("pause_reason", None)
+    set_config("paused_until", None)
     log("Pipeline resumed", "\u25b6")
 
 

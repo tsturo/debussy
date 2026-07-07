@@ -97,6 +97,28 @@ def test_non_dict_override_of_dict_key_falls_back_to_defaults(project_dir):
     assert role_cli_args("developer") == ["--model", "claude-sonnet-5", "--effort", "medium"]
 
 
+def test_quota_defaults(project_dir):
+    cfg = get_config()
+    assert cfg["quota_check"] is False
+    assert cfg["quota_margin"] == 0.97
+    assert cfg["quota_command"] == "ccusage blocks --active --json --token-limit max"
+
+
+@pytest.mark.parametrize("key", [
+    "quota_check", "quota_command", "quota_margin", "pause_reason", "paused_until",
+])
+def test_quota_keys_known(key):
+    assert key in KNOWN_KEYS
+
+
+def test_quota_margin_config_round_trips_to_float(project_dir):
+    from debussy.config import parse_value
+    assert parse_value("0.9") == 0.9
+    assert isinstance(parse_value("0.9"), float)
+    set_config("quota_margin", parse_value("0.9"))
+    assert get_config()["quota_margin"] == 0.9
+
+
 def test_config_cache_distinguishes_directories_with_same_mtime(tmp_path, monkeypatch):
     import os
 

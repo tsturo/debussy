@@ -67,6 +67,9 @@ DEFAULTS = {
     "autonomy": "auto",
     "monitor_interval": 240,
     "notify_conductor": False,
+    "quota_check": False,
+    "quota_command": "ccusage blocks --active --json --token-limit max",
+    "quota_margin": 0.97,
     "max_role_agents": {
         "developer": 10,
         "reviewer": 10,
@@ -183,6 +186,7 @@ KNOWN_KEYS = {
     "docs_path", "notify_conductor", "max_role_agents", "monitor_interval",
     "project_type", "conductor_session_id", "test_command",
     "autonomy", "role_efforts",
+    "quota_check", "quota_command", "quota_margin", "pause_reason", "paused_until",
 }
 
 
@@ -239,13 +243,17 @@ def get_base_branch() -> str | None:
     return get_config().get("base_branch")
 
 
-def parse_value(value: str) -> str | bool | int | dict | list:
+def parse_value(value: str) -> str | bool | int | float | dict | list:
     if value.lower() in ("true", "1", "yes", "on"):
         return True
     if value.lower() in ("false", "0", "no", "off"):
         return False
     try:
         return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
     except ValueError:
         pass
     try:
