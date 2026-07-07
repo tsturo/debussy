@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 
 from debussy import quota
-from debussy.quota import QuotaStatus, check_quota
+from debussy.quota import QuotaStatus, check_quota, detect_limit_signal
 
 ACTIVE_BLOCK = {
     "blocks": [
@@ -76,3 +76,33 @@ def test_check_quota_timeout_returns_none(monkeypatch):
 def test_check_quota_malformed_margin_returns_none(monkeypatch):
     monkeypatch.setattr(subprocess, "run", _fake_run(json.dumps(ACTIVE_BLOCK)))
     assert check_quota("cmd", "not-a-number") is None
+
+
+def test_detect_signal_human_message_hit_no_ts():
+    tail = "Claude usage limit reached. Your limit will reset at 2pm (America/New_York)"
+    hit, reset_at = detect_limit_signal(tail)
+    assert hit is True
+    assert reset_at is None
+
+
+def test_detect_signal_five_hour_phrase():
+    hit, _ = detect_limit_signal("5-hour limit reached ∙ resets 3pm")
+    assert hit is True
+
+
+def test_detect_signal_pipe_timestamp_seconds():
+    hit, reset_at = detect_limit_signal("Claude AI usage limit reached|1783594800")
+    assert hit is True
+    assert reset_at == pytest.approx(1783594800.0)
+
+
+def test_detect_signal_pipe_timestamp_millis():
+    hit, reset_at = detect_limit_signal("usage limit reached|1783594800000")
+    assert hit is True
+    assert reset_at == pytest.approx(1783594800.0)
+
+
+def test_detect_signal_no_match():
+    hit, reset_at = detect_limit_signal("normal agent output, all good\ndone.")
+    assert hit is False
+    assert reset_at is None

@@ -58,3 +58,18 @@ def check_quota(command: str, margin: float) -> QuotaStatus | None:
         )
     except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError):
         return None
+
+
+LIMIT_PHRASES = ("usage limit reached", "limit reached", "hit your limit")
+_PIPE_TS = re.compile(r"limit reached\s*\|\s*(\d{10,13})", re.IGNORECASE)
+
+
+def detect_limit_signal(log_tail: str) -> tuple[bool, float | None]:
+    lowered = log_tail.lower()
+    if not any(phrase in lowered for phrase in LIMIT_PHRASES):
+        return False, None
+    match = _PIPE_TS.search(log_tail)
+    if not match:
+        return True, None
+    raw = int(match.group(1))
+    return True, (raw / 1000.0 if raw >= 1_000_000_000_000 else float(raw))
