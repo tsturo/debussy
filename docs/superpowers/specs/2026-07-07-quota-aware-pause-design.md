@@ -46,6 +46,28 @@ worktree (`_remove_agent`), and deletes the developer branch (`delete_task_branc
   reactive backstop covers estimate misses.
 - **Multi-account / API-key fallback.**
 
+## Revisions after adversarial review (2026-07-07)
+
+A multi-dimension review (6 reviewers, two-skeptic verification) found defects the earlier
+reviews missed; the implementation was corrected accordingly:
+
+- **The reactive backstop is gated on `quota_check`.** As first implemented the backstop
+  ran unconditionally, so with the feature *off by default* any dead agent whose log tail
+  contained "limit reached" killed all in-flight agents and reset their tasks — violating
+  the off-by-default no-op guarantee. It now only runs when `quota_check` is on.
+- **`detect_limit_signal` uses an anchored regex** (`usage limit reached` / `weekly limit
+  reached` / `\d+-hour limit reached` / `hit your limit`) instead of a bare `"limit
+  reached"` substring, so transient `rate limit reached` 429s no longer false-trigger.
+  Its signature is `-> (hit, reset_at)`; the reset time is the embedded `|<ts>` if present,
+  else the caller applies the cooldown.
+- **`_enter_quota_pause` no longer probes ccusage for a wall-hit reset** (the session-block
+  end is too soon for a weekly wall-hit and caused thrash); it uses `QUOTA_DEFAULT_COOLDOWN`.
+  It writes `pause_reason`/`paused_until` before `paused=True`, and `_maybe_auto_resume`
+  treats `paused_until is None` as recheck-now (never wait-forever).
+- **`check_quota` fail-open hardened**: also catches `AttributeError`/`IndexError`, tolerates
+  a null `tokenLimitStatus` and an empty command, and coerces `margin` to float. **`parse_value`
+  gained a float branch** so `debussy config quota_margin 0.9` stores `0.9`, not `"0.9"`.
+
 ## Two layers, two distinct goals
 
 The design has two detection layers that feed **one** pause+resume mechanism. They serve
