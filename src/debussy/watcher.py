@@ -12,8 +12,9 @@ from .agent import AgentInfo, get_task_status, repo_root
 from .config import (
     AGENT_TIMEOUT, POLL_INTERVAL, SESSION_NAME,
     HEARTBEAT_TICKS, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
-    _ensure_gitignored, atomic_write, get_config, log,
+    _ensure_gitignored, atomic_write, get_config, log, set_config,
 )
+from .quota import check_quota, detect_limit_signal, QUOTA_DEFAULT_COOLDOWN
 from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
 from .takt import get_db, get_task, init_db, list_tasks, release_task, add_comment
 from .takt.log import add_log
@@ -37,6 +38,8 @@ class Watcher:
         self.spawn_counts: dict[str, int] = {}
         self.blocked_failures: set[str] = set()
         self.preflight_warned: set[str] = set()
+        self._last_quota_check = 0.0
+        self._quota_warned = 0.0
         self.should_exit = False
         self.lock_file = self._root / ".debussy" / "watcher.lock"
         self.state_file = self._root / ".debussy" / "watcher_state.json"
@@ -257,6 +260,66 @@ class Watcher:
         if cleaned:
             self.save_state()
             self._save_empty_branch_retries()
+
+    def _clear_quota_pause(self):
+        set_config("paused", False)
+        set_config("pause_reason", None)
+        set_config("paused_until", None)
+
+    def _warn_quota_unavailable(self, now: float):
+        from .quota import QUOTA_CHECK_INTERVAL
+        if now - self._quota_warned >= QUOTA_CHECK_INTERVAL:
+            self._quota_warned = now
+            log("Quota check unavailable (ccusage) — proceeding", "⚠️")
+
+    def _pause_running_agents(self, comment: str):
+        for key, agent in list(self.running.items()):
+            agent.stop()
+            if get_task_status(agent.task) == STATUS_ACTIVE:
+                with get_db() as db:
+                    add_comment(db, agent.task, "watcher", comment)
+                    release_task(db, agent.task)
+            self._remove_agent(key, agent)
+            if agent.role == "developer":
+                try:
+                    delete_task_branch(agent.task)
+                except (subprocess.SubprocessError, OSError):
+                    pass
+        self.save_state()
+
+    def _enter_quota_pause(self, reset_at, source: str, status=None):
+        cfg = get_config()
+        if reset_at is None:
+            probe = status or check_quota(cfg.get("quota_command"), cfg.get("quota_margin"))
+            reset_at = probe.reset_at if probe else None
+        if reset_at is None:
+            reset_at = time.time() + QUOTA_DEFAULT_COOLDOWN
+        detail = f"used {status.used}/{status.limit}" if status else source
+        log(f"Quota pause ({source}, {detail}); resuming at {int(reset_at)}", "🪫")
+        self._pause_running_agents("Paused: quota limit reached")
+        set_config("paused", True)
+        set_config("pause_reason", "quota")
+        set_config("paused_until", reset_at)
+
+    def _maybe_auto_resume(self):
+        cfg = get_config()
+        if not cfg.get("paused") or cfg.get("pause_reason") != "quota":
+            return
+        if not cfg.get("quota_check"):
+            self._clear_quota_pause()
+            return
+        until = cfg.get("paused_until")
+        if until is None or time.time() < until:
+            return
+        status = check_quota(cfg.get("quota_command"), cfg.get("quota_margin"))
+        if status is None:
+            self._clear_quota_pause()
+            return
+        if status.exhausted:
+            set_config("paused_until", status.reset_at or time.time() + QUOTA_DEFAULT_COOLDOWN)
+        else:
+            self._last_quota_check = time.time()
+            self._clear_quota_pause()
 
     def _notify_conductor(self):
         if not get_config().get("notify_conductor", False):
