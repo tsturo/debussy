@@ -54,5 +54,5 @@ class TestBuildConductorCmd:
 
         cmd = _build_conductor_cmd()
 
-        assert "--model claude-fable-5" in cmd
+        assert "--model claude-opus-4-8" in cmd
         assert "--effort high" in cmd

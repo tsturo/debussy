@@ -49,10 +49,10 @@ DEFAULTS = {
     "use_tmux_windows": False,
     "agent_provider": "claude",
     "role_models": {
-        "conductor": "claude-fable-5",
+        "conductor": "claude-opus-4-8",
         "developer": "claude-sonnet-5",
         "reviewer": "claude-opus-4-8",
-        "security-reviewer": "claude-fable-5",
+        "security-reviewer": "claude-opus-4-8",
         "integrator": "claude-sonnet-5",
         "tester": "claude-sonnet-5",
     },

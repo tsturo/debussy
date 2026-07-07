@@ -47,10 +47,10 @@ def test_autonomy_defaults_to_auto(project_dir):
 
 def test_role_models_default_to_current_generation(project_dir):
     assert get_config()["role_models"] == {
-        "conductor": "claude-fable-5",
+        "conductor": "claude-opus-4-8",
         "developer": "claude-sonnet-5",
         "reviewer": "claude-opus-4-8",
-        "security-reviewer": "claude-fable-5",
+        "security-reviewer": "claude-opus-4-8",
         "integrator": "claude-sonnet-5",
         "tester": "claude-sonnet-5",
     }
