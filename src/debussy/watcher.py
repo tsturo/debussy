@@ -321,6 +321,21 @@ class Watcher:
             self._last_quota_check = time.time()
             self._clear_quota_pause()
 
+    def _quota_gate(self):
+        from .quota import QUOTA_CHECK_INTERVAL
+        cfg = get_config()
+        if not cfg.get("quota_check"):
+            return None
+        now = time.time()
+        if now - self._last_quota_check < QUOTA_CHECK_INTERVAL:
+            return None
+        self._last_quota_check = now
+        status = check_quota(cfg.get("quota_command"), cfg.get("quota_margin"))
+        if status is None:
+            self._warn_quota_unavailable(now)
+            return None
+        return status if status.exhausted else None
+
     def _notify_conductor(self):
         if not get_config().get("notify_conductor", False):
             return
@@ -425,10 +440,15 @@ class Watcher:
                 self._kill_orphan_windows()
                 reset_orphaned(self)
 
+                self._maybe_auto_resume()
                 if not get_config().get("paused", False):
                     self._refresh_tmux_cache()
-                    release_ready(self)
-                    check_pipeline(self)
+                    status = self._quota_gate()
+                    if status is not None:
+                        self._enter_quota_pause(status.reset_at, "quota", status)
+                    else:
+                        release_ready(self)
+                        check_pipeline(self)
 
                 self.save_state()
 

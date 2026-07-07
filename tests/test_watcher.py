@@ -129,3 +129,53 @@ def test_pause_running_agents_stops_and_clears(project_dir, monkeypatch):
     w._pause_running_agents("paused: test")
     assert stopped == ["reviewer-y"]
     assert w.running == {}
+
+
+def test_quota_gate_disabled_returns_none(project_dir):
+    w = _blank_watcher()
+    assert w._quota_gate() is None  # quota_check defaults to False
+
+
+def test_quota_gate_respects_interval(project_dir, monkeypatch):
+    from debussy.config import set_config
+    set_config("quota_check", True)
+    w = _blank_watcher()
+    w._last_quota_check = 999.0
+    monkeypatch.setattr(watcher_mod.time, "time", lambda: 1000.0)  # <60s since last
+    called = []
+    monkeypatch.setattr(watcher_mod, "check_quota", lambda *a: called.append(1))
+    assert w._quota_gate() is None
+    assert called == []
+
+
+def test_quota_gate_returns_status_when_exhausted(project_dir, monkeypatch):
+    from debussy.config import set_config
+    set_config("quota_check", True)
+    w = _blank_watcher()
+    monkeypatch.setattr(watcher_mod.time, "time", lambda: 10_000.0)
+    monkeypatch.setattr(watcher_mod, "check_quota",
+                        lambda *a: QuotaStatus(True, 5.0, 10, 10))
+    status = w._quota_gate()
+    assert status is not None and status.exhausted is True
+
+
+def test_quota_gate_none_when_healthy(project_dir, monkeypatch):
+    from debussy.config import set_config
+    set_config("quota_check", True)
+    w = _blank_watcher()
+    monkeypatch.setattr(watcher_mod.time, "time", lambda: 10_000.0)
+    monkeypatch.setattr(watcher_mod, "check_quota",
+                        lambda *a: QuotaStatus(False, 5.0, 1, 10))
+    assert w._quota_gate() is None
+
+
+def test_quota_gate_warns_and_returns_none_on_unavailable(project_dir, monkeypatch):
+    from debussy.config import set_config
+    set_config("quota_check", True)
+    w = _blank_watcher()
+    monkeypatch.setattr(watcher_mod.time, "time", lambda: 10_000.0)
+    monkeypatch.setattr(watcher_mod, "check_quota", lambda *a: None)
+    warned = []
+    monkeypatch.setattr(w, "_warn_quota_unavailable", lambda now: warned.append(now))
+    assert w._quota_gate() is None
+    assert warned == [10_000.0]
