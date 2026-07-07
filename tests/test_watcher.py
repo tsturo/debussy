@@ -38,21 +38,21 @@ def test_enter_quota_pause_sets_state(project_dir, monkeypatch):
     assert cfg["paused_until"] == 1500.0
 
 
-def test_enter_quota_pause_resolves_none_via_ccusage(project_dir, monkeypatch):
+def test_enter_quota_pause_proactive_uses_status_reset(project_dir, monkeypatch):
     from debussy.config import get_config
     w = _blank_watcher()
     monkeypatch.setattr(w, "_pause_running_agents", lambda comment: None)
-    monkeypatch.setattr(watcher_mod, "check_quota",
-                        lambda *a: QuotaStatus(True, 2222.0, 9, 10))
-    w._enter_quota_pause(None, "wall-hit")
+    monkeypatch.setattr(watcher_mod.time, "time", lambda: 1000.0)
+    status = QuotaStatus(True, 2222.0, 970, 1000)
+    w._enter_quota_pause(status.reset_at, "quota", status)
     assert get_config()["paused_until"] == 2222.0
+    assert get_config()["pause_reason"] == "quota"
 
 
 def test_enter_quota_pause_falls_back_to_cooldown(project_dir, monkeypatch):
     from debussy.config import get_config
     w = _blank_watcher()
     monkeypatch.setattr(w, "_pause_running_agents", lambda comment: None)
-    monkeypatch.setattr(watcher_mod, "check_quota", lambda *a: None)
     monkeypatch.setattr(watcher_mod.time, "time", lambda: 1000.0)
     w._enter_quota_pause(None, "wall-hit")
     assert get_config()["paused_until"] == 1000.0 + 3600
@@ -206,6 +206,8 @@ def _prime_cleanup(monkeypatch, w, tail):
 
 
 def test_cleanup_returns_hit_on_limit_signal(project_dir, monkeypatch):
+    from debussy.config import set_config
+    set_config("quota_check", True)
     w = _blank_watcher()
     w.running = {"developer:PRJ-1": _dead_agent()}
     _prime_cleanup(monkeypatch, w, "Claude usage limit reached. resets 3pm")
@@ -215,6 +217,8 @@ def test_cleanup_returns_hit_on_limit_signal(project_dir, monkeypatch):
 
 
 def test_cleanup_no_hit_on_normal_death(project_dir, monkeypatch):
+    from debussy.config import set_config
+    set_config("quota_check", True)
     w = _blank_watcher()
     w.running = {"developer:PRJ-1": _dead_agent()}
     _prime_cleanup(monkeypatch, w, "Traceback: something unrelated crashed")
@@ -223,8 +227,60 @@ def test_cleanup_no_hit_on_normal_death(project_dir, monkeypatch):
 
 
 def test_cleanup_rolls_back_failure_on_quota_death(project_dir, monkeypatch):
+    from debussy.config import set_config
+    set_config("quota_check", True)
     w = _blank_watcher()
     w.running = {"developer:PRJ-1": _dead_agent()}
     _prime_cleanup(monkeypatch, w, "usage limit reached")
     w.cleanup_finished()
     assert w.failures.get("PRJ-1", 0) == 0
+
+
+def test_cleanup_no_backstop_when_quota_disabled(project_dir, monkeypatch):
+    w = _blank_watcher()
+    w.running = {"developer:PRJ-1": _dead_agent()}
+    _prime_cleanup(monkeypatch, w, "Claude usage limit reached. resets 3pm")
+    hit, ts = w.cleanup_finished()
+    assert hit is False
+    assert w.failures.get("PRJ-1", 0) == 1
+
+
+def test_cleanup_returns_earliest_ts_across_deaths(project_dir, monkeypatch):
+    from debussy.config import set_config
+    set_config("quota_check", True)
+    w = _blank_watcher()
+    a1 = _dead_agent("PRJ-1"); a1.log_path = "/tmp/a1.log"
+    a2 = _dead_agent("PRJ-2"); a2.log_path = "/tmp/a2.log"
+    w.running = {"developer:PRJ-1": a1, "developer:PRJ-2": a2}
+    tails = {"/tmp/a1.log": "usage limit reached|2000000000",
+             "/tmp/a2.log": "usage limit reached|1500000000"}
+    _prime_cleanup(monkeypatch, w, "")
+    monkeypatch.setattr(watcher_mod, "read_log_tail", lambda p: tails[p])
+    hit, ts = w.cleanup_finished()
+    assert hit is True
+    assert ts == 1500000000.0
+
+
+def test_pause_running_agents_resets_active_task(project_dir, monkeypatch):
+    import contextlib
+    w = _blank_watcher()
+    agent = types.SimpleNamespace(
+        task="PRJ-3", role="developer", name="developer-z",
+        worktree_path="", window_id="",
+    )
+    agent.stop = lambda: None
+    agent.cleanup = lambda: None
+    w.running = {"developer:PRJ-3": agent}
+    w.used_names = {"developer-z"}
+    released, branches = [], []
+    monkeypatch.setattr(watcher_mod, "get_task_status", lambda t: "active")
+    monkeypatch.setattr(watcher_mod, "get_db",
+                        lambda: contextlib.nullcontext("DB"))
+    monkeypatch.setattr(watcher_mod, "add_comment", lambda db, t, who, msg: None)
+    monkeypatch.setattr(watcher_mod, "release_task", lambda db, t: released.append(t))
+    monkeypatch.setattr(watcher_mod, "delete_task_branch", lambda t: branches.append(t))
+    monkeypatch.setattr(w, "save_state", lambda: None)
+    w._pause_running_agents("Paused: quota limit reached")
+    assert released == ["PRJ-3"]
+    assert branches == ["PRJ-3"]
+    assert w.running == {}

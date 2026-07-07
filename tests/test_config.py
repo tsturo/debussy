@@ -111,6 +111,14 @@ def test_quota_keys_known(key):
     assert key in KNOWN_KEYS
 
 
+def test_quota_margin_config_round_trips_to_float(project_dir):
+    from debussy.config import parse_value
+    assert parse_value("0.9") == 0.9
+    assert isinstance(parse_value("0.9"), float)
+    set_config("quota_margin", parse_value("0.9"))
+    assert get_config()["quota_margin"] == 0.9
+
+
 def test_config_cache_distinguishes_directories_with_same_mtime(tmp_path, monkeypatch):
     import os
 

@@ -38,8 +38,11 @@ def _active_block(data: dict) -> dict | None:
 
 def check_quota(command: str, margin: float) -> QuotaStatus | None:
     try:
+        parts = shlex.split(command)
+        if not parts:
+            return None
         result = subprocess.run(
-            shlex.split(command), capture_output=True, text=True, timeout=QUOTA_TIMEOUT,
+            parts, capture_output=True, text=True, timeout=QUOTA_TIMEOUT,
         )
         if result.returncode != 0:
             return None
@@ -47,26 +50,29 @@ def check_quota(command: str, margin: float) -> QuotaStatus | None:
         if block is None:
             return None
         used = int(block.get("totalTokens", 0))
-        limit = int(block.get("tokenLimitStatus", {}).get("limit", 0))
+        limit = int((block.get("tokenLimitStatus") or {}).get("limit", 0))
         if limit <= 0:
             return None
         return QuotaStatus(
-            exhausted=used >= margin * limit,
+            exhausted=used >= float(margin) * limit,
             reset_at=_parse_iso(block.get("endTime")),
             used=used,
             limit=limit,
         )
-    except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError):
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError,
+            KeyError, AttributeError, IndexError):
         return None
 
 
-LIMIT_PHRASES = ("usage limit reached", "limit reached", "hit your limit")
+_LIMIT_RE = re.compile(
+    r"usage limit reached|weekly limit reached|\d+-hour limit reached|hit your (?:usage )?limit",
+    re.IGNORECASE,
+)
 _PIPE_TS = re.compile(r"limit reached\s*\|\s*(\d{10,13})", re.IGNORECASE)
 
 
 def detect_limit_signal(log_tail: str) -> tuple[bool, float | None]:
-    lowered = log_tail.lower()
-    if not any(phrase in lowered for phrase in LIMIT_PHRASES):
+    if not _LIMIT_RE.search(log_tail):
         return False, None
     match = _PIPE_TS.search(log_tail)
     if not match:

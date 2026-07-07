@@ -243,13 +243,17 @@ def get_base_branch() -> str | None:
     return get_config().get("base_branch")
 
 
-def parse_value(value: str) -> str | bool | int | dict | list:
+def parse_value(value: str) -> str | bool | int | float | dict | list:
     if value.lower() in ("true", "1", "yes", "on"):
         return True
     if value.lower() in ("false", "0", "no", "off"):
         return False
     try:
         return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
     except ValueError:
         pass
     try:

@@ -14,7 +14,7 @@ from .config import (
     HEARTBEAT_TICKS, STATUS_ACTIVE, STATUS_BLOCKED, STATUS_PENDING,
     _ensure_gitignored, atomic_write, get_config, log, set_config,
 )
-from .quota import check_quota, detect_limit_signal, QUOTA_DEFAULT_COOLDOWN
+from .quota import check_quota, detect_limit_signal, QUOTA_CHECK_INTERVAL, QUOTA_DEFAULT_COOLDOWN
 from .pipeline_checker import check_pipeline, release_ready, reset_orphaned
 from .takt import get_db, get_task, init_db, list_tasks, release_task, add_comment
 from .takt.log import add_log
@@ -216,6 +216,7 @@ class Watcher:
         transitioned = False
         quota_hit = False
         quota_ts = None
+        quota_on = get_config().get("quota_check")
         for key, agent in list(self.running.items()):
             if agent.tmux and agent.is_alive(self._cached_windows):
                 if agent.check_completion():
@@ -244,12 +245,13 @@ class Watcher:
                     self.failures[agent.task] = self.failures.get(agent.task, 0) + 1
                     log(f"{agent.name} died on {agent.task} after {int(elapsed)}s, status={task_status} (attempt {self.failures[agent.task]}/{MAX_RETRIES})", "💥")
                     log_tail = read_log_tail(agent.log_path) if agent.log_path else ""
-                    hit, ts = detect_limit_signal(log_tail)
-                    if hit:
-                        quota_hit = True
-                        if ts is not None:
-                            quota_ts = ts if quota_ts is None else min(quota_ts, ts)
-                        self.failures[agent.task] = max(0, self.failures.get(agent.task, 0) - 1)
+                    if quota_on:
+                        hit, ts = detect_limit_signal(log_tail)
+                        if hit:
+                            quota_hit = True
+                            if ts is not None:
+                                quota_ts = ts if quota_ts is None else min(quota_ts, ts)
+                            self.failures[agent.task] = max(0, self.failures.get(agent.task, 0) - 1)
                     comment = format_death_comment(agent.name, int(elapsed), str(task_status), log_tail)
                     comment_on_task(agent.task, comment)
                     if task_status == STATUS_ACTIVE:
@@ -276,7 +278,6 @@ class Watcher:
         set_config("paused_until", None)
 
     def _warn_quota_unavailable(self, now: float):
-        from .quota import QUOTA_CHECK_INTERVAL
         if now - self._quota_warned >= QUOTA_CHECK_INTERVAL:
             self._quota_warned = now
             log("Quota check unavailable (ccusage) — proceeding", "⚠️")
@@ -297,18 +298,14 @@ class Watcher:
         self.save_state()
 
     def _enter_quota_pause(self, reset_at, source: str, status=None):
-        cfg = get_config()
-        if reset_at is None:
-            probe = status or check_quota(cfg.get("quota_command"), cfg.get("quota_margin"))
-            reset_at = probe.reset_at if probe else None
         if reset_at is None:
             reset_at = time.time() + QUOTA_DEFAULT_COOLDOWN
-        detail = f"used {status.used}/{status.limit}" if status else source
-        log(f"Quota pause ({source}, {detail}); resuming at {int(reset_at)}", "🪫")
+        detail = f" [{status.used}/{status.limit}]" if status else ""
+        log(f"Quota pause ({source}); resuming at {int(reset_at)}{detail}", "🪫")
         self._pause_running_agents("Paused: quota limit reached")
-        set_config("paused", True)
         set_config("pause_reason", "quota")
         set_config("paused_until", reset_at)
+        set_config("paused", True)
 
     def _maybe_auto_resume(self):
         cfg = get_config()
@@ -318,7 +315,7 @@ class Watcher:
             self._clear_quota_pause()
             return
         until = cfg.get("paused_until")
-        if until is None or time.time() < until:
+        if until is not None and time.time() < until:
             return
         status = check_quota(cfg.get("quota_command"), cfg.get("quota_margin"))
         if status is None:
@@ -331,7 +328,6 @@ class Watcher:
             self._clear_quota_pause()
 
     def _quota_gate(self):
-        from .quota import QUOTA_CHECK_INTERVAL
         cfg = get_config()
         if not cfg.get("quota_check"):
             return None

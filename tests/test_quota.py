@@ -61,6 +61,10 @@ def test_check_quota_reset_at_parsed_from_endtime(monkeypatch):
     {"stdout": json.dumps({"blocks": []})},
     {"stdout": json.dumps({"blocks": [{"isActive": True, "totalTokens": 5,
                                        "tokenLimitStatus": {"limit": 0}}]})},
+    {"stdout": json.dumps({"blocks": [{"isActive": True, "totalTokens": 5,
+                                       "tokenLimitStatus": None}]})},
+    {"stdout": "[]"},
+    {"stdout": "123"},
 ])
 def test_check_quota_fails_open_to_none(monkeypatch, kwargs):
     monkeypatch.setattr(subprocess, "run", _fake_run(**kwargs))
@@ -106,3 +110,13 @@ def test_detect_signal_no_match():
     hit, reset_at = detect_limit_signal("normal agent output, all good\ndone.")
     assert hit is False
     assert reset_at is None
+
+
+def test_detect_signal_rate_limit_not_matched():
+    hit, reset_at = detect_limit_signal("HTTP 429: rate limit reached, retrying in 5s")
+    assert hit is False
+    assert reset_at is None
+
+
+def test_check_quota_empty_command_returns_none():
+    assert check_quota("", 0.97) is None
