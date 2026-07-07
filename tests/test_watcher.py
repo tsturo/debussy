@@ -179,3 +179,54 @@ def test_quota_gate_warns_and_returns_none_on_unavailable(project_dir, monkeypat
     monkeypatch.setattr(w, "_warn_quota_unavailable", lambda now: warned.append(now))
     assert w._quota_gate() is None
     assert warned == [10_000.0]
+
+
+def _dead_agent(task="PRJ-1", role="developer"):
+    # started_at close to the stubbed clock (elapsed 5s < MIN_AGENT_RUNTIME=30)
+    # so cleanup_finished routes into the death branch, not the completed branch.
+    agent = types.SimpleNamespace(
+        task=task, role=role, name=f"{role}-x", tmux=False, window_id="",
+        worktree_path="", log_path="/tmp/x.log", claimed=True,
+        started_at=1000.0, proc=None,
+    )
+    agent.is_alive = lambda cached=None: False
+    agent.stop = lambda: None
+    agent.cleanup = lambda: None
+    return agent
+
+
+def _prime_cleanup(monkeypatch, w, tail):
+    monkeypatch.setattr(watcher_mod.time, "time", lambda: 1005.0)  # elapsed 5s
+    monkeypatch.setattr(watcher_mod, "read_log_tail", lambda p: tail)
+    monkeypatch.setattr(watcher_mod, "get_task_status", lambda t: "pending")
+    monkeypatch.setattr(watcher_mod, "ensure_stage_transition", lambda *a: False)
+    monkeypatch.setattr(watcher_mod, "comment_on_task", lambda *a: None)
+    monkeypatch.setattr(watcher_mod, "format_death_comment", lambda *a: "")
+    monkeypatch.setattr(watcher_mod, "delete_task_branch", lambda t: None)
+    monkeypatch.setattr(w, "save_state", lambda: None)
+    monkeypatch.setattr(w, "_save_empty_branch_retries", lambda: None)
+
+
+def test_cleanup_returns_hit_on_limit_signal(project_dir, monkeypatch):
+    w = _blank_watcher()
+    w.running = {"developer:PRJ-1": _dead_agent()}
+    _prime_cleanup(monkeypatch, w, "Claude usage limit reached. resets 3pm")
+    hit, ts = w.cleanup_finished()
+    assert hit is True
+    assert ts is None
+
+
+def test_cleanup_no_hit_on_normal_death(project_dir, monkeypatch):
+    w = _blank_watcher()
+    w.running = {"developer:PRJ-1": _dead_agent()}
+    _prime_cleanup(monkeypatch, w, "Traceback: something unrelated crashed")
+    hit, ts = w.cleanup_finished()
+    assert hit is False
+
+
+def test_cleanup_rolls_back_failure_on_quota_death(project_dir, monkeypatch):
+    w = _blank_watcher()
+    w.running = {"developer:PRJ-1": _dead_agent()}
+    _prime_cleanup(monkeypatch, w, "usage limit reached")
+    w.cleanup_finished()
+    assert w.failures.get("PRJ-1", 0) == 0

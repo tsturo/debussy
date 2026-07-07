@@ -214,6 +214,8 @@ class Watcher:
     def cleanup_finished(self):
         cleaned = False
         transitioned = False
+        quota_hit = False
+        quota_ts = None
         for key, agent in list(self.running.items()):
             if agent.tmux and agent.is_alive(self._cached_windows):
                 if agent.check_completion():
@@ -242,6 +244,12 @@ class Watcher:
                     self.failures[agent.task] = self.failures.get(agent.task, 0) + 1
                     log(f"{agent.name} died on {agent.task} after {int(elapsed)}s, status={task_status} (attempt {self.failures[agent.task]}/{MAX_RETRIES})", "💥")
                     log_tail = read_log_tail(agent.log_path) if agent.log_path else ""
+                    hit, ts = detect_limit_signal(log_tail)
+                    if hit:
+                        quota_hit = True
+                        if ts is not None:
+                            quota_ts = ts if quota_ts is None else min(quota_ts, ts)
+                        self.failures[agent.task] = max(0, self.failures.get(agent.task, 0) - 1)
                     comment = format_death_comment(agent.name, int(elapsed), str(task_status), log_tail)
                     comment_on_task(agent.task, comment)
                     if task_status == STATUS_ACTIVE:
@@ -260,6 +268,7 @@ class Watcher:
         if cleaned:
             self.save_state()
             self._save_empty_branch_retries()
+        return quota_hit, quota_ts
 
     def _clear_quota_pause(self):
         set_config("paused", False)
@@ -436,9 +445,12 @@ class Watcher:
             try:
                 self._refresh_tmux_cache()
                 self._check_timeouts()
-                self.cleanup_finished()
+                quota_hit, quota_ts = self.cleanup_finished()
                 self._kill_orphan_windows()
                 reset_orphaned(self)
+
+                if quota_hit:
+                    self._enter_quota_pause(quota_ts, "wall-hit")
 
                 self._maybe_auto_resume()
                 if not get_config().get("paused", False):
